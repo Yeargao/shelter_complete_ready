@@ -3,7 +3,12 @@
   "services": {
     "backend": {
       "root": "backend",
-      "framework": "fastapi"
+      "framework": "fastapi",
+      "functions": {
+        "**/*.py": {
+          "excludeFiles": "{tests/**,__tests__/**,data/**,models/**,*.pt,*.pth,*.onnx}"
+        }
+      }
     },
     "frontend": {
       "root": "frontend",
