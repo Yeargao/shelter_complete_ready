@@ -39,6 +39,10 @@ class LocalUpdateTests(unittest.TestCase):
         cls.module=importlib.util.module_from_spec(spec)
         sys.modules[spec.name]=cls.module
         spec.loader.exec_module(cls.module)
+        # Fixture exists only in the temporary copy; no dependency on demo progress.
+        with cls.module.connect() as c:
+            aid=c.execute('SELECT id FROM animals WHERE is_active=1 ORDER BY id LIMIT 1').fetchone()[0]
+            c.execute("INSERT INTO task_overrides(animal_id,label,state,result,note) VALUES (?,?,'done','yes','fixture') ON CONFLICT(animal_id,label) DO UPDATE SET state='done',result='yes',resolved=NULL,note='fixture'",(aid,'評估絕育安排'))
 
     @classmethod
     def tearDownClass(cls):

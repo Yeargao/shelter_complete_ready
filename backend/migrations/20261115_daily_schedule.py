@@ -3,6 +3,7 @@ Never drops historical work, reports or animals. Makes an online backup first.
 """
 from pathlib import Path
 import sqlite3
+from contextlib import closing
 
 DB = Path(__file__).resolve().parents[1] / 'showcase.sqlite3'
 
@@ -11,9 +12,9 @@ def migrate(db=DB):
     if not db.is_file():
         raise SystemExit(f'資料庫不存在，請先檢查路徑：{db}（不會自動生成示範資料）')
     backup=db.with_name(db.name+'.pre_schedule.bak')
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         if not backup.exists():
-            with sqlite3.connect(backup) as dest: conn.backup(dest)
+            with closing(sqlite3.connect(backup)) as dest, dest: conn.backup(dest)
         conn.execute("CREATE TABLE IF NOT EXISTS vaccination_records (id INTEGER PRIMARY KEY, animal_id INTEGER NOT NULL, vaccine_type TEXT NOT NULL DEFAULT 'general', administered_date TEXT NOT NULL, next_due_date TEXT NOT NULL, source TEXT NOT NULL DEFAULT 'staff_report', UNIQUE(animal_id,vaccine_type,administered_date))")
         vaccine_cols={r[1] for r in conn.execute('PRAGMA table_info(vaccination_records)')}
         if 'animal_id' not in vaccine_cols:

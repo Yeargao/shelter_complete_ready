@@ -1,6 +1,7 @@
 """Test destructive demo-reset ONLY against a temporary SQLite copy."""
 from __future__ import annotations
 import sqlite3
+from contextlib import closing
 import tempfile
 import shutil
 from pathlib import Path
@@ -16,7 +17,7 @@ class TestTaskDemoReset(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             test_db=Path(td)/'copy.sqlite3'
             shutil.copy2(ROOT/'backend'/'showcase.sqlite3',test_db)
-            with sqlite3.connect(test_db) as c:
+            with closing(sqlite3.connect(test_db)) as c, c:
                 # Fingerprint animals/staff and real medical records.
                 baseline={table:c.execute(f'SELECT COUNT(*) FROM {table}').fetchone()[0]
                           for table in ('animals','staff','vaccination_records','deworming_events')}
@@ -27,13 +28,13 @@ class TestTaskDemoReset(unittest.TestCase):
             result=reset_demo_tasks(test_db,apply=True,confirm='RESET_TASKS')
             self.assertEqual(result['mode'],'reset_applied')
             self.assertTrue(Path(result['backup']).is_file())
-            with sqlite3.connect(test_db) as c:
+            with closing(sqlite3.connect(test_db)) as c, c:
                 self.assertEqual(c.execute("SELECT value FROM demo_ui_state WHERE key='reset_mode'").fetchone()[0],'1')
                 for t in ('assignment_snapshot','task_overrides','task_report_history', 'generated_tasks','task_metadata','task_animal_baseline'):
                     self.assertEqual(c.execute(f'SELECT COUNT(*) FROM {t}').fetchone()[0],0,t)
                 self.assertEqual(c.execute('PRAGMA foreign_key_check').fetchall(),[])
                 for table,n in baseline.items():self.assertEqual(c.execute(f'SELECT COUNT(*) FROM {table}').fetchone()[0],n,table)
-            with sqlite3.connect(result['backup']) as c:
+            with closing(sqlite3.connect(result['backup'])) as c, c:
                 self.assertGreater(c.execute('SELECT COUNT(*) FROM assignment_snapshot').fetchone()[0],0)
                 self.assertGreater(c.execute('SELECT COUNT(*) FROM task_report_history').fetchone()[0],0)
 

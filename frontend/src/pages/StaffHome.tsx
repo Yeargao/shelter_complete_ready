@@ -6,7 +6,7 @@ import './StaffHome.css';
 export default function StaffHome({userId}:{userId:number}){
  const client=useQueryClient();
  const staff=useQuery({queryKey:['staff',1],queryFn:()=>api.staff(1)});
- const plan=useQuery({queryKey:['staffAssignments',userId],queryFn:api.staffAssignments,refetchInterval:5000});
+ const plan=useQuery({queryKey:['staffAssignments',userId],queryFn:api.staffAssignments,refetchInterval:15000,refetchIntervalInBackground:false});
  const [selectedTaskId,setSelectedTaskId]=React.useState<string|null>(null);
  const [choice,setChoice]=React.useState('');
  const [resolved,setResolved]=React.useState('');

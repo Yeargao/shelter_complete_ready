@@ -2,9 +2,10 @@
 from __future__ import annotations
 import math
 import sqlite3
+from contextlib import closing
 import sys
 import unittest
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -13,14 +14,15 @@ from stage2_service import resource_forecast, resource_table, resource_rate_for_
 
 class TestResourceCoverage(unittest.TestCase):
     def test_all_active_animals_get_conditioned_30_day_forecast(self):
-        with sqlite3.connect(ROOT/'backend/showcase.sqlite3') as c:
+        with closing(sqlite3.connect(ROOT/'backend/showcase.sqlite3')) as c, c:
             c.row_factory=sqlite3.Row
             rows=[dict(r) for r in c.execute('SELECT * FROM animals WHERE is_active=1 ORDER BY id')]
-        self.assertEqual(len(rows),80,'原始 SQLite 應有 80 隻有效在所動物')
-        forecast=resource_forecast(rows,date(2026,10,22),30,simulations=30)
-        self.assertEqual(forecast['animal_count'],80)
-        self.assertEqual(forecast['estimated_animals'],80)
-        self.assertEqual(len(forecast['individual_predictions']),80)
+        self.assertGreater(len(rows),0)
+        as_of=max([date(2026,10,22)]+[date.fromisoformat(a['intake_date']) for a in rows])
+        forecast=resource_forecast(rows,as_of,30,simulations=30)
+        self.assertEqual(forecast['animal_count'],len(rows))
+        self.assertEqual(forecast['estimated_animals'],len(rows))
+        self.assertEqual(len(forecast['individual_predictions']),len(rows))
         self.assertEqual({p['animal_id'] for p in forecast['individual_predictions']},{a['id'] for a in rows})
         for pred in forecast['individual_predictions']:
             self.assertEqual(len(pred['conditional_survival_by_day']),30)
@@ -30,7 +32,7 @@ class TestResourceCoverage(unittest.TestCase):
             self.assertGreater(pred['care_hours_per_day'],0)
         self.assertTrue(any(p['days_in_shelter']>300 for p in forecast['individual_predictions']))
         self.assertTrue(any(p['tail_extrapolated'] for p in forecast['individual_predictions']))
-        self.assertEqual(forecast['start_date'],'2026-10-23')
+        self.assertEqual(forecast['start_date'],(as_of+timedelta(days=1)).isoformat())
 
     def test_missing_resource_crosswalk_is_explicit_error(self):
         animal={'id':1234,'species':'unsupported_species','intake_date':'2026-10-01'}

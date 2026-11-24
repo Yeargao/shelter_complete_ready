@@ -9,6 +9,7 @@ import argparse
 from datetime import datetime
 from pathlib import Path
 import sqlite3
+from contextlib import closing
 
 DEFAULT_DB = Path(__file__).resolve().parents[1] / 'showcase.sqlite3'
 RESET_TABLES = (
@@ -43,7 +44,7 @@ def reset_demo_tasks(db: Path, apply: bool = False, confirm: str = '') -> dict:
         backup_dir.mkdir(exist_ok=True)
         stamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
         backup = backup_dir / f'{db.stem}_before_task_reset_{stamp}.sqlite3'
-        with sqlite3.connect(backup) as saved:
+        with closing(sqlite3.connect(backup)) as saved, saved:
             connection.backup(saved)
         try:
             connection.execute('BEGIN IMMEDIATE')

@@ -1,6 +1,7 @@
 """Demo API. Loads user-supplied trained models; never trains or fabricates evaluation scores."""
 from __future__ import annotations
 import json, random, sqlite3, threading, os, hmac, hashlib, base64, time, sys
+from contextlib import closing
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 import calendar, math
@@ -16,7 +17,12 @@ from pydantic import BaseModel, Field
 from ortools.sat.python import cp_model
 
 ROOT=Path(__file__).resolve().parent.parent
-DB=ROOT/'backend'/'showcase.sqlite3'
+SEED_DB=ROOT/'backend'/'showcase.sqlite3'
+DB=Path(os.environ.get('SHELTER_DB_PATH',str(SEED_DB))).resolve()
+if DB!=SEED_DB.resolve() and not DB.exists():
+ DB.parent.mkdir(parents=True,exist_ok=True)
+ if not SEED_DB.is_file():raise RuntimeError('Missing seed SQLite database')
+ with closing(sqlite3.connect(SEED_DB)) as source, source, closing(sqlite3.connect(DB)) as target, target:source.backup(target)
 MODELS=ROOT/'models'
 lock=threading.RLock()
 app=FastAPI(title='Shelter AI Showcase',version='1.0')
@@ -49,6 +55,8 @@ def login(body:LoginInput):
 
 @app.middleware('http')
 async def auth_guard(request:Request,call_next):
+ global WORK_DATE
+ WORK_DATE=datetime.now(ZoneInfo('Asia/Taipei')).date()
  path=request.url.path
  if not path.startswith('/api/') or path=='/api/auth/login' or request.method=='OPTIONS':return await call_next(request)
  uid=verify_token(request.headers.get('Authorization','').removeprefix('Bearer ').strip())
@@ -61,7 +69,7 @@ async def auth_guard(request:Request,call_next):
 @contextmanager
 def connect():
  """Commit/rollback and ALWAYS close SQLite connection (Windows-safe)."""
- c=sqlite3.connect(DB,check_same_thread=False)
+ c=sqlite3.connect(DB,check_same_thread=False,timeout=15)
  c.row_factory=sqlite3.Row
  try:
   with c:
@@ -71,7 +79,7 @@ def connect():
 
 def init():
  if DB.exists() and DB.stat().st_size and not (DB.parent / (DB.name+'.pre_schedule.bak')).exists():
-  with sqlite3.connect(DB) as original, sqlite3.connect(str(DB)+'.pre_schedule.bak') as backup: original.backup(backup)
+  with closing(sqlite3.connect(DB)) as original, original, sqlite3.connect(str(DB)+'.pre_schedule.bak') as backup: original.backup(backup)
  with lock,connect() as c:
   c.execute('CREATE TABLE IF NOT EXISTS animals (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, species TEXT NOT NULL, breed TEXT, age_months INTEGER, sex TEXT, health_status TEXT, vaccinated TEXT, sterilized TEXT, dewormed TEXT, intake_date TEXT, photo_url TEXT)')
   animal_cols={r[1] for r in c.execute('PRAGMA table_info(animals)')}
@@ -111,6 +119,8 @@ def init():
   snap_cols={r[1] for r in c.execute('PRAGMA table_info(assignment_snapshot)')}
   for col,kind in [('start_time','TEXT'),('end_time','TEXT'),('locked','INTEGER NOT NULL DEFAULT 0')]:
    if col not in snap_cols:c.execute(f'ALTER TABLE assignment_snapshot ADD COLUMN {col} {kind}')
+  c.execute('CREATE INDEX IF NOT EXISTS idx_assignment_staff_date ON assignment_snapshot(staff_id,date)')
+  c.execute('CREATE INDEX IF NOT EXISTS idx_assignment_date ON assignment_snapshot(date)')
   c.execute('CREATE TABLE IF NOT EXISTS task_animal_baseline (animal_id INTEGER, label TEXT, column_name TEXT, old_value TEXT, PRIMARY KEY(animal_id,label))')
   c.execute('CREATE TABLE IF NOT EXISTS profiles (id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT,capacity INTEGER,budget REAL,staff_hours REAL,food_rate REAL,care_minutes REAL,unit_cost REAL,food_stock_kg REAL NOT NULL DEFAULT 0)')
   profile_cols={r[1] for r in c.execute('PRAGMA table_info(profiles)')}
@@ -793,7 +803,7 @@ def allocate(tasks,workers,days=1,fixed=None,work_date=None):
     intervals[wi].append(model.NewIntervalVar(st,en-st,en,f'fixed_{wi}_{len(intervals[wi])}'))
   model.AddNoOverlap(intervals[wi])
  model.Maximize(sum(v*scheduling_priority_weight(tasks[ti],len(tasks)) for (ti,_),v in edges.items()))
- solver=cp_model.CpSolver();solver.parameters.max_time_in_seconds=12;solver.parameters.num_search_workers=4
+ solver=cp_model.CpSolver();solver.parameters.max_time_in_seconds=12;solver.parameters.num_search_workers=max(1,int(os.environ.get("SHELTER_SOLVER_WORKERS","1")))
  status=solver.Solve(model);ok=status in (cp_model.OPTIMAL,cp_model.FEASIBLE)
  selected=[(ti,wi) for (ti,wi),v in edges.items() if ok and solver.Value(v)]
  assigned=[{**tasks[ti],'staff_id':workers[wi]['id'],'staff_name':workers[wi]['name'],'date':work_date,'day_index':0,'start_time':quarter_time(solver.Value(starts[ti,wi])),'end_time':quarter_time(solver.Value(ends[ti,wi])),'duration_minutes':quarter(tasks[ti]['hours'])*15} for ti,wi in selected]
@@ -801,8 +811,15 @@ def allocate(tasks,workers,days=1,fixed=None,work_date=None):
  unassigned=[{**t,'reason':'無符合資格且有空檔的員工','reinforcement_required':bool(t['serious'])} for i,t in enumerate(tasks) if i not in completed]
  return assigned,unassigned,'OPTIMAL' if status==cp_model.OPTIMAL else 'FEASIBLE' if ok else 'NO_SOLUTION'
 
+optimization_lock=threading.Lock()
 @app.post('/api/resources/optimize')
 def resources(p:ResourceRequest):
+ if not optimization_lock.acquire(blocking=False):raise HTTPException(409,'已有派工正在執行')
+ try:
+  with lock:return _resources_locked(p)
+ finally:optimization_lock.release()
+
+def _resources_locked(p:ResourceRequest):
  reconcile_completed_followups()
  with connect() as c:
   animals=[row(r) for r in c.execute('SELECT * FROM animals WHERE is_active=1')]
@@ -826,6 +843,7 @@ def resources(p:ResourceRequest):
  fixed=[r for r in existing if r.get('locked') or overrides.get((r['animal_id'],r['label']))=='done']
  tasks=[t for t in tasks if t['id'] not in {r['task_id'] for r in fixed}]
  assigned,unassigned,status=allocate(tasks,[w for w in workers if w['name']!='王助理'],1,fixed,work_date)
+ if status not in ('OPTIMAL','FEASIBLE'):raise HTTPException(503,'最佳化未取得可行解，保留原有排程')
  with lock,connect() as c:
   # Only replace unlocked, unfinished assignments for this work date.
   for old in c.execute('SELECT task_id,animal_id,label,locked FROM assignment_snapshot WHERE date=?',(work_date,)).fetchall():
@@ -886,7 +904,7 @@ def staff_assignments(request:Request):
    if task_id in previous_dates and previous_dates[task_id]!=WORK_DATE.isoformat():task_id+=f'@{WORK_DATE.isoformat()}'
    if task_id not in previous_dates:
     c.execute('INSERT OR IGNORE INTO generated_tasks(task_id,animal_id,label) VALUES (?,?,?)',(task_id,task['animal_id'],task['label']))
-    is_new=int(task['label'] in ('疫苗施打','健康狀態待確認','優先確認健康狀況','健康問題追蹤') and (not task.get('due_date') or task['due_date']<=WORK_DATE.isoformat()))
+    is_new=int((task['label']=='疫苗施打' and bool(task.get('due_date')) and task['due_date']<=WORK_DATE.isoformat()) or (task['label'] in ('健康狀態待確認','優先確認健康狀況','健康問題追蹤') and (not task.get('due_date') or task['due_date']<=WORK_DATE.isoformat())))
     c.execute('INSERT OR IGNORE INTO task_metadata(task_id,source,is_new,due_date) VALUES (?,?,?,?)',(task_id,task.get('source','rule'),is_new,task.get('due_date')))
  with connect() as c:
   workers=[staff_row(r) for r in c.execute('SELECT * FROM staff WHERE profile_id=1 ORDER BY id')]
@@ -907,16 +925,29 @@ def staff_assignments(request:Request):
   # Only advertise staff that pass the same shift, skill and capacity checks
   # as manual assignment. Reserved slots and breaks are considered here.
   staff_eligibility={}
+  eligible_workers=[{**w,'weekly_hours':remaining_weekly_hours(c,w['id'],WORK_DATE.isoformat(),w['weekly_hours'])} for w in workers] if uid==1 else []
   all_snapshots=[dict(r) for r in c.execute('SELECT * FROM assignment_snapshot WHERE date=?',(WORK_DATE.isoformat(),))]
+  snapshot_by_id={r['task_id']:r for r in all_snapshots}
+  snapshots_by_worker={w['id']:[] for w in eligible_workers}
+  for r in all_snapshots:
+   if r['staff_id'] in snapshots_by_worker:snapshots_by_worker[r['staff_id']].append(r)
+  slot_cache={}
+  def eligible_slot(w,length,exclude=None):
+   own=snapshot_by_id.get(exclude)
+   exclusion=exclude if own and own['staff_id']==w['id'] else None
+   key=(w['id'],length,exclusion)
+   if key not in slot_cache:
+    slot_cache[key]=find_slot(w,length,snapshots_by_worker[w['id']],WORK_DATE.isoformat(),exclude=exclusion)
+   return slot_cache[key]
   for task in task_details.values():
    task_id=task['id']
-   snapshot=next((r for r in all_snapshots if r['task_id']==task_id),None)
+   snapshot=snapshot_by_id.get(task_id)
    allowed=[]
    if task['label'] in TASK_CATALOG:
-    for worker in workers:
+    for worker in eligible_workers:
      if not worker['attending'] or TASK_CATALOG[task['label']][1] not in worker['skills']:continue
-     w={**worker,'weekly_hours':remaining_weekly_hours(c,worker['id'],WORK_DATE.isoformat(),worker['weekly_hours'])}
-     if find_slot(w,quarter(task['hours']),all_snapshots,WORK_DATE.isoformat(),exclude=task_id) is not None:
+     w=worker
+     if eligible_slot(w,quarter(task['hours']),task_id) is not None:
       allowed.append(worker['id'])
    if snapshot and snapshot['staff_id'] is not None and snapshot['staff_id'] not in allowed:
     # Preserve the existing assignment as a visible option, even if it can no
@@ -928,20 +959,20 @@ def staff_assignments(request:Request):
    task_id=snapshot['task_id']
    if task_id in staff_eligibility or snapshot['label'] not in TASK_CATALOG:continue
    allowed=[]
-   for worker in workers:
+   for worker in eligible_workers:
     if not worker['attending'] or TASK_CATALOG[snapshot['label']][1] not in worker['skills']:continue
-    w={**worker,'weekly_hours':remaining_weekly_hours(c,worker['id'],WORK_DATE.isoformat(),worker['weekly_hours'])}
-    if find_slot(w,quarter(snapshot['hours']),all_snapshots,WORK_DATE.isoformat(),exclude=task_id) is not None:allowed.append(worker['id'])
+    w=worker
+    if eligible_slot(w,quarter(snapshot['hours']),task_id) is not None:allowed.append(worker['id'])
    if snapshot['staff_id'] is not None and snapshot['staff_id'] not in allowed:allowed.append(snapshot['staff_id'])
    staff_eligibility[task_id]=allowed
   for generated in pending_generated:
    task_id=generated['task_id']
    if task_id in staff_eligibility or generated['label'] not in TASK_CATALOG:continue
    allowed=[]
-   for worker in workers:
+   for worker in eligible_workers:
     if not worker['attending'] or TASK_CATALOG[generated['label']][1] not in worker['skills']:continue
-    w={**worker,'weekly_hours':remaining_weekly_hours(c,worker['id'],WORK_DATE.isoformat(),worker['weekly_hours'])}
-    if find_slot(w,quarter(TASK_CATALOG[generated['label']][2]),all_snapshots,WORK_DATE.isoformat()) is not None:
+    w=worker
+    if eligible_slot(w,quarter(TASK_CATALOG[generated['label']][2])) is not None:
      allowed.append(worker['id'])
    staff_eligibility[task_id]=allowed
   active_ids={r['id'] for r in c.execute('SELECT id FROM animals WHERE is_active=1')}

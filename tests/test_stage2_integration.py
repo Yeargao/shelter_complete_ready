@@ -2,7 +2,7 @@
 import sqlite3
 import sys
 import unittest
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,9 +29,10 @@ class TestStage2Integration(unittest.TestCase):
         conn.row_factory=sqlite3.Row
         animals=[dict(r) for r in conn.execute('SELECT * FROM animals WHERE is_active=1')]
         conn.close()
-        out=resource_forecast(animals,date(2026,10,22),30,simulations=120)
-        self.assertEqual(out['forecast'][0]['date'],'2026-10-23')
-        self.assertEqual(out['forecast'][-1]['date'],'2026-11-21')
+        as_of=max([date(2026,10,22)]+[date.fromisoformat(a['intake_date']) for a in animals])
+        out=resource_forecast(animals,as_of,30,simulations=120)
+        self.assertEqual(out['forecast'][0]['date'],(as_of+timedelta(days=1)).isoformat())
+        self.assertEqual(out['forecast'][-1]['date'],(as_of+timedelta(days=30)).isoformat())
         self.assertEqual(len(out['forecast']),30)
         self.assertEqual(out['estimated_animals'],len(animals))
         for row in out['forecast']:

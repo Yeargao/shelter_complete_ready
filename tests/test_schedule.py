@@ -1,6 +1,7 @@
 """Run: python -m unittest discover -s tests -v (from project root)."""
 import importlib.util
 import sqlite3
+from contextlib import closing
 import shutil
 import sys
 import tempfile
@@ -42,14 +43,14 @@ class SchedulingTests(unittest.TestCase):
         module=importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         db=Path(self.temp.name)/'old-schema.sqlite3'
-        with sqlite3.connect(db) as c:
+        with closing(sqlite3.connect(db)) as c, c:
             c.execute('CREATE TABLE vaccination_records (id INTEGER PRIMARY KEY,animal_id INTEGER NOT NULL, notes TEXT)')
             c.execute('INSERT INTO vaccination_records(animal_id,notes) VALUES (1,?)',('old record',))
             c.execute('CREATE TABLE assignment_snapshot (task_id TEXT PRIMARY KEY)')
             c.execute('CREATE TABLE staff (id INTEGER PRIMARY KEY)')
         module.migrate(db)
         module.migrate(db)
-        with sqlite3.connect(db) as c:
+        with closing(sqlite3.connect(db)) as c, c:
             cols={r[1] for r in c.execute('PRAGMA table_info(vaccination_records)')}
             self.assertIn('administered_date',cols)
             self.assertEqual(c.execute('SELECT notes,administered_date FROM vaccination_records').fetchone(),('old record',None))
