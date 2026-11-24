@@ -11,7 +11,8 @@
     },
     "stage_two_training": {
       "root": "stage2_training",
-      "runtime": "python"
+      "runtime": "python",
+      "entrypoint": "main.py"
     }
   },
   "rewrites": [
