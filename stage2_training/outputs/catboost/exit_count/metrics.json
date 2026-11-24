@@ -1,0 +1,17 @@
+{
+  "metrics": {
+    "MAE": 3.064381802413439,
+    "RMSE": 5.243745904479649,
+    "WAPE": 39.464028363341136,
+    "bias": -0.08898179733821887
+  },
+  "best_trial": 17,
+  "best_validation_MAE": 3.3055384772983207,
+  "best_parameters": {
+    "iterations": 478,
+    "depth": 5,
+    "learning_rate": 0.0834415780119212,
+    "l2_leaf_reg": 10.081874651256369
+  },
+  "completed_trials_total": 50
+}

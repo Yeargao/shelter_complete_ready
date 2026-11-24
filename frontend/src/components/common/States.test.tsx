@@ -1,0 +1,1 @@
+import {describe,it,expect} from 'vitest';import {MockFlag} from './States';import {renderToStaticMarkup} from 'react-dom/server';describe('mock label',()=>{it('marks mocked output',()=>{expect(renderToStaticMarkup(<MockFlag mock/>)).toContain('MOCK')})});

@@ -1,0 +1,143 @@
+/* 三欄比例仿照參考圖：任務池約 59%，浮出時間表 18%，負載 23%。 */
+.resource-board{display:grid;grid-template-columns:minmax(440px,2.5fr) minmax(240px,.95fr) minmax(225px,1fr);column-gap:10px;align-items:start;min-width:0}
+.resource-board .panel{padding:13px;min-width:0;border-radius:11px}
+.resource-pool{height:650px;min-height:0;overflow:hidden;display:flex;flex-direction:column;background:#fff}
+.resource-pool__header{height:45px;display:flex;align-items:center;gap:9px;position:relative;flex:none}
+.resource-pool__header h2,.resource-calendar h2,.resource-workload h2{font-size:16px;margin:0;white-space:nowrap}
+.resource-search{margin:0 0 0 auto!important;width:min(220px,54%)!important;padding:8px!important;font-size:11px}
+.resource-tabs{display:flex;gap:0;border-bottom:1px solid #e0e7ef;flex:none;overflow-x:auto;height:43px}
+.resource-tabs button{background:transparent!important;border-radius:0!important;padding:8px 9px!important;color:#516579!important;font-size:11px!important;white-space:nowrap}
+.resource-tabs .resource-tab--active{color:#1372bd!important;border-bottom:3px solid #3686d4!important}
+.resource-pool__scroll{flex:1;min-height:0;overflow-y:auto;scrollbar-width:thin;overscroll-behavior:contain;padding:8px 1px}
+.resource-task-stack{display:flex;flex-direction:column;gap:5px}
+.resource-task-row{display:flex;align-items:center;gap:7px;background:white;color:#1b2937;border:1px solid #dce4eb;border-radius:7px;padding:8px 7px;font-size:11px;min-width:0}
+.resource-task-row input[type=checkbox]{width:15px!important;height:15px!important;margin:0!important;flex:none}
+.resource-task-title{flex:1;min-width:0;display:grid;gap:3px}
+.resource-task-title strong{font-size:11px;color:#182538;overflow-wrap:anywhere}
+.resource-task-title small{color:#5f7081;font-size:10px;overflow-wrap:anywhere}
+.resource-task-row select{margin:0!important;padding:5px 2px!important;min-width:67px;width:90px!important;max-width:31%;font-size:10px}
+.resource-task-done{font-size:10px;color:#07805a;max-width:110px}
+.resource-pool__footer{flex:none;border-top:1px solid #e2e9ee;font-size:10px;color:#8492a1;padding:8px 0 0}
+.resource-batch{position:absolute;z-index:8;top:0;left:0;right:0;min-height:43px;display:flex;align-items:center;gap:5px;padding:4px 6px;border:1px solid #9ebcdb;border-radius:8px;background:#eef6ff;box-shadow:0 6px 16px #152a451f}
+.resource-batch strong,.resource-batch span{font-size:10px;white-space:nowrap}
+.resource-batch select{width:65px!important;min-width:65px;flex:1;margin:0!important;padding:5px!important;font-size:10px}
+.resource-batch button{padding:6px!important;font-size:10px!important}
+.resource-no-tasks{padding:20px;text-align:center}
+.resource-optimization-heading{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid #e1e8ef;padding:8px 0}
+.resource-optimization-heading h2{margin:0;font-size:17px}
+.resource-optimization-heading p{margin:0;flex:1}
+.resource-calendar{position:relative;height:550px;margin-top:54px;display:flex;flex-direction:column;gap:9px;overflow:visible;box-shadow:0 8px 20px #1f3b5918!important}
+.resource-calendar::before{content:'';position:absolute;right:-17px;top:calc(var(--resource-arrow-top, 92px) - 17px);border-top:17px solid transparent;border-bottom:17px solid transparent;border-left:17px solid #cddbe9;z-index:1}
+.resource-calendar::after{content:'';position:absolute;right:-15px;top:calc(var(--resource-arrow-top, 92px) - 16px);border-top:16px solid transparent;border-bottom:16px solid transparent;border-left:16px solid white;z-index:2}
+.resource-calendar__head{display:flex;justify-content:space-between;align-items:center;gap:5px}.resource-calendar__head span{font-size:10px;color:#76899d}
+.resource-calendar__person{display:grid;gap:3px;padding-bottom:8px;border-bottom:1px solid #e0e8f0}
+.resource-calendar__person strong{font-size:13px}.resource-calendar__person span{font-size:10px;color:#61768c}
+.resource-calendar>.daily-timeline{flex:1;min-height:0}.resource-calendar .daily-timeline__scroll{height:100%}
+.resource-calendar__edit{padding:7px!important;font-size:10px!important}
+.resource-workload{height:650px;min-width:0;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+.resource-workload__scroll{display:grid;align-content:start;gap:9px;min-height:0;overflow-y:auto;scrollbar-width:thin;padding:2px}
+.resource-worker{padding:12px!important;background:white!important;color:#1e3144!important;text-align:left!important;border-radius:10px!important;border:1px solid #dce4eb!important;display:flex!important;flex-direction:column;gap:9px;font-weight:400!important;box-shadow:0 2px 10px #2233440a}
+.resource-worker--active{border-color:#3684dc!important;box-shadow:0 0 0 2px #3684dc!important}
+.resource-worker__heading,.resource-worker__stats{display:flex;justify-content:space-between;gap:4px;align-items:center}
+.resource-worker__heading strong{font-size:13px}.resource-worker__heading span{font-size:9px;color:#3273c8}
+.resource-worker__stats{font-size:12px}.resource-worker__stats b{font-size:12px}
+.resource-worker small{font-size:10px;color:#738397}
+.resource-worker__progress{width:100%;height:6px;background:#e0e7ef;border-radius:8px;overflow:hidden}
+.resource-worker__progress>span{display:block;height:100%;background:#2c7cdd;border-radius:8px}
+@media(max-width:1250px){.resource-board{grid-template-columns:minmax(380px,1.9fr) minmax(230px,1fr) minmax(210px,.9fr)}.resource-pool{height:640px}}
+@media(max-width:980px){.resource-board{grid-template-columns:minmax(360px,1.6fr) minmax(225px,1fr)}.resource-workload{grid-column:1/-1;height:auto}.resource-workload__scroll{grid-template-columns:repeat(auto-fill,minmax(185px,1fr));overflow:visible}.resource-calendar::before,.resource-calendar::after{display:none}}
+@media(max-width:680px){.resource-board{display:flex;flex-direction:column;gap:12px}.resource-pool,.resource-calendar,.resource-workload{width:100%;height:540px}.resource-calendar{margin-top:0}.resource-workload{height:auto}}
+
+/* V3: only the pool remains full height; inline assignment must be explicitly unlocked. */
+.resource-assignment-control{display:flex;gap:5px;align-items:center;flex:none;min-width:0}
+.resource-assignment-control select{width:82px!important;max-width:none!important;margin:0!important}
+.resource-assignment-control select:disabled{background:#e4e7eb!important;color:#586472!important;border-color:#cdd4dd!important;cursor:not-allowed;opacity:1!important}
+.resource-assign-button{padding:8px 9px!important;min-width:43px!important;white-space:nowrap;font-size:11px!important;opacity:1!important}
+.resource-task-done{display:grid;gap:3px;max-width:145px;white-space:normal;overflow-wrap:anywhere}
+.resource-task-done small{font-size:10px;color:#536c7d}
+.resource-forecast-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+@media(max-width:760px){.resource-forecast-grid{grid-template-columns:1fr}}
+
+/* V5: completed/pending portions; keep completed-task ownership centered. */
+.resource-worker__progress{display:flex;background:#ef9828}
+.resource-worker__progress>span.resource-worker__progress-done{display:block;height:100%;background:#2c7cdd;border-radius:0}
+.resource-worker__progress>span.resource-worker__progress-pending{display:block;height:100%;background:#f09b35;border-radius:0}
+.resource-task-done{align-self:center;justify-content:center;display:flex;align-items:center}
+.resource-negative{color:#b91c1c;font-weight:750}
+
+/* V6: worker completion counts (not estimated hours); preserve board columns. */
+.resource-worker__foot{display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%}
+.resource-worker__foot b{font-size:10px;white-space:nowrap;color:#33465b}
+.resource-worker__progress{background:#ef9828}
+.resource-worker__progress:has(.resource-worker__progress-done[style*="width: 100%"]){background:#2c7cdd}
+
+/* V6: urgency names in the pool mirror colored timeline dots. No layout changes. */
+.resource-task-title--red strong{color:#b91c1c}
+.resource-task-title--amber strong{color:#b7790c}
+.resource-task-title--green strong{color:#17834e}
+
+/* V7: urgency belongs only to the task label and priority dot, not animal identity. */
+.resource-task-title--red .resource-task-identity,
+.resource-task-title--amber .resource-task-identity,
+.resource-task-title--green .resource-task-identity{color:#182538}
+.resource-task-title--red .resource-task-name{color:#b91c1c}
+.resource-task-title--amber .resource-task-name{color:#b7790c}
+.resource-task-title--green .resource-task-name{color:#17834e}
+/* Count-based bar: 0 completed out of 1 assigned is orange end to end. */
+.resource-worker__progress{display:flex;align-items:stretch;background:#f09b35}
+.resource-worker__progress-done{flex:none;background:#2c7cdd!important}
+.resource-worker__progress-pending{flex:none;background:#f09b35!important}
+
+/* The three existing board columns; no changes to their sizing or responsive grid. */
+.resource-board>.resource-pool,.resource-board>.resource-calendar,.resource-board>.resource-workload{border:1px solid #000000}
+/* Only unfinished pool rows receive the existing priority's pastel background. */
+.resource-task-row--red{background:#fff4f2!important}
+.resource-task-row--amber{background:#fff9ea!important}
+.resource-task-row--orange{background:#fff2e5!important}
+.resource-task-row--green{background:#eef9f2!important}
+.resource-task-row--red .resource-task-title strong,.resource-task-row--amber .resource-task-title strong,.resource-task-row--green .resource-task-title strong,
+.resource-task-row--red .resource-task-title .resource-task-name,.resource-task-row--amber .resource-task-title .resource-task-name,.resource-task-row--green .resource-task-title .resource-task-name{color:#182538!important}
+/* Pixel-perfect completed/pending task COUNT segments, blue first then orange. */
+.resource-worker__progress{display:flex;flex-wrap:nowrap;align-items:stretch;background:#f09b35;overflow:hidden}
+.resource-worker__progress--empty{background:#e0e7ef!important}
+.resource-worker__progress>.resource-worker__progress-done{min-width:0;min-height:100%;flex-shrink:0;background:#2c7cdd!important;border-radius:0}
+.resource-worker__progress>.resource-worker__progress-pending{min-width:0;min-height:100%;flex-shrink:0;background:#f09b35!important;border-radius:0}
+
+.resource-task-row--red .resource-negative,.resource-task-row--amber .resource-negative,.resource-task-row--green .resource-negative{color:#182538!important}
+
+/* Only the unfinished task text in the left pool is black; preserve the priority dots,
+   pastel backgrounds and the grey completed-task treatment. */
+.resource-pool .resource-task-row:not(.resource-task-row--done) .resource-task-title,
+.resource-pool .resource-task-row:not(.resource-task-row--done) .resource-task-title strong,
+.resource-pool .resource-task-row:not(.resource-task-row--done) .resource-task-title small,
+.resource-pool .resource-task-row:not(.resource-task-row--done) .resource-task-name,
+.resource-pool .resource-task-row:not(.resource-task-row--done) .resource-task-identity,
+.resource-pool .resource-task-row:not(.resource-task-row--done) .resource-negative{color:#000!important}
+
+/* Assigned only: keep the colored priority dot; render the task text in black. */
+.resource-pool .resource-task-row--assigned .resource-task-title,
+.resource-pool .resource-task-row--assigned .resource-task-title strong,
+.resource-pool .resource-task-row--assigned .resource-task-name,
+.resource-pool .resource-task-row--assigned .resource-task-identity,
+.resource-pool .resource-task-row--assigned .resource-task-title small{color:#000!important}
+.resource-assigned-filter{display:flex;align-items:center;gap:12px;padding:10px 2px 8px;border-bottom:1px solid #e0e8f1}
+.resource-assigned-filter label{font-size:12px;white-space:nowrap;color:#475569;font-weight:600}
+.resource-assigned-filter select{margin:0!important;max-width:320px;flex:1;min-width:0;font-size:12px}
+
+/* Completed tab only: keep the task-type priority dot colored, but show ALL text black. */
+.resource-pool .resource-task-row--done .resource-task-title,
+.resource-pool .resource-task-row--done .resource-task-title strong,
+.resource-pool .resource-task-row--done .resource-task-name,
+.resource-pool .resource-task-row--done .resource-task-identity,
+.resource-pool .resource-task-row--done .resource-task-title small,
+.resource-pool .resource-task-row--done .resource-negative,
+.resource-pool .resource-task-row--done .resource-task-done,
+.resource-pool .resource-task-row--done .resource-task-done b{color:#000!important}
+
+/* Employee skill editing and unresolved high-priority scheduling hint only. */
+.resource-high-priority-note{padding:9px 12px;margin:7px 0;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;color:#9a3412;font-size:12px}
+.resource-skill-editor{border:1px solid #dbe4ec;border-radius:10px;padding:12px}
+.resource-skill-editor legend{padding:0 5px;font-size:13px;font-weight:700;color:#334155}
+.resource-skill-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-top:8px}
+.resource-skill-options label{display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer}
+.resource-skill-options input[type=checkbox]{width:16px!important;height:16px!important;margin:0!important;flex:none;accent-color:#0f766e}

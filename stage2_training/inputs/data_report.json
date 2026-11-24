@@ -1,0 +1,45 @@
+{
+  "source_rows": {
+    "4": 18819,
+    "5": 19077,
+    "1": {
+      "rows": 173812
+    },
+    "2": {
+      "rows": 173775
+    }
+  },
+  "cutoff": "2026-10-23T23:59:59",
+  "episodes": 20091,
+  "hazard_rows": 20091,
+  "catboost_daily_rows": 10310,
+  "resource_condition_rows": 1142,
+  "outcome_5_unmatched_to_4": 1272,
+  "hazard_split_counts": {
+    "train": 14033,
+    "val": 3001,
+    "test": 3057
+  },
+  "hazard_event_counts": {
+    "adoption": 8592,
+    "transfer": 5345,
+    "other_exit": 1331,
+    "death_euthanasia": 1147,
+    "censored": 2296,
+    "return_to_owner": 1380
+  },
+  "catboost_split_counts": {
+    "train": 9565,
+    "val": 345,
+    "test": 400
+  },
+  "warnings": [
+    "1.csv/2.csv are a separate Austin source; not merged into 4.csv/5.csv by Animal ID.",
+    "Food and work are scenario estimates, not ground-truth measurements.",
+    "CatBoost exit_count is observed outcomes only; unknown prior outcomes may cause undercount.",
+    "No same-day features leak into lag predictors; recursive inference must update lags using predictions.",
+    "Hazard CSV is one row per episode, not person-period expanded; training must expand at-risk days and model competing cause hazards.",
+    "Dates in 4/5 have no timezone; daily boundaries use naive source timestamps.",
+    "For valid temporal test, avoid using observations after test cutoff; this pipeline uses administrative censoring for earlier splits."
+  ]
+}

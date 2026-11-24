@@ -1,0 +1,16 @@
+{
+  "evaluation_only": true,
+  "model_file": "C:\\Users\\LF24\\Desktop\\stage2_training\\outputs\\lightgbm_hazard\\best_models.pkl",
+  "max_day": 180,
+  "test_size": 3057,
+  "causes": [
+    "adoption",
+    "transfer",
+    "other_exit",
+    "death_euthanasia",
+    "return_to_owner"
+  ],
+  "metrics_by_cause_file": "C:\\Users\\LF24\\Desktop\\stage2_training\\outputs\\lightgbm_hazard\\metrics_by_cause.csv",
+  "calibration_file": "C:\\Users\\LF24\\Desktop\\stage2_training\\outputs\\lightgbm_hazard\\calibration_20261116_200706.csv",
+  "notes": "IBS uses trapezoidal integration over available evaluation horizons (7,30,60,90,180 up to max_day), not a daily-grid IBS. C-index is calculated at the last modeled day. Uses original common.metrics functions."
+}

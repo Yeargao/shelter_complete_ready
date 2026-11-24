@@ -1,0 +1,18 @@
+{
+  "model": "LightGBM discrete-time competing cause-specific hazards",
+  "trials_requested_this_run": 50,
+  "completed_trials_total": 50,
+  "interrupted": false,
+  "best_trial": 48,
+  "best_validation_score": 0.10992425778212682,
+  "best_parameters": {
+    "n_estimators": 84,
+    "num_leaves": 20,
+    "learning_rate": 0.021261137122635297,
+    "min_child_samples": 53,
+    "colsample_bytree": 0.79067800150989
+  },
+  "max_day": 180,
+  "test_size": 3057,
+  "notes": "IBS: time-integrated IPCW Brier for cause-specific cumulative incidence; other causes treated as observed non-target. Cause-specific C-index treats competing events as censored for pair comparability. Calibration IPCW bins."
+}

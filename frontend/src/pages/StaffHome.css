@@ -1,0 +1,6 @@
+/* V7: the expanded task's action row is always one horizontal line. */
+.staff-report-actions{display:flex;flex-flow:row nowrap;align-items:center;gap:6px;width:100%;min-width:0;overflow-x:auto;scrollbar-width:thin}
+.staff-report-actions>button{flex:1 1 auto;min-width:0;width:auto;white-space:nowrap;margin:0!important;padding:5px 3px!important}
+/* Completed reports: three actions in one horizontal row, one equal-width column each. */
+.staff-report-actions[data-three="true"]{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;overflow:visible}
+.staff-report-actions[data-three="true"]>button{width:100%;min-width:0}

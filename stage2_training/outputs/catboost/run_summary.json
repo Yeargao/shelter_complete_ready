@@ -1,0 +1,39 @@
+{
+  "interrupted": false,
+  "targets": {
+    "intake_count": {
+      "metrics": {
+        "MAE": 3.162161818395581,
+        "RMSE": 5.223182222115896,
+        "WAPE": 41.37601332542468,
+        "bias": -0.2805356313539741
+      },
+      "best_trial": 0,
+      "best_validation_MAE": 3.285415448052672,
+      "best_parameters": {
+        "iterations": 284,
+        "depth": 5,
+        "learning_rate": 0.1333122654114038,
+        "l2_leaf_reg": 11.240137504538378
+      },
+      "completed_trials_total": 50
+    },
+    "exit_count": {
+      "metrics": {
+        "MAE": 3.064381802413439,
+        "RMSE": 5.243745904479649,
+        "WAPE": 39.464028363341136,
+        "bias": -0.08898179733821887
+      },
+      "best_trial": 17,
+      "best_validation_MAE": 3.3055384772983207,
+      "best_parameters": {
+        "iterations": 478,
+        "depth": 5,
+        "learning_rate": 0.0834415780119212,
+        "l2_leaf_reg": 10.081874651256369
+      },
+      "completed_trials_total": 50
+    }
+  }
+}

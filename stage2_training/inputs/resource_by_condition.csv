@@ -1,0 +1,1143 @@
+﻿species,breed,age_group,health_condition,size_class,estimated_weight_kg,estimated_food_g_per_day,estimated_basic_work_min_per_day,estimated_extra_care_min_per_day,food_energy_kcal_per_g,estimate_source
+Bird,Bird - Unspecified,unknown,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Bird,Bird - Unspecified,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Budgerigar/Budgie,adult,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Budgerigar/Budgie,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Budgerigar/Budgie,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Budgerigar/Budgie,unknown,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Bird,Budgerigar/Budgie,unknown,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Budgerigar/Budgie,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Chicken,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Chicken,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Chicken,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Cockatiel,adult,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Dove,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Dove,juvenile,needs_care,other,0.9,37.0,22.5,20,3.5,HEURISTIC_NOT_MEASURED
+Bird,Dove,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Dove,unknown,deceased_at_intake,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Dove,unknown,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Bird,Dove,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Duck,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Duck - Peking,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Duck - Peking,unknown,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Bird,Finch - Plum Headed,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Goose - Brant,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Hawk,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Hawk - Coopers,adult,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Bird,Hawk - Coopers,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Hawn - Red-shouldered,unknown,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Bird,Heron,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Heron - Green-backed,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Kite - Black,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Owl,adult,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Bird,Owl,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Owl,unknown,deceased_at_intake,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Owl - Western Screech,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Parakeet (other),juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Parakeet (other),unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Parrot,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Pigeon,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Pigeon,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Pigeon,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Quail,unknown,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Bird,Quaker Parrot,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Quaker Parrot,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Vulture - Turkey,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Bird,Waxwing - Cedar,unknown,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Cat,American Bobtail,juvenile,unknown,cat,1.8,62.2,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,American Shorthair,adult,needs_care,cat,4.0,90.5,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Cat,American Shorthair,adult,unknown,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,American Shorthair,juvenile,needs_care,cat,1.8,62.2,22.5,20,3.5,HEURISTIC_NOT_MEASURED
+Cat,American Shorthair,juvenile,normal,cat,1.8,62.2,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,American Shorthair,juvenile,unknown,cat,1.8,62.2,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,American Shorthair,unknown,unknown,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,BRITISH SH,adult,unknown,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Bengal,adult,unknown,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Bengal,juvenile,unknown,cat,1.8,62.2,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,British Shorthair,adult,unknown,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Burmese,adult,unknown,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Long Hair,adult,deceased_at_intake,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Long Hair,adult,needs_care,cat,4.0,90.5,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Long Hair,adult,normal,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Long Hair,adult,unknown,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Long Hair,juvenile,needs_care,cat,1.8,62.2,22.5,20,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Long Hair,juvenile,normal,cat,1.8,62.2,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Long Hair,juvenile,unknown,cat,1.8,62.2,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Long Hair,senior,needs_care,cat,3.6,73.2,18.8,20,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Long Hair,senior,normal,cat,3.6,73.2,18.8,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Long Hair,senior,unknown,cat,3.6,73.2,18.8,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Long Hair,unknown,normal,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Long Hair,unknown,unknown,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Medium Hair,adult,needs_care,cat,4.0,90.5,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Medium Hair,adult,normal,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Medium Hair,adult,unknown,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Medium Hair,juvenile,needs_care,cat,1.8,62.2,22.5,20,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Medium Hair,juvenile,normal,cat,1.8,62.2,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Medium Hair,juvenile,unknown,cat,1.8,62.2,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Medium Hair,senior,needs_care,cat,3.6,73.2,18.8,20,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Medium Hair,senior,unknown,cat,3.6,73.2,18.8,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Medium Hair,unknown,deceased_at_intake,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Medium Hair,unknown,needs_care,cat,4.0,90.5,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Medium Hair,unknown,unknown,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Shorthair,adult,deceased_at_intake,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Shorthair,adult,needs_care,cat,4.0,90.5,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Shorthair,adult,normal,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Shorthair,adult,unknown,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Shorthair,juvenile,deceased_at_intake,cat,1.8,62.2,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Shorthair,juvenile,needs_care,cat,1.8,62.2,22.5,20,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Shorthair,juvenile,normal,cat,1.8,62.2,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Shorthair,juvenile,unknown,cat,1.8,62.2,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Shorthair,senior,deceased_at_intake,cat,3.6,73.2,18.8,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Shorthair,senior,needs_care,cat,3.6,73.2,18.8,20,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Shorthair,senior,normal,cat,3.6,73.2,18.8,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Shorthair,senior,unknown,cat,3.6,73.2,18.8,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Shorthair,unknown,deceased_at_intake,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Shorthair,unknown,needs_care,cat,4.0,90.5,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Shorthair,unknown,normal,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Domestic Shorthair,unknown,unknown,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Himalayan,adult,unknown,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Maine Coon,adult,needs_care,cat,4.0,90.5,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Cat,Maine Coon,adult,normal,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Maine Coon,adult,unknown,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Maine Coon,senior,needs_care,cat,3.6,73.2,18.8,20,3.5,HEURISTIC_NOT_MEASURED
+Cat,Maine Coon,senior,unknown,cat,3.6,73.2,18.8,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Persian,adult,needs_care,cat,4.0,90.5,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Cat,Persian,adult,normal,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Persian,adult,unknown,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Persian,senior,unknown,cat,3.6,73.2,18.8,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,RUSSIAN BLUE,adult,normal,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,RUSSIAN BLUE,adult,unknown,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,RUSSIAN BLUE,juvenile,normal,cat,1.8,62.2,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Ragdoll,juvenile,unknown,cat,1.8,62.2,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Russian,adult,needs_care,cat,4.0,90.5,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Cat,Russian,adult,unknown,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Russian,juvenile,unknown,cat,1.8,62.2,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Scottish Fold,adult,unknown,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Scottish Fold,juvenile,unknown,cat,1.8,62.2,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Siamese,adult,deceased_at_intake,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Siamese,adult,needs_care,cat,4.0,90.5,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Cat,Siamese,adult,normal,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Siamese,adult,unknown,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Siamese,juvenile,needs_care,cat,1.8,62.2,22.5,20,3.5,HEURISTIC_NOT_MEASURED
+Cat,Siamese,juvenile,normal,cat,1.8,62.2,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Siamese,juvenile,unknown,cat,1.8,62.2,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Siamese,senior,unknown,cat,3.6,73.2,18.8,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Siamese,unknown,normal,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Snowshoe,adult,needs_care,cat,4.0,90.5,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Cat,Snowshoe,adult,unknown,cat,4.0,90.5,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Snowshoe,juvenile,unknown,cat,1.8,62.2,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Sphynx,juvenile,unknown,cat,1.8,62.2,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Cat,Tonkinese,senior,unknown,cat,3.6,73.2,18.8,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,AKBASH,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,ALASKAN HUSKY,adult,normal,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,ALASKAN HUSKY,adult,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,ALASKAN HUSKY,juvenile,normal,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,ALASKAN HUSKY,juvenile,unknown,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Affenpinscher,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Affenpinscher,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Airedale Terrier,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Akita (Japanese),adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Akita (Japanese),adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Alaskan Malamute,adult,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Alaskan Malamute,senior,needs_care,large,25.2,314.9,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Alaskan Malamute,senior,normal,large,25.2,314.9,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Akita,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Akita,senior,normal,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Akita,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Bulldog,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Bulldog,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Bulldog,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Bulldog,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Bulldog,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Bulldog,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Bulldog,senior,needs_care,medium,13.5,197.2,31.2,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Bulldog,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Bulldog,unknown,deceased_at_intake,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Bulldog,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Cocker,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American English Coonhound,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Eskimo,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Foxhound,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Foxhound,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Foxhound,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Foxhound,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Pit Bull Terrier,adult,deceased_at_intake,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Pit Bull Terrier,adult,needs_care,large,28.0,389.5,30.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Pit Bull Terrier,adult,normal,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Pit Bull Terrier,adult,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Pit Bull Terrier,juvenile,deceased_at_intake,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Pit Bull Terrier,juvenile,needs_care,large,12.6,267.5,45.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Pit Bull Terrier,juvenile,normal,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Pit Bull Terrier,juvenile,unknown,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Pit Bull Terrier,senior,deceased_at_intake,large,25.2,314.9,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Pit Bull Terrier,senior,needs_care,large,25.2,314.9,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Pit Bull Terrier,senior,normal,large,25.2,314.9,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Pit Bull Terrier,senior,unknown,large,25.2,314.9,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Pit Bull Terrier,unknown,deceased_at_intake,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Pit Bull Terrier,unknown,needs_care,large,28.0,389.5,30.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Pit Bull Terrier,unknown,normal,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Pit Bull Terrier,unknown,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Staffordshire Terrier,adult,deceased_at_intake,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Staffordshire Terrier,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Staffordshire Terrier,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Staffordshire Terrier,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Staffordshire Terrier,juvenile,deceased_at_intake,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Staffordshire Terrier,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Staffordshire Terrier,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Staffordshire Terrier,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Staffordshire Terrier,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Staffordshire Terrier,unknown,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,American Staffordshire Terrier,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Anatolian Shepherd,adult,needs_care,large,28.0,389.5,30.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Anatolian Shepherd,adult,normal,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Anatolian Shepherd,adult,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Anatolian Shepherd,juvenile,needs_care,large,12.6,267.5,45.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Anatolian Shepherd,juvenile,normal,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Anatolian Shepherd,juvenile,unknown,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Anatolian Shepherd,unknown,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Cattle Dog,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Cattle Dog,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Cattle Dog,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Cattle Dog,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Cattle Dog,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Cattle Dog,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Cattle Dog,senior,needs_care,medium,13.5,197.2,31.2,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Cattle Dog,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Cattle Dog,unknown,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Cattle Dog,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Kelpie,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Kelpie,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Kelpie,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Kelpie,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Shepherd,adult,needs_care,large,28.0,389.5,30.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Shepherd,adult,normal,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Shepherd,adult,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Shepherd,juvenile,needs_care,large,12.6,267.5,45.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Shepherd,juvenile,normal,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Shepherd,juvenile,unknown,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Shepherd,senior,deceased_at_intake,large,25.2,314.9,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Shepherd,senior,normal,large,25.2,314.9,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Shepherd,senior,unknown,large,25.2,314.9,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Shepherd,unknown,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Shepherd - Miniature,adult,needs_care,large,28.0,389.5,30.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Shepherd - Miniature,adult,normal,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Australian Shepherd - Miniature,adult,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,BLUE LACY,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,BLUE LACY,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,BLUE LACY,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,BLUE LACY,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,BLUE LACY,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Basenji,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Basenji,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Basset Hound,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Basset Hound,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Basset Hound,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Basset Hound,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Basset Hound,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Beagle,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Beagle,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Beagle,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Beagle,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Beagle,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Beagle,unknown,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Bearded Collie,senior,deceased_at_intake,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Beauceron,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Beauceron,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Beauceron,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Belgian Shepherd Dog,adult,normal,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Belgian Shepherd Dog,adult,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Belgian Shepherd Dog,juvenile,normal,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Belgian Shepherd Dog,juvenile,unknown,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Belgian Shepherd Dog - Malinois,adult,needs_care,large,28.0,389.5,30.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Belgian Shepherd Dog - Malinois,adult,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Belgian Shepherd Dog - Malinois,juvenile,normal,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Belgian Shepherd Dog - Malinois,juvenile,unknown,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Belgian Shepherd Dog - Malinois,senior,unknown,large,25.2,314.9,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Belgian Shepherd Dog - Malinois,unknown,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Bernese Mountain Dog,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Bichon Frise,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Bichon Frise,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Biewer Terrier,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Black Mouth Cur,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Black Mouth Cur,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Black Mouth Cur,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Black Mouth Cur,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Black Mouth Cur,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Black Mouth Cur,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Black Mouth Cur,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Bloodhound,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Bloodhound,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Bloodhound,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Bloodhound,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Boerboel,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Boerboel,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Boerboel,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Bohemian Shepherd,juvenile,unknown,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Border Collie,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Border Collie,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Border Collie,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Border Collie,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Border Collie,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Border Collie,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Border Collie,senior,normal,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Border Collie,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Border Collie,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Border Terrier,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Border Terrier,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Border Terrier,juvenile,deceased_at_intake,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Border Terrier,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Borzoi,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Boston Terrier,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Boston Terrier,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Boston Terrier,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Boston Terrier,senior,needs_care,medium,13.5,197.2,31.2,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Boston Terrier,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Boxer,adult,needs_care,large,28.0,389.5,30.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Boxer,adult,normal,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Boxer,adult,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Boxer,juvenile,needs_care,large,12.6,267.5,45.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Boxer,juvenile,normal,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Boxer,juvenile,unknown,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Boxer,senior,unknown,large,25.2,314.9,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Boxer,unknown,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Briard,unknown,deceased_at_intake,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Brittany Spaniel,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Brussels Griffon,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Brussels Griffon,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Bull Terrier,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Bull Terrier,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Bull Terrier,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Bull Terrier,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Bullmastiff,adult,normal,giant,48.0,583.6,40.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Bullmastiff,adult,unknown,giant,48.0,583.6,40.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Bullmastiff,juvenile,needs_care,giant,21.6,400.8,60.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Bullmastiff,juvenile,unknown,giant,21.6,400.8,60.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Bullmastiff,unknown,unknown,giant,48.0,583.6,40.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,COCKER SPAN,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,COCKER SPAN,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Cairn Terrier,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Cairn Terrier,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Cairn Terrier,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Cairn Terrier,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Cairn Terrier,senior,needs_care,medium,13.5,197.2,31.2,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Cairn Terrier,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Cairn Terrier,unknown,deceased_at_intake,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Cairn Terrier,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Canaan Dog,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Cane Corso,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Cane Corso,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Cane Corso,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Cane Corso,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Cane Corso,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Cane Corso,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Carolina Dog,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Carolina Dog,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Carolina Dog,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Carolina Dog,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Catahoula Leopard Dog,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Catahoula Leopard Dog,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Catahoula Leopard Dog,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Catahoula Leopard Dog,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Catahoula Leopard Dog,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Catahoula Leopard Dog,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Catahoula Leopard Dog,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Cavalier King Charles Spaniel,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Cavalier King Charles Spaniel,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chesapeake Bay Retriever,adult,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chihuahua - Long-hair,adult,needs_care,small,5.0,107.0,20.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chihuahua - Long-hair,adult,unknown,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chihuahua - Long-hair,juvenile,normal,small,2.25,73.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chihuahua - Long-hair,juvenile,unknown,small,2.25,73.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chihuahua - Long-hair,senior,normal,small,4.5,86.5,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chihuahua - Long-hair,senior,unknown,small,4.5,86.5,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chihuahua - Long-hair,unknown,deceased_at_intake,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chihuahua - Smooth,adult,deceased_at_intake,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chihuahua - Smooth,adult,needs_care,small,5.0,107.0,20.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chihuahua - Smooth,adult,normal,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chihuahua - Smooth,adult,unknown,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chihuahua - Smooth,juvenile,needs_care,small,2.25,73.5,30.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chihuahua - Smooth,juvenile,normal,small,2.25,73.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chihuahua - Smooth,juvenile,unknown,small,2.25,73.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chihuahua - Smooth,senior,deceased_at_intake,small,4.5,86.5,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chihuahua - Smooth,senior,needs_care,small,4.5,86.5,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chihuahua - Smooth,senior,normal,small,4.5,86.5,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chihuahua - Smooth,senior,unknown,small,4.5,86.5,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chihuahua - Smooth,unknown,deceased_at_intake,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chihuahua - Smooth,unknown,needs_care,small,5.0,107.0,20.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chihuahua - Smooth,unknown,unknown,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chinook,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chow Chow,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chow Chow,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chow Chow,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chow Chow,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chow Chow,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Chow Chow,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Cocker Spaniel,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Cocker Spaniel,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Cocker Spaniel,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Cocker Spaniel,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Cocker Spaniel,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Cocker Spaniel,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Collie Rough,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Collie Rough,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Collie Rough,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Collie Rough,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Collie Smooth,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Collie Smooth,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Collie Smooth,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Collie Smooth,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Coonhound,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Coonhound,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Coonhound,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Coonhound,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Coonhound,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Coonhound - Black and Tan,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Coonhound - Black and Tan,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Coonhound - Black and Tan,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Coonhound - Black and Tan,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Coonhound - Bluetick,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Coonhound - Bluetick,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Coonhound - Redbone,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Coonhound - Redbone,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Coonhound - Redbone,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Coonhound - Redbone,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Coonhound - Redbone,senior,needs_care,medium,13.5,197.2,31.2,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Coonhound - Treeing Walker,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Coonhound - Treeing Walker,unknown,deceased_at_intake,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Corgi,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Corgi,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Corgi,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Corgi,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Corgi - Cardigan,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Corgi - Cardigan,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Corgi - Cardigan,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dachshund,adult,normal,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dachshund,adult,unknown,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dachshund,juvenile,normal,small,2.25,73.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dachshund,juvenile,unknown,small,2.25,73.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dachshund,senior,needs_care,small,4.5,86.5,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dachshund,senior,normal,small,4.5,86.5,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dachshund,senior,unknown,small,4.5,86.5,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dachshund - Long-haired,adult,needs_care,small,5.0,107.0,20.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dachshund - Long-haired,adult,normal,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dachshund - Long-haired,adult,unknown,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dachshund - Long-haired,juvenile,unknown,small,2.25,73.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dachshund - Long-haired,senior,unknown,small,4.5,86.5,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dachshund - Smooth,adult,needs_care,small,5.0,107.0,20.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dachshund - Smooth,adult,normal,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dachshund - Smooth,adult,unknown,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dachshund - Smooth,juvenile,normal,small,2.25,73.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dachshund - Smooth,juvenile,unknown,small,2.25,73.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dachshund - Smooth,senior,unknown,small,4.5,86.5,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dachshund - Smooth,unknown,normal,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dachshund - Smooth,unknown,unknown,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dachshund - Wire-haired,adult,normal,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dachshund - Wire-haired,adult,unknown,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dachshund - Wire-haired,juvenile,unknown,small,2.25,73.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dalmatian,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dalmatian,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dalmatian,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dalmatian,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dalmatian,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Doberman Pinscher,adult,needs_care,large,28.0,389.5,30.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Doberman Pinscher,adult,normal,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Doberman Pinscher,adult,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Doberman Pinscher,juvenile,needs_care,large,12.6,267.5,45.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Doberman Pinscher,juvenile,normal,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Doberman Pinscher,juvenile,unknown,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Doberman Pinscher,senior,unknown,large,25.2,314.9,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Doberman Pinscher,unknown,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dogo Argentino,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dogo Argentino,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dogo Argentino,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dogo Argentino,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dutch Shepherd,adult,deceased_at_intake,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dutch Shepherd,adult,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dutch Shepherd,juvenile,needs_care,large,12.6,267.5,45.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dutch Shepherd,juvenile,unknown,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Dutch Shepherd,senior,unknown,large,25.2,314.9,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,ENG POINTER,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,ENG POINTER,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,English Bulldog,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,English Bulldog,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,English Bulldog,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,English Bulldog,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,English Cocker Spaniel,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,English Setter,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,English Staffordshire Bull Terrier,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,English Staffordshire Bull Terrier,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,English Toy Spaniel,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,English Toy Spaniel,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Field Spaniel,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Finnish Spitz,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Finnish Spitz,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Flat Coated Retriever,adult,normal,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Flat Coated Retriever,adult,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Flat Coated Retriever,juvenile,normal,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Flat Coated Retriever,juvenile,unknown,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Flat Coated Retriever,senior,unknown,large,25.2,314.9,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Fox Terrier,adult,deceased_at_intake,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Fox Terrier,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Fox Terrier,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Fox Terrier - Smooth,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Fox Terrier - Smooth,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Fox Terrier - Smooth,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Fox Terrier - Smooth,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Fox Terrier - Wire-haired,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Fox Terrier - Wire-haired,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Fox Terrier - Wire-haired,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Fox Terrier - Wire-haired,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Fox Terrier - Wire-haired,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Fox Terrier - Wire-haired,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Foxhound,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Foxhound,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Foxhound,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Foxhound,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,French Bulldog,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,French Bulldog,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,French Bulldog,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,French Bulldog,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,French Bulldog,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,French Bulldog,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,French Bulldog,unknown,deceased_at_intake,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,French Bulldog,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,German Pinscher,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,German Pinscher,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,German Shepherd,adult,needs_care,large,28.0,389.5,30.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,German Shepherd,adult,normal,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,German Shepherd,adult,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,German Shepherd,juvenile,needs_care,large,12.6,267.5,45.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,German Shepherd,juvenile,normal,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,German Shepherd,juvenile,unknown,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,German Shepherd,senior,needs_care,large,25.2,314.9,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,German Shepherd,senior,unknown,large,25.2,314.9,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,German Shepherd,unknown,deceased_at_intake,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,German Shepherd,unknown,needs_care,large,28.0,389.5,30.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,German Shepherd,unknown,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,German Shorthaired Pointer,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,German Shorthaired Pointer,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,German Shorthaired Pointer,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,German Shorthaired Pointer,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,German Shorthaired Pointer,senior,needs_care,medium,13.5,197.2,31.2,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,German Spitz,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,German Spitz,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,German Wirehaired Pointer,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Golden Retriever,adult,needs_care,large,28.0,389.5,30.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Golden Retriever,adult,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Golden Retriever,juvenile,needs_care,large,12.6,267.5,45.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Golden Retriever,juvenile,normal,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Golden Retriever,juvenile,unknown,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Golden Retriever,senior,needs_care,large,25.2,314.9,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Golden Retriever,senior,unknown,large,25.2,314.9,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Golden Retriever,unknown,deceased_at_intake,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Golden Retriever,unknown,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Great Dane,adult,needs_care,giant,48.0,583.6,40.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Great Dane,adult,normal,giant,48.0,583.6,40.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Great Dane,adult,unknown,giant,48.0,583.6,40.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Great Dane,juvenile,unknown,giant,21.6,400.8,60.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Great Dane,senior,unknown,giant,43.2,471.8,50.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Great Dane,unknown,unknown,giant,48.0,583.6,40.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Great Pyrenees,adult,needs_care,giant,48.0,583.6,40.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Great Pyrenees,adult,normal,giant,48.0,583.6,40.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Great Pyrenees,adult,unknown,giant,48.0,583.6,40.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Great Pyrenees,juvenile,needs_care,giant,21.6,400.8,60.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Great Pyrenees,juvenile,normal,giant,21.6,400.8,60.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Great Pyrenees,juvenile,unknown,giant,21.6,400.8,60.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Great Pyrenees,senior,unknown,giant,43.2,471.8,50.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Great Pyrenees,unknown,deceased_at_intake,giant,48.0,583.6,40.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Great Pyrenees,unknown,unknown,giant,48.0,583.6,40.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Greater Swiss Mountain Dog,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Greyhound,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Greyhound,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Greyhound,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Havanese,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Havanese,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Havanese,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Hound,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Hound,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Hound,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Hound,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Hound,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Hound,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Hungarian Vizsla - Smooth,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Hungarian Vizsla - Smooth,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Hungarian Vizsla - Smooth,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Hungarian Vizsla - Smooth,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Hungarian Vizsla - Smooth,senior,normal,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Irish Terrier,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Irish Terrier,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Irish Terrier,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Irish Wolfhound,senior,unknown,giant,43.2,471.8,50.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Italian Greyhound,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Italian Greyhound,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Jack Russell Terrier,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Jack Russell Terrier,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Jack Russell Terrier,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Jack Russell Terrier,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Jack Russell Terrier,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Jack Russell Terrier,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Jack Russell Terrier,senior,normal,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Jack Russell Terrier,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Jack Russell Terrier,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Jack Russell Terrier - Wire-haired,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Jack Russell Terrier - Wire-haired,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Jack Russell Terrier - Wire-haired,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Jack Russell Terrier - Wire-haired,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Jack Russell Terrier - Wire-haired,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Japanese Chin,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,KANGAL,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Keeshond,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Kerry Blue Terrier,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Labradoodle,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Labradoodle,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Labrador Retriever,adult,deceased_at_intake,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Labrador Retriever,adult,needs_care,large,28.0,389.5,30.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Labrador Retriever,adult,normal,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Labrador Retriever,adult,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Labrador Retriever,juvenile,deceased_at_intake,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Labrador Retriever,juvenile,needs_care,large,12.6,267.5,45.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Labrador Retriever,juvenile,normal,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Labrador Retriever,juvenile,unknown,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Labrador Retriever,senior,needs_care,large,25.2,314.9,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Labrador Retriever,senior,normal,large,25.2,314.9,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Labrador Retriever,senior,unknown,large,25.2,314.9,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Labrador Retriever,unknown,deceased_at_intake,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Labrador Retriever,unknown,needs_care,large,28.0,389.5,30.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Labrador Retriever,unknown,normal,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Labrador Retriever,unknown,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Lancashire Heeler,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Lancashire Heeler,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Lancashire Heeler,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Leonberger,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Lhasa Apso,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Lhasa Apso,senior,needs_care,medium,13.5,197.2,31.2,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Maltese Terrier,adult,needs_care,small,5.0,107.0,20.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Maltese Terrier,adult,unknown,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Maltese Terrier,juvenile,normal,small,2.25,73.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Maltese Terrier,juvenile,unknown,small,2.25,73.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Maltese Terrier,senior,normal,small,4.5,86.5,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Maltese Terrier,senior,unknown,small,4.5,86.5,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Maltese Terrier,unknown,normal,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Maltese Terrier,unknown,unknown,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Manchester Terrier - Standard,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Manchester Terrier - Toy,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Mastiff,adult,normal,giant,48.0,583.6,40.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Mastiff,adult,unknown,giant,48.0,583.6,40.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Mastiff,juvenile,normal,giant,21.6,400.8,60.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Mastiff,juvenile,unknown,giant,21.6,400.8,60.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Miniature Dachshund,adult,unknown,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Miniature Pinscher,adult,needs_care,small,5.0,107.0,20.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Miniature Pinscher,adult,normal,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Miniature Pinscher,adult,unknown,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Miniature Pinscher,juvenile,unknown,small,2.25,73.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Miniature Pinscher,senior,unknown,small,4.5,86.5,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Miniature Pinscher,unknown,unknown,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Mixed Breed,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Mixed Breed,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Mixed Breed,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Mixed Breed,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Mixed Breed,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Mixed Breed,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Mixed Breed,senior,needs_care,medium,13.5,197.2,31.2,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Mixed Breed,senior,normal,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Mixed Breed,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Mountain Cur,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Mountain Cur,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Mountain Cur,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Mountain Cur,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Neapolitan Mastiff,juvenile,unknown,giant,21.6,400.8,60.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Newfoundland,adult,needs_care,giant,48.0,583.6,40.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Norfolk Terrier,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Norfolk Terrier,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Norfolk Terrier,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Norwich Terrier,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Norwich Terrier,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Nova Scotia Duck Tolling Retriever,adult,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,OLD ENG BULLDOG,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Old English Sheepdog,unknown,deceased_at_intake,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Parsons Jack Russell Terrier,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pekingese,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pekingese,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pembroke Welsh Corgi,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pembroke Welsh Corgi,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pembroke Welsh Corgi,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Petit Basset Griffon Vendeen,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pharaoh Hound,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pinscher,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Plott Hound,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Plott Hound,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Plott Hound,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Plott Hound,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Plott Hound,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Plott Hound,unknown,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Plott Hound,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pointer,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pointer,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pointer,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pomeranian,adult,unknown,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pomeranian,juvenile,needs_care,small,2.25,73.5,30.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pomeranian,juvenile,unknown,small,2.25,73.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pomeranian,senior,unknown,small,4.5,86.5,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pomeranian,unknown,deceased_at_intake,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Poodle - Miniature,adult,deceased_at_intake,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Poodle - Miniature,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Poodle - Miniature,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Poodle - Miniature,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Poodle - Miniature,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Poodle - Miniature,senior,needs_care,medium,13.5,197.2,31.2,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Poodle - Miniature,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Poodle - Miniature,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Poodle - Standard,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Poodle - Standard,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Poodle - Standard,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Poodle - Standard,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Poodle - Standard,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Poodle - Standard,unknown,deceased_at_intake,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Poodle - Toy,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Poodle - Toy,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Poodle - Toy,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Poodle - Toy,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Poodle - Toy,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pug,adult,deceased_at_intake,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pug,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pug,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pug,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pug,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pug,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pug,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pug,senior,needs_care,medium,13.5,197.2,31.2,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pug,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pug,unknown,deceased_at_intake,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Pyrenean Mountain Dog,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rat Terrier,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rat Terrier,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rat Terrier,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rat Terrier,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rat Terrier,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rat Terrier,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rat Terrier,senior,deceased_at_intake,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rat Terrier,senior,normal,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rat Terrier,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rat Terrier,unknown,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rat Terrier,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rhodesian Ridgeback,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rhodesian Ridgeback,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rhodesian Ridgeback,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rhodesian Ridgeback,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rhodesian Ridgeback,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rottweiler,adult,needs_care,large,28.0,389.5,30.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rottweiler,adult,normal,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rottweiler,adult,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rottweiler,juvenile,needs_care,large,12.6,267.5,45.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rottweiler,juvenile,normal,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rottweiler,juvenile,unknown,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rottweiler,senior,unknown,large,25.2,314.9,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rottweiler,unknown,needs_care,large,28.0,389.5,30.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Rottweiler,unknown,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,SCHNAUZER GIANT,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Saint Bernard,adult,unknown,giant,48.0,583.6,40.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Saint Bernard,juvenile,unknown,giant,21.6,400.8,60.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Saint Bernard,senior,unknown,giant,43.2,471.8,50.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Samoyed,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Schipperke,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Schnauzer,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Schnauzer,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Schnauzer,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Schnauzer,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Schnauzer - Giant,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Schnauzer - Giant,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Schnauzer - Giant,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Schnauzer - Miniature,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Schnauzer - Miniature,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Schnauzer - Miniature,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Schnauzer - Miniature,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Schnauzer - Miniature,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Schnauzer - Miniature,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Schnauzer - Standard,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Schnauzer - Standard,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Schnauzer - Standard,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Scottish Terrier,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Scottish Terrier,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Scottish Terrier,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shar Pei,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shar Pei,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shar Pei,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shar Pei,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shar Pei,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shar Pei,unknown,deceased_at_intake,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shepherd,adult,deceased_at_intake,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shepherd,adult,needs_care,large,28.0,389.5,30.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shepherd,adult,normal,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shepherd,adult,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shepherd,juvenile,needs_care,large,12.6,267.5,45.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shepherd,juvenile,normal,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shepherd,juvenile,unknown,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shepherd,senior,normal,large,25.2,314.9,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shepherd,senior,unknown,large,25.2,314.9,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shepherd,unknown,deceased_at_intake,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shepherd,unknown,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shetland Sheep Dog,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shetland Sheep Dog,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shetland Sheep Dog,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shiba Inu,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shiba Inu,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shiba Inu,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shiba Inu,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shih Tzu,adult,needs_care,small,5.0,107.0,20.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shih Tzu,adult,normal,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shih Tzu,adult,unknown,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shih Tzu,juvenile,needs_care,small,2.25,73.5,30.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shih Tzu,juvenile,unknown,small,2.25,73.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shih Tzu,senior,needs_care,small,4.5,86.5,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shih Tzu,senior,unknown,small,4.5,86.5,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Shih Tzu,unknown,unknown,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Siberian Husky,adult,needs_care,large,28.0,389.5,30.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Siberian Husky,adult,normal,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Siberian Husky,adult,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Siberian Husky,juvenile,needs_care,large,12.6,267.5,45.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Siberian Husky,juvenile,normal,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Siberian Husky,juvenile,unknown,large,12.6,267.5,45.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Siberian Husky,senior,needs_care,large,25.2,314.9,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Siberian Husky,senior,normal,large,25.2,314.9,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Siberian Husky,senior,unknown,large,25.2,314.9,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Siberian Husky,unknown,deceased_at_intake,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Siberian Husky,unknown,normal,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Siberian Husky,unknown,unknown,large,28.0,389.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Sloughi,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Soft-coated Wheaten Terrier,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Spanish Mastiff,adult,unknown,giant,48.0,583.6,40.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Spitz,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Terrier,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Terrier,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Terrier,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Terrier,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Terrier,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Terrier,senior,needs_care,medium,13.5,197.2,31.2,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Terrier,senior,normal,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Terrier,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Terrier,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Tibetan Spaniel,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Transylvanian Hound,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Treeing Tennessee Brindle,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Unknown,adult,deceased_at_intake,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Unknown,senior,deceased_at_intake,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Unknown - DISPATCH ONLY,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Unknown - DISPATCH ONLY,unknown,deceased_at_intake,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Unknown - DISPATCH ONLY,unknown,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,WELSH CORGI CAR,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,WELSH CORGI CAR,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,WELSH CORGI PEM,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,WH PT GRIFFON,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Weimaraner - Smooth,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Weimaraner - Smooth,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Welsh Springer Spaniel,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,West Highland White Terrier,adult,needs_care,medium,15.0,243.9,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,West Highland White Terrier,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,West Highland White Terrier,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,West Highland White Terrier,juvenile,normal,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,West Highland White Terrier,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,West Highland White Terrier,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Whippet,adult,normal,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Whippet,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Whippet,juvenile,needs_care,medium,6.75,167.5,37.5,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Whippet,juvenile,unknown,medium,6.75,167.5,37.5,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Whippet,senior,unknown,medium,13.5,197.2,31.2,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Working Kelpie,adult,unknown,medium,15.0,243.9,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Yorkshire Terrier,adult,needs_care,small,5.0,107.0,20.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Yorkshire Terrier,adult,normal,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Yorkshire Terrier,adult,unknown,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Yorkshire Terrier,juvenile,needs_care,small,2.25,73.5,30.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Yorkshire Terrier,juvenile,normal,small,2.25,73.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Yorkshire Terrier,juvenile,unknown,small,2.25,73.5,30.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Yorkshire Terrier,senior,needs_care,small,4.5,86.5,25.0,20,3.5,HEURISTIC_NOT_MEASURED
+Dog,Yorkshire Terrier,senior,normal,small,4.5,86.5,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Yorkshire Terrier,senior,unknown,small,4.5,86.5,25.0,0,3.5,HEURISTIC_NOT_MEASURED
+Dog,Yorkshire Terrier,unknown,unknown,small,5.0,107.0,20.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Abyssinian,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Abyssinian,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Abyssinian,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,American Alligator,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,American Bulldog,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,American Pit Bull Terrier,juvenile,deceased_at_intake,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,American Pit Bull Terrier,juvenile,normal,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,American Pit Bull Terrier,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,American Pit Bull Terrier,unknown,deceased_at_intake,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,American Pit Bull Terrier,unknown,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Other,American Pit Bull Terrier,unknown,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,American Pit Bull Terrier,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,American Shorthair,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,American Smooth Hair,adult,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,American Smooth Hair,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,American Smooth Hair,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,American Smooth Hair,unknown,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,American Smooth Hair,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,American Staffordshire Terrier,juvenile,deceased_at_intake,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,American Staffordshire Terrier,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Anatolian Shepherd,juvenile,needs_care,other,0.9,37.0,22.5,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Anatolian Shepherd,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Anglo-nubian,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Australian Cattle Dog,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Australian Cattle Dog,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bat - Hoary,adult,deceased_at_intake,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bat - Hoary,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bat - Hoary,unknown,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bat - Hoary,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bat - Little Brown Myotis,adult,deceased_at_intake,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bat - Little Brown Myotis,adult,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bat - Little Brown Myotis,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bat - Little Brown Myotis,juvenile,deceased_at_intake,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bat - Little Brown Myotis,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bat - Little Brown Myotis,unknown,deceased_at_intake,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bat - Little Brown Myotis,unknown,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Bat - Little Brown Myotis,unknown,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bat - Little Brown Myotis,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bat - Pallid,adult,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bat - Unspecified,adult,deceased_at_intake,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bat - Unspecified,adult,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Bat - Unspecified,adult,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bat - Unspecified,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bat - Unspecified,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bat - Unspecified,unknown,deceased_at_intake,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bat - Unspecified,unknown,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bat - Unspecified,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Beagle,unknown,deceased_at_intake,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bearded Dragon,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bearded Dragon,unknown,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Bearded Dragon,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Beaver,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Belgian Shepherd Dog - Malinois,juvenile,normal,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Belgian Shepherd Dog - Malinois,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Boar - Wild,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bobcat,unknown,deceased_at_intake,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Bobcat,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Border Collie,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Boxer,juvenile,deceased_at_intake,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Boxer,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Boxer,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Cairn Terrier,unknown,deceased_at_intake,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Catahoula Leopard Dog,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Cavalier King Charles Spaniel,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Chicken,juvenile,needs_care,other,0.9,37.0,22.5,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Chicken,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Chicken,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Chihuahua - Long-hair,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Chihuahua - Smooth,juvenile,needs_care,other,0.9,37.0,22.5,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Chihuahua - Smooth,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Chihuahua - Smooth,unknown,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Chihuahua - Smooth,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Chinese Silky Bantam,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Chow Chow,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Colorpoint Shorthair,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Coonhound - Redbone,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Coronet,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Coyote,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Coyote,unknown,deceased_at_intake,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Coyote,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Dachshund,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Deer - Mule,unknown,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Deer - Mule,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Desert Tortoise,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Desert Tortoise,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Doberman Pinscher,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Doberman Pinscher,unknown,deceased_at_intake,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Domestic Long Hair,juvenile,normal,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Domestic Long Hair,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Domestic Long Hair,unknown,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Domestic Long Hair,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Domestic Medium Hair,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Domestic Medium Hair,juvenile,needs_care,other,0.9,37.0,22.5,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Domestic Medium Hair,juvenile,normal,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Domestic Medium Hair,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Domestic Medium Hair,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Domestic Shorthair,juvenile,deceased_at_intake,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Domestic Shorthair,juvenile,needs_care,other,0.9,37.0,22.5,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Domestic Shorthair,juvenile,normal,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Domestic Shorthair,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Domestic Shorthair,unknown,deceased_at_intake,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Domestic Shorthair,unknown,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Domestic Shorthair,unknown,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Domestic Shorthair,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Duck,juvenile,normal,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Duck,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Duck,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Ferret,adult,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Ferret,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Ferret,unknown,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Fish,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Fox - Grey,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Fox - Grey,unknown,deceased_at_intake,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Fox - Grey,unknown,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Fox - Grey,unknown,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Fox - Grey,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Fox - Red,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Fox - Red,unknown,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Fox - Red,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Fox Terrier,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Fox Terrier - Smooth,juvenile,deceased_at_intake,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Fox Terrier - Wire-haired,juvenile,deceased_at_intake,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Fox Terrier - Wire-haired,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,French Bulldog,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,French Bulldog,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Gecko,adult,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Gecko,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,German Shepherd,juvenile,deceased_at_intake,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,German Shepherd,juvenile,needs_care,other,0.9,37.0,22.5,20,3.5,HEURISTIC_NOT_MEASURED
+Other,German Shepherd,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,German Shepherd,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Great Dane,juvenile,normal,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Great Pyrenees,juvenile,deceased_at_intake,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Great Pyrenees,juvenile,needs_care,other,0.9,37.0,22.5,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Great Pyrenees,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Great Pyrenees,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Hamster,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Hamster,juvenile,needs_care,other,0.9,37.0,22.5,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Hamster,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Hound,juvenile,normal,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Hound,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Hound,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Iguana,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Iguana,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Jack Russell Terrier,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Jack Russell Terrier - Wire-haired,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Labrador Retriever,juvenile,deceased_at_intake,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Labrador Retriever,juvenile,normal,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Labrador Retriever,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Labrador Retriever,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Large White Pig,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Lizard,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Maltese Terrier,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Mastiff,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Miniature Pinscher,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Mixed Breed,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Monitor Lizard,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Monkey,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Mouse,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Mouse,unknown,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Mouse,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Mouse - House,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Muscovy Duck,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Opossum,juvenile,deceased_at_intake,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Opossum,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Opossum,unknown,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Opossum,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,PYTHON,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,PYTHON,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,PYTHON,unknown,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,PYTHON,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Peafowl,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Pembroke Welsh Corgi,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Pointer,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Poodle - Miniature,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Poodle - Standard,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Possum,unknown,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Possum - Common Ringtail,juvenile,needs_care,other,0.9,37.0,22.5,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Pug,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Pygmy,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Rabbit - Brush,juvenile,deceased_at_intake,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Rabbit - Brush,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Rabbit - Brush,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Rabbit - Desert Cottontail,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Raccoon,adult,deceased_at_intake,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Raccoon,adult,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Raccoon,adult,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Raccoon,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Raccoon,juvenile,deceased_at_intake,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Raccoon,juvenile,needs_care,other,0.9,37.0,22.5,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Raccoon,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Raccoon,unknown,deceased_at_intake,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Raccoon,unknown,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Raccoon,unknown,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Raccoon,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Rat,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Rat - Unspecified,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Rat Terrier,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Rex,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Rex,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Rhodesian Ridgeback,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Rottweiler,juvenile,deceased_at_intake,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Russian,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Saanen,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Schnauzer - Miniature,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Shar Pei,juvenile,normal,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Shar Pei,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Shepherd,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Shepherd,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Shiba Inu,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Shih Tzu,juvenile,deceased_at_intake,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Siamese,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Siberian Husky,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Siberian Husky,unknown,deceased_at_intake,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Skunk - Striped,adult,deceased_at_intake,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Skunk - Striped,adult,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Skunk - Striped,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Skunk - Striped,juvenile,deceased_at_intake,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Skunk - Striped,juvenile,needs_care,other,0.9,37.0,22.5,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Skunk - Striped,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Skunk - Striped,senior,needs_care,other,1.8,43.5,18.8,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Skunk - Striped,unknown,deceased_at_intake,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Skunk - Striped,unknown,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Skunk - Striped,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Slider,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Snake,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Snake,unknown,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Other,Snake,unknown,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Snowshoe,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Spider,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Squirrel - California Ground,unknown,deceased_at_intake,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Squirrel - Fox,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Squirrel - Western Grey,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Squirrel - Western Grey,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Turtle,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Turtle,unknown,deceased_at_intake,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Turtle,unknown,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Turtle,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Turtle - Box,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Unknown - DISPATCH ONLY,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Unknown - DISPATCH ONLY,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Unspecified,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Unspecified,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Unspecified,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,Unspecified Sheep Breed,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Other,West Highland White Terrier,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Other,White-Crested,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,American,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,American,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Angora,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Angora,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Beveren,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Bunny Rabbit,adult,normal,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Bunny Rabbit,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Bunny Rabbit,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Bunny Rabbit,unknown,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Bunny Rabbit,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Californian,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Californian,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Champagne D'argent,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Chinchilla,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Dutch,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Dutch,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Dutch,senior,unknown,other,1.8,43.5,18.8,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Dwarf Hotot,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Dwarf Lop,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,English Angora,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Flemish Giant,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Flemish Giant,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Florida White,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,French Lop,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,French Lop,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,French Lop,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Havana,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Himalayan,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Himalayan,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Holland Lop,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Holland Lop,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Jersey Wooly,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Jersey Wooly,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Lop Eared,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Lop Eared,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Mini Lop,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Mini Lop,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Mini Lop,unknown,needs_care,other,2.0,53.8,15.0,20,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Mini Rex,adult,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,New Zealand,juvenile,unknown,other,0.9,37.0,22.5,0,3.5,HEURISTIC_NOT_MEASURED
+Rabbit,Silver Marten,unknown,unknown,other,2.0,53.8,15.0,0,3.5,HEURISTIC_NOT_MEASURED

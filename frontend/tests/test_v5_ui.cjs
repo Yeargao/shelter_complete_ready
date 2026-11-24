@@ -1,0 +1,22 @@
+// Run after `cd frontend; npm install; node tests/test_v5_ui.cjs`.
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const path=require('node:path');
+const ts=require('typescript');
+const source=fs.readFileSync(path.join(__dirname,'../src/components/common/assignmentPresentation.ts'),'utf8');
+const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+const sandboxExports={};vm.runInNewContext(compiled,{exports:sandboxExports});
+const mk=(id,label,state='done',other={})=>({task_id:id,animal_id:1,label,state,staff_id:1,start_time:'09:00',...other});
+const old=mk('1:健康狀態待確認','健康狀態待確認');
+const injury=mk('1:優先確認健康狀況','優先確認健康狀況');
+assert.equal(sandboxExports.visibleAssignments([old,injury]).map(x=>x.label).join(','),'優先確認健康狀況');
+assert.equal(sandboxExports.visibleAssignments([injury,injury]).length,1);
+assert.equal(sandboxExports.visibleAssignments([mk('1:疫苗施打@2026-01-01','疫苗施打','done',{due_date:'2026-01-01'}),mk('1:疫苗施打@2027-01-01','疫苗施打','done',{due_date:'2027-01-01'})]).length,2);
+const d=fs.readFileSync(path.join(__dirname,'../src/pages/Dashboard.tsx'),'utf8');
+assert.match(d,/displayStart=80/);assert.doesNotMatch(d,/expected_occupancy:162/);
+const h=fs.readFileSync(path.join(__dirname,'../src/pages/HealthPage.tsx'),'utf8');
+assert.doesNotMatch(h,/api\.setTask|change\.mutate|aria-label="任務狀態"/);
+const timeline=fs.readFileSync(path.join(__dirname,'../src/components/common/DailyTimeline.tsx'),'utf8');
+assert.match(timeline,/HALF_CELL=88/);assert.doesNotMatch(timeline,/收合回報/);
+console.log('PASS: 6 V5 UI regression assertions');

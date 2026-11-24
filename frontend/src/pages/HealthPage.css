@@ -1,0 +1,4 @@
+/* Health board: fixed viewport height, with scroll inside; category details remain independently collapsible. */
+.health-admin-board{display:flex;flex-direction:column;max-height:min(72vh,650px);min-height:0;overflow:hidden}
+.health-admin-board h2{flex:none;margin:0}
+.health-admin-board__scroll{overflow-y:auto;min-height:0;scrollbar-width:thin;overscroll-behavior:contain;padding:2px 6px 8px 2px}
