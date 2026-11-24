@@ -3,11 +3,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://shelter-backend.onrender.com/api/:path*"
+      "destination": "https://shelter-backend-o4ct.onrender.com/api/:path*"
     },
     {
       "source": "/healthz",
-      "destination": "https://shelter-backend.onrender.com/healthz"
+      "destination": "https://shelter-backend-o4ct.onrender.com/healthz"
     },
     {
       "source": "/(.*)",
