@@ -1,7 +1,3 @@
---extra-index-url https://download.pytorch.org/whl/cpu
-torch
-torchvision
-
 fastapi>=0.115,<1
 uvicorn[standard]>=0.30,<1
 pydantic>=2,<3
@@ -9,6 +5,5 @@ catboost>=1.2.8,<2
 pandas>=2.2,<3
 numpy>=1.26,<3
 ortools>=9.10,<10
-
 lightgbm>=4.0,<5
 scikit-learn>=1.9.1,<2
