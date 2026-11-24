@@ -1,0 +1,163 @@
+﻿id,name,species,breed,age_months,health_status,food_grams_per_day,routine_care_hours_per_day,source
+163,Rufus,dog,Mixed Breed,,unknown,250,0.5,rule_based_demo_not_measured
+164,Dennis,dog,Mountain Cur,,healthy,250,0.5,rule_based_demo_not_measured
+165,Abner,dog,Mixed Breed,,unknown,250,0.5,rule_based_demo_not_measured
+166,Mama Eden,dog,Boxer,,unknown,250,0.5,rule_based_demo_not_measured
+167,Ash,dog,Mixed Breed,,unknown,250,0.5,rule_based_demo_not_measured
+168,17247,other,Hawn - Red-shouldered,,injured,100,1.0,rule_based_demo_not_measured
+169,Rosey,dog,Bullmastiff,,unknown,420,0.5,rule_based_demo_not_measured
+170,Onyx,dog,Mixed Breed,,sick,250,1.0,rule_based_demo_not_measured
+171,Kugel,dog,Labrador Retriever,,injured,420,1.0,rule_based_demo_not_measured
+172,Elf,dog,Mountain Cur,,unknown,250,0.5,rule_based_demo_not_measured
+173,Roo,dog,Anatolian Shepherd,,unknown,420,0.5,rule_based_demo_not_measured
+174,Lyric,dog,Mixed Breed,,sick,250,1.0,rule_based_demo_not_measured
+175,Emmylou,dog,Mixed Breed,,injured,250,1.0,rule_based_demo_not_measured
+176,Beefy,dog,American Pit Bull Terrier,,healthy,120,0.5,rule_based_demo_not_measured
+177,Pistachio,dog,Mixed Breed,,unknown,250,0.5,rule_based_demo_not_measured
+178,Beatrice,dog,American Pit Bull Terrier,,unknown,120,0.5,rule_based_demo_not_measured
+179,Lucy,dog,Mixed Breed,,sick,250,1.0,rule_based_demo_not_measured
+180,Velveteen,dog,Mixed Breed,,unknown,250,0.5,rule_based_demo_not_measured
+181,Moose,dog,Mixed Breed,,unknown,250,0.5,rule_based_demo_not_measured
+182,Cricket,dog,Mixed Breed,,unknown,250,0.5,rule_based_demo_not_measured
+183,Cleo,dog,American Pit Bull Terrier,,unknown,120,0.5,rule_based_demo_not_measured
+184,Linda Lou,dog,Labrador Retriever,,unknown,420,0.5,rule_based_demo_not_measured
+185,Spooky ,cat,Domestic Shorthair,,injured,65,0.75,rule_based_demo_not_measured
+186,Chicken Noodle,dog,Mixed Breed,,unknown,250,0.5,rule_based_demo_not_measured
+187,Layla,dog,Mixed Breed,,healthy,250,0.5,rule_based_demo_not_measured
+188,Palomo,dog,Siberian Husky,,injured,420,1.0,rule_based_demo_not_measured
+189,Lulu,dog,American Pit Bull Terrier,,unknown,120,0.5,rule_based_demo_not_measured
+190,Fern,dog,Anatolian Shepherd,,unknown,420,0.5,rule_based_demo_not_measured
+191,Kai,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+192,Chancho,dog,Mixed Breed,,unknown,250,0.5,rule_based_demo_not_measured
+193,Hugo,dog,Mixed Breed,,unknown,250,0.5,rule_based_demo_not_measured
+194,Guapito,dog,Chihuahua - Smooth,,injured,120,1.0,rule_based_demo_not_measured
+195,Ozzy,dog,Mixed Breed,,unknown,250,0.5,rule_based_demo_not_measured
+196,Lady,dog,Mixed Breed,,sick,250,1.0,rule_based_demo_not_measured
+197,Amor,dog,Mixed Breed,,healthy,250,0.5,rule_based_demo_not_measured
+198,Zaire,dog,Mixed Breed,,unknown,250,0.5,rule_based_demo_not_measured
+199,Baloo,dog,Mixed Breed,,injured,250,1.0,rule_based_demo_not_measured
+200,Durango,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+201,Timothy Tomathy,cat,Domestic Shorthair,,injured,65,0.75,rule_based_demo_not_measured
+202,Xiao Mao,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+203,Eva,dog,Mixed Breed,,unknown,250,0.5,rule_based_demo_not_measured
+204,Chili,cat,Domestic Shorthair,,sick,65,0.75,rule_based_demo_not_measured
+205,Tamara,dog,American Pit Bull Terrier,,sick,120,1.0,rule_based_demo_not_measured
+206,Darcy,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+207,Daisy,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+208,Rex,dog,Mixed Breed,,unknown,250,0.5,rule_based_demo_not_measured
+209,Ranger Dan,dog,Mixed Breed,,healthy,250,0.5,rule_based_demo_not_measured
+210,Oreo,cat,Domestic Shorthair,,healthy,65,0.25,rule_based_demo_not_measured
+211,Murphy Lee,dog,Mixed Breed,,sick,250,1.0,rule_based_demo_not_measured
+212,Simpson,dog,Border Collie,,unknown,250,0.5,rule_based_demo_not_measured
+213,Cookie,dog,American Pit Bull Terrier,,sick,120,1.0,rule_based_demo_not_measured
+214,Pepper Jack,dog,Mixed Breed,,injured,250,1.0,rule_based_demo_not_measured
+215,Zoey,cat,Domestic Shorthair,,healthy,65,0.25,rule_based_demo_not_measured
+216,Abigail,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+217,Goody,dog,Mixed Breed,,injured,250,1.0,rule_based_demo_not_measured
+218,Grace,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+219,Vlad,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+220,Sarge,dog,Boxer,,unknown,250,0.5,rule_based_demo_not_measured
+221,Sam,cat,Domestic Shorthair,,sick,65,0.75,rule_based_demo_not_measured
+222,Penny,dog,Golden Retriever,,healthy,420,0.5,rule_based_demo_not_measured
+223,Badger,other,Domestic Shorthair,,injured,100,1.0,rule_based_demo_not_measured
+224,Sassy,dog,Mixed Breed,,unknown,250,0.5,rule_based_demo_not_measured
+225,31580,other,American Pit Bull Terrier,,unknown,100,0.5,rule_based_demo_not_measured
+226,Mae,dog,Mixed Breed,,healthy,250,0.5,rule_based_demo_not_measured
+227,Sally,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+228,Angelina Ballerina,dog,Mixed Breed,,healthy,250,0.5,rule_based_demo_not_measured
+229,Wilder,dog,Border Collie,,unknown,250,0.5,rule_based_demo_not_measured
+230,Guthrie,dog,Labrador Retriever,,unknown,420,0.5,rule_based_demo_not_measured
+231,Metallica,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+232,Coco,dog,Mixed Breed,,unknown,250,0.5,rule_based_demo_not_measured
+233,Boo Boo,other,Domestic Shorthair,,healthy,100,0.5,rule_based_demo_not_measured
+234,Baby Boy,other,Domestic Shorthair,,healthy,100,0.5,rule_based_demo_not_measured
+235,Ludwig,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+236,Winston,dog,Mixed Breed,,sick,250,1.0,rule_based_demo_not_measured
+237,Banjo,dog,Mixed Breed,,injured,250,1.0,rule_based_demo_not_measured
+238,Lucille,dog,Chihuahua - Smooth,,unknown,120,0.5,rule_based_demo_not_measured
+239,Trace,dog,Chihuahua - Smooth,,injured,120,1.0,rule_based_demo_not_measured
+240,Lucky Charm,dog,Mixed Breed,,unknown,250,0.5,rule_based_demo_not_measured
+241,Picasso,dog,Whippet,,unknown,250,0.5,rule_based_demo_not_measured
+242,Chicken Wing,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+243,Cinnamon Roll,dog,American Staffordshire Terrier,,healthy,120,0.5,rule_based_demo_not_measured
+244,Meowly Cyrus,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+245,Misha,dog,Great Pyrenees,,unknown,250,0.5,rule_based_demo_not_measured
+246,Dio,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+247,Obsidian,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+248,Milo,dog,Rottweiler,,unknown,420,0.5,rule_based_demo_not_measured
+249,33141,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+250,Bridget,dog,Mixed Breed,,unknown,250,0.5,rule_based_demo_not_measured
+251,Brady,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+252,Julie,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+253,Knucks,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+254,33424,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+255,33426,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+256,Marceline,dog,Transylvanian Hound,,injured,250,1.0,rule_based_demo_not_measured
+257,Sencha,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+258,Vegeta,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+259,Bonbon,dog,Labrador Retriever,,unknown,420,0.5,rule_based_demo_not_measured
+260,Nico,dog,German Shepherd,,unknown,420,0.5,rule_based_demo_not_measured
+261,Tomato,other,Domestic Shorthair,,sick,100,1.0,rule_based_demo_not_measured
+262,Iggy,dog,American Pit Bull Terrier,,healthy,120,0.5,rule_based_demo_not_measured
+263,Tamarindo,dog,Chihuahua - Smooth,,healthy,120,0.5,rule_based_demo_not_measured
+264,Trinity,dog,Labrador Retriever,,sick,420,1.0,rule_based_demo_not_measured
+265,Rose,other,Jack Russell Terrier,,unknown,100,0.5,rule_based_demo_not_measured
+266,Nikki,other,Domestic Shorthair,,sick,100,1.0,rule_based_demo_not_measured
+267,Timber,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+268,Celebi,cat,Domestic Shorthair,,injured,65,0.75,rule_based_demo_not_measured
+269,Gia,dog,Pug,,unknown,250,0.5,rule_based_demo_not_measured
+270,Chewy,dog,Shih Tzu,,injured,120,1.0,rule_based_demo_not_measured
+271,Ganondorf,dog,Australian Cattle Dog,,unknown,250,0.5,rule_based_demo_not_measured
+272,Zendaya (petco),cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+273,Mandough,dog,American Pit Bull Terrier,,unknown,120,0.5,rule_based_demo_not_measured
+274,Bullet,dog,Labrador Retriever,,unknown,420,0.5,rule_based_demo_not_measured
+275,Queen,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+276,Crue,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+277,Mountain Snow Paws,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+278,Tina,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+279,Tiffany,dog,American Pit Bull Terrier,,unknown,120,0.5,rule_based_demo_not_measured
+280,35495,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+281,Nature's Splendor,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+282,Everest,dog,Belgian Shepherd Dog,,unknown,420,0.5,rule_based_demo_not_measured
+283,Phoebe,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+284,Jovi,other,Belgian Shepherd Dog - Malinois,,healthy,100,0.5,rule_based_demo_not_measured
+285,Dutches,dog,American Staffordshire Terrier,,injured,120,1.0,rule_based_demo_not_measured
+286,Tsubaki,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+287,Kohaku,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+288,Mochi,dog,American Pit Bull Terrier,,healthy,120,0.5,rule_based_demo_not_measured
+289,35868,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+290,Elain,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+291,Moose,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+292,36017,dog,Chihuahua - Smooth,,unknown,120,0.5,rule_based_demo_not_measured
+293,36065,dog,Australian Shepherd,,unknown,420,0.5,rule_based_demo_not_measured
+294,36072,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+295,Thumbelina Ballerina,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+296,Luna,dog,Labrador Retriever,,unknown,420,0.5,rule_based_demo_not_measured
+297,Hermosa,dog,American Pit Bull Terrier,,injured,120,1.0,rule_based_demo_not_measured
+298,Troy,dog,Belgian Shepherd Dog - Malinois,,healthy,420,0.5,rule_based_demo_not_measured
+299,36794,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+300,Michael Jackson,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+301,Titus,dog,Shih Tzu,,unknown,120,0.5,rule_based_demo_not_measured
+302,Chocolate Sundae,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+303,Goby,other,Siberian Husky,,unknown,100,0.5,rule_based_demo_not_measured
+304,Minnow,other,Siberian Husky,,unknown,100,0.5,rule_based_demo_not_measured
+305,36905,other,American Pit Bull Terrier,,unknown,100,0.5,rule_based_demo_not_measured
+306,36914,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+307,36925,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+308,36935,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+309,Princess ,dog,Rottweiler,,injured,420,1.0,rule_based_demo_not_measured
+310,36953,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+311,36955,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+312,36965,other,Domestic Shorthair,,unknown,100,0.5,rule_based_demo_not_measured
+313,36969,other,Domestic Shorthair,,injured,100,1.0,rule_based_demo_not_measured
+314,Jericho,dog,American Staffordshire Terrier,,healthy,120,0.5,rule_based_demo_not_measured
+315,Teddy,dog,American Staffordshire Terrier,,unknown,120,0.5,rule_based_demo_not_measured
+316,Mavis ,dog,Chihuahua - Smooth,,healthy,120,0.5,rule_based_demo_not_measured
+317,Leo,dog,Labrador Retriever,,unknown,420,0.5,rule_based_demo_not_measured
+318,37023,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+319,37024,cat,Domestic Shorthair,,unknown,65,0.25,rule_based_demo_not_measured
+320,Lola,dog,Border Collie,,healthy,250,0.5,rule_based_demo_not_measured
+321,Shelley,dog,Mixed Breed,,healthy,250,0.5,rule_based_demo_not_measured
+322,Snorkel,dog,German Shepherd,,unknown,420,0.5,rule_based_demo_not_measured
+323,Walter,dog,American Pit Bull Terrier,,sick,120,1.0,rule_based_demo_not_measured
+324,Barry,dog,Mixed Breed,,injured,250,1.0,rule_based_demo_not_measured
