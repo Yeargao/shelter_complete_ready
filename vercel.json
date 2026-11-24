@@ -8,11 +8,6 @@
     "frontend": {
       "root": "frontend",
       "framework": "vite"
-    },
-    "stage_two_training": {
-      "root": "stage2_training",
-      "runtime": "python",
-      "entrypoint": "main.py"
     }
   },
   "rewrites": [
