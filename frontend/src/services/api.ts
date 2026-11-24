@@ -1,6 +1,6 @@
 import type { Animal, AnimalInput, Forecast, ModuleResult } from "../types";
 
-const base = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "" : "http://127.0.0.1:8001");
+const base = import.meta.env.VITE_API_URL || "";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(base + path, {
