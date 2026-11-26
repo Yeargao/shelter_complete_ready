@@ -418,6 +418,61 @@ class WeeklyTests(unittest.TestCase):
         self.request('GET','/api/llm/usage',headers=self.staff,expected=403)
         self.assertEqual(self.request('GET','/api/llm/usage').json()['used'],0)
 
+    def test_chat_structured_dates_synonyms_and_signed_followup(self):
+        self.week()
+        task=self.add('確認驅蟲紀錄')
+        self.place(task,1,day=TUESDAY)
+        def ask(q,context=None,headers=None):
+            return self.request('POST','/api/chat',{'question':q,'context':context},headers).json()
+        workload=ask('今天誰最忙？')
+        self.assertEqual(workload['intent'],'staff_workload')
+        self.assertEqual(workload['query']['start'],MONDAY)
+        tomorrow=ask('observer 明天有哪些工作？')
+        self.assertEqual(tomorrow['intent'],'staff_schedule')
+        self.assertEqual(tomorrow['query']['start'],TUESDAY)
+        self.assertIn('Test',tomorrow['answer'])
+        afternoon=ask('下午呢？',tomorrow['context'])
+        self.assertEqual(afternoon['query']['start'],TUESDAY)
+        self.assertEqual(afternoon['query']['period'],'afternoon')
+        self.assertNotIn('Test',afternoon['answer'])
+        morning=ask('明天上午誰比較有空？')
+        self.assertEqual(morning['intent'],'staff_availability')
+        self.assertEqual(morning['query']['period'],'morning')
+        self.assertEqual(morning['query']['start'],TUESDAY)
+        invalid=ask('2026-02-30 有哪些工作？')
+        self.assertEqual(invalid['source'],'rules')
+        self.assertIn('有效日期',invalid['answer'])
+        denied=ask('observer 明天有哪些工作？',headers=self.other)
+        self.assertIn('沒有可查看',denied['answer'])
+        self.assertNotIn('Test',denied['answer'])
+        stolen=ask('下午呢？',tomorrow['context'],headers=self.other)
+        self.assertNotIn('Test',stolen['answer'])
+        self.assertEqual(ask('delete from animals')['source'],'rules')
+
+    def test_chat_native_tool_call_validated_read_only_dispatch(self):
+        import httpx
+        import llm_service
+        self.week()
+        config={'GEMINI_API_KEY':'fake-key','LLM_DATA_APPROVED':'1',
+                'LLM_MAX_REQUESTS_PER_DAY':'10','LLM_MAX_REQUESTS_PER_MINUTE':'10',
+                'LLM_MAX_INPUT_TOKENS_PER_MINUTE':'30000'}
+        url=httpx.Request('POST','https://generativelanguage.googleapis.com')
+        ok=httpx.Response(200,request=url,json={'candidates':[{'finishReason':'STOP','content':{
+            'role':'model','parts':[{'functionCall':{'name':'query_shelter','args':{
+                'intent':'staff_availability','period':'all_day','sort':'most','count_only':False}}}]}}]})
+        mocked=Mock(return_value=ok)
+        with patch.dict('os.environ',config), patch.object(llm_service,'http_client',side_effect=lambda:
+            httpx.Client(transport=httpx.MockTransport(mocked),follow_redirects=False)):
+            result=self.request('POST','/api/chat',{'question':'今天哪位能抽身支援？'}).json()
+            self.assertEqual(result['intent_source'],'gemini_function')
+            self.assertEqual(result['intent'],'staff_availability')
+            self.assertIn('剩餘',result['answer'])
+            self.assertEqual(mocked.call_count,1)
+            sent=mocked.call_args.args[0].content.decode()
+            self.assertIn('query_shelter',sent)
+            self.assertNotIn('observer',sent)
+            self.assertNotIn('Test',sent)
+
     def test_chat_mocked_gemini_is_deidentified_and_degrades(self):
         import httpx
         import llm_service
