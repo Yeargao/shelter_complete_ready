@@ -15,10 +15,11 @@ assert(health.indexOf("'健康問題追蹤'") > health.indexOf("'優先確認健
 assert(presentation.includes('基礎驅蟲(含確認是否驅蟲)'));
 assert(presentation.includes('疫苗施打(含確認是否已注射)'));
 assert(timeline.includes("label==='基礎驅蟲'") && timeline.includes("label==='健康問題追蹤'"));
-assert(resource.includes("workerTasks.filter(t=>t.state==='done').length"));
-assert(resource.includes('工作完成 {completed}/{total}'));
-assert(resource.includes('resource-task-title--${priorityColor(t)}'));
-assert(style.includes('resource-worker__progress-pending'));
+const schedule=load('components/common/ScheduleCalendar.tsx');
+assert(schedule.includes("daily.filter(t=>t.state==='done').length"));
+assert(schedule.includes('完成 ${daily.filter'));
+assert(resource.includes('data-priority={t.display_priority??t.priority}'));
+assert(style.includes('.weekly-event[data-priority="0"]'));
 assert(timeline.includes('daily-timeline__staff-grid'));
 assert(timelineStyle.includes('grid-template-columns:minmax(0,3fr) minmax(47px,1fr) minmax(0,6fr)'));
 console.log('V6 source regression checks: 12 passed');

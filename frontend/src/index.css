@@ -25,3 +25,24 @@
 .app-shell--nav-collapsed .resource-board{grid-template-columns:minmax(440px,2.5fr) minmax(240px,.95fr) minmax(225px,1fr)}
 @media(max-width:1050px){.app-shell--nav-collapsed .resource-board{grid-template-columns:minmax(360px,1.8fr) minmax(225px,1fr)}.app-shell--nav-collapsed .resource-workload{grid-column:1/-1}}
 @media(max-width:680px){.app-shell--nav-collapsed .resource-board{display:flex;flex-direction:column}}
+button:focus-visible,a:focus-visible,summary:focus-visible,textarea:focus-visible{outline:2px solid #0d9488;outline-offset:3px}
+.panel{min-width:0;overflow-wrap:anywhere}
+.overview-grid,.llm-usage-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.overview-grid .metric{padding:16px}
+.dashboard-link>span{display:flex;align-items:center;gap:6px}
+.llm-usage>summary{font-weight:800}
+.llm-usage-grid>div{background:#f4f8fa;border:1px solid #dfe8ee;border-radius:12px;padding:14px}
+.llm-usage-grid dt{font-size:.83rem;color:#4a6070;font-weight:600}
+.llm-usage-grid dd{margin-top:5px;color:#153546;font-weight:800;font-size:clamp(1.15rem,2.3vw,1.85rem);font-variant-numeric:tabular-nums}
+.llm-usage-grid .llm-status dd{font-size:1rem}
+@media(max-width:800px){.overview-grid,.llm-usage-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){
+ .content{padding:16px 12px 80px}
+ .panel{padding:14px}
+ .weekly-toolbar button,.chat-panel button,.sidebar-footer button{min-height:44px}
+ .sidebar .brand{margin:0 0 20px;justify-content:center}
+ .sidebar .brand>div:last-child,.sidebar-label,.sidebar-footer>div{display:none}
+ .sidebar-footer{padding-inline:0;text-align:center}
+ .sidebar .sidebar-footer button{font-size:0;padding:8px;min-width:44px}
+ .sidebar .sidebar-footer button::before{content:'登出';font-size:12px}
+}

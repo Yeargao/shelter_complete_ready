@@ -19,7 +19,8 @@ class LocalUpdateTests(unittest.TestCase):
         cls.root=Path(cls.temp.name)
         backend=cls.root/'backend'
         backend.mkdir()
-        for filename in ('main.py','stage2_service.py','daily_history.csv','showcase.sqlite3'):
+        for filename in ('main.py','weekly_schedule.py','llm_service.py','shelter_chat.py',
+                         'stage2_service.py','daily_history.csv','showcase.sqlite3'):
             shutil.copy2(ROOT/'backend'/filename,backend/filename)
         shutil.copytree(ROOT/'models',cls.root/'models')
         # Saved model inputs are read-only; they are not changed by these tests.

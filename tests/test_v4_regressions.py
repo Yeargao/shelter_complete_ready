@@ -16,9 +16,11 @@ class SchedulingRulesTest(unittest.TestCase):
  @classmethod
  def setUpClass(cls):
   tree=ast.parse(SOURCE.read_text(encoding='utf-8'))
-  names={'quarter','time_quarter','effective_capacity','find_slot'}
+  names={'quarter','time_quarter','shift_break_windows','effective_capacity','find_slot'}
   scope={'math':math}
   nodes=[node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name in names]
+  nodes.extend(node for node in tree.body if isinstance(node,ast.Assign)
+               and any(isinstance(target,ast.Name) and target.id=='SHELTER_LUNCH' for target in node.targets))
   exec(compile(ast.Module(body=nodes,type_ignores=[]),str(SOURCE),'exec'),scope)
   cls.functions=scope
 

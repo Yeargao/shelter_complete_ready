@@ -4,3 +4,27 @@
 /* Completed reports: three actions in one horizontal row, one equal-width column each. */
 .staff-report-actions[data-three="true"]{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;overflow:visible}
 .staff-report-actions[data-three="true"]>button{width:100%;min-width:0}
+
+.care-image{width:160px;height:115px;object-fit:cover;border-radius:8px}
+.staff-day-row{display:grid;grid-template-columns:72px minmax(0,1fr);min-height:38px;border-bottom:1px solid #dce6ed}
+.staff-day-row>time,.staff-day-row>span{padding:8px 6px;font-size:12px;font-variant-numeric:tabular-nums;border-right:1px solid #dce6ed}
+.staff-day-row>div{min-width:0;padding:4px}
+.staff-day-row[data-lunch]{min-height:19px}
+.staff-day-row[data-lunch]>time,.staff-day-row[data-lunch]>div{padding-block:2px;font-size:11px;line-height:14px}
+.staff-day-row:last-child{border-bottom:none}
+.staff-day-header{position:sticky;top:0;z-index:2;background:#f0fdfa}
+.staff-day-header>strong{padding:8px}
+.staff-day-header small{display:block;font-size:11px;color:#40596b}
+.staff-care-card{grid-template-columns:minmax(160px,1fr) minmax(0,2fr);gap:12px;padding:12px;font-size:14px}
+.staff-care-identity strong{display:block;font-size:15px}
+.staff-care-controls{display:grid;gap:6px;justify-items:start;min-width:0}
+.staff-care-controls details{max-width:100%;min-width:0}
+.staff-care-controls form{width:min(100%,430px)}
+.staff-care-controls summary{cursor:pointer;font-weight:600}
+.staff-care-controls ul{list-style:disc;padding-left:18px}
+@media(max-width:680px){
+ .staff-day-row{grid-template-columns:48px minmax(0,1fr)}
+ .staff-day-row>time,.staff-day-row>span{padding-inline:4px;font-size:11px}
+ .staff-care-card{grid-template-columns:minmax(0,1fr);gap:8px;padding:8px}
+ .staff-care-controls button{min-height:38px;padding:6px 9px}
+}
