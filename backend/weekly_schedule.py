@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 import os
+import time
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
@@ -320,6 +321,8 @@ def mount(legacy):
                         window_events[wk].append((1, start, length))
                         rest_intervals[wk].append(model.new_fixed_size_interval_var(start, length, f'rest_fixed_{tid}'))
                         break
+                if not busy[key].isdisjoint(range(start,start+length)):
+                    fixed_errors.append(tid)
                 busy[key].update(range(start,start+length))
                 day_used[key] += length
                 date_used[day] += length
@@ -393,14 +396,17 @@ def mount(legacy):
                 continue
             delta = model.new_int_var(0, bound, f'half_delta_{sid}_{day}')
             model.add_abs_equality(delta, sum(half_load[(sid, day), 0]) - sum(half_load[(sid, day), 1]))
-            model.add(delta <= 1)  # Mandatory: at most one 15-minute slot per full-day worker.
             half_deviations.append(delta)
-        # Mandatory daily total balance, including staff with only one available half.
+        # Daily total balance is the primary distribution objective, not a feasibility cutoff.
+        daily_half_deviations = []
         for day in working_days:
             am = sum(sum(half_load[(sid, day), 0]) for sid in workers)
             pm = sum(sum(half_load[(sid, day), 1]) for sid in workers)
-            model.add(am - pm <= 1)
-            model.add(pm - am <= 1)
+            delta = model.new_int_var(0, bound, f'daily_half_delta_{day}')
+            model.add_abs_equality(delta, am - pm)
+            daily_half_deviations.append(delta)
+        worst_daily_half = model.new_int_var(0, bound, 'worst_daily_half_delta')
+        model.add_max_equality(worst_daily_half, daily_half_deviations or [0])
         # First minimize the worst individual daily AM/PM imbalance, then the total.
         worst_half = model.new_int_var(0, bound, 'worst_half_delta')
         model.add_max_equality(worst_half, half_deviations or [0])
@@ -435,8 +441,11 @@ def mount(legacy):
             deviation = model.new_int_var(0, hi-lo+len(events), f'gap_deviation_{wk}')
             model.add_abs_equality(deviation, span-sum(lengths)-count_minus_one)
             gap_deviations.append(deviation)
-        # Warm-start using a feasible, priority-ordered schedule. The returned plan
-        # still comes from CP-SAT and is never persisted when the solver finds no solution.
+        # A validated greedy schedule is also a safe incumbent if CP-SAT times out.
+        for key, used in day_used.items():
+            if used > max(daily_limit(shifts[key]), completed_daily[key]):
+                raise HTTPException(409, '固定任務超出每日工時上限')
+        seed = {}
         for task in tasks:
             tid, length = task['task_id'], task['quarters']
             options = choices[tid]
@@ -462,47 +471,53 @@ def mount(legacy):
                             busy[key].update(range(tick,tick+length))
                             day_used[key] += length
                             date_used[day] += length
+                            seed[tid] = (sid, day, tick)
                             break
                 model.add_hint(use,int(selected))
                 model.add_hint(var,start)
 
         solver = cp_model.CpSolver()
-        solver.parameters.max_time_in_seconds = float(os.environ.get('SHELTER_SOLVER_PHASE_SECONDS','6'))
+        phase_seconds = max(0.01, float(os.environ.get('SHELTER_SOLVER_PHASE_SECONDS','6')))
         solver.parameters.num_search_workers = 4
-        best = {}
-        status_name = None
+        best = seed.copy()
+        status_name = 'FEASIBLE'
         proved_optimal = True
-        objectives = [-sum(assigned_quarters), -sum(urgent), -sum(high), sum(late), worst_half, sum(half_deviations), balance, sum(rest_penalties), sum(gap_deviations), -sum(retained)]
+        # Keep task coverage and clinical priorities; then balance every day before
+        # optimizing individual balance and the 15-minute rest target.
+        objectives = [-sum(assigned_quarters), -sum(urgent), -sum(high), sum(late),
+                      worst_daily_half, sum(daily_half_deviations),
+                      worst_half, sum(half_deviations),
+                      sum(rest_penalties), sum(gap_deviations), balance, -sum(retained)]
         objectives = [item for item in objectives if not isinstance(item,int)] or [model.new_constant(0)]
+        deadline = time.monotonic() + max(0.01, float(os.environ.get(
+            'SHELTER_SOLVER_TOTAL_SECONDS', str(phase_seconds * len(objectives)))))
         for objective in objectives:
-            model.minimize(objective)
-            status = solver.solve(model)
-            hinted_only = False
-            if status == cp_model.UNKNOWN and status_name is None:
-                # Check the greedy seed with CP-SAT before returning a timeout.
-                # A feasible seed is only a starting point for later objectives.
-                solver.parameters.fix_variables_to_their_hinted_value = True
-                try:
-                    status = solver.solve(model)
-                finally:
-                    solver.parameters.fix_variables_to_their_hinted_value = False
-                if status in (cp_model.OPTIMAL,cp_model.FEASIBLE):
-                    hinted_only = True
-                else:
-                    status = cp_model.UNKNOWN
-            if status == cp_model.INFEASIBLE:
-                raise HTTPException(409, '無法同時滿足固定任務、班表、休息、工時上限及每日上下午工時差不超過15分鐘')
-            if status not in (cp_model.OPTIMAL,cp_model.FEASIBLE):
-                if status_name is None:
-                    raise HTTPException(503, '在時限內未取得可行方案')
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
                 status_name = 'FEASIBLE'
                 break
-            proved_optimal = proved_optimal and status == cp_model.OPTIMAL and not hinted_only
+            solver.parameters.max_time_in_seconds = min(phase_seconds, remaining)
+            model.minimize(objective)
+            status = solver.solve(model)
+            if status == cp_model.INFEASIBLE:
+                raise HTTPException(409, '無法同時滿足固定任務、班表、休息及工時上限')
+            if status == cp_model.MODEL_INVALID:
+                raise HTTPException(500, '派工模型設定錯誤')
+            if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                # No new incumbent: keep the last valid schedule, never read UNKNOWN values.
+                status_name = 'FEASIBLE'
+                break
+            proved_optimal = proved_optimal and status == cp_model.OPTIMAL
             status_name = 'OPTIMAL' if proved_optimal else 'FEASIBLE'
-            best = {tid: (sid,day,solver.value(start)) for tid,options in choices.items()
-                    for use,sid,day,start,_,_ in options if solver.boolean_value(use)}
-            # A timed phase can still establish a feasible bound. Preserve that
-            # score while improving the remaining objectives within their limits.
+            candidate = {tid: (sid,day,solver.value(start)) for tid,options in choices.items()
+                         for use,sid,day,start,_,_ in options if solver.boolean_value(use)}
+            # The first objective is coverage; never replace the seed with a worse one.
+            if objective is objectives[0]:
+                lengths = {t['task_id']: t['quarters'] for t in tasks}
+                if sum(lengths[t] for t in candidate) < sum(lengths[t] for t in best):
+                    status_name = 'FEASIBLE'
+                    break
+            best = candidate
             model.add(objective == round(solver.objective_value))
             model.clear_hints()
             for options in choices.values():
