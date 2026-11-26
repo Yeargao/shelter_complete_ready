@@ -11,7 +11,8 @@ import httpx
 from google import genai
 from google.genai import errors as genai_errors, types
 
-DEFAULT_MODEL = 'gemini-2.5-flash-lite'
+DEFAULT_MODEL = 'gemini-3.1-flash-lite'
+APPROVED_MODELS = (DEFAULT_MODEL, 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite')
 PACIFIC = ZoneInfo('America/Los_Angeles')
 
 
@@ -71,7 +72,7 @@ def settings_error():
         return 'missing_key'
     if os.getenv('LLM_DATA_APPROVED', '0').lower() not in ('1', 'true', 'yes'):
         return 'data_not_approved'
-    if model_name() not in {'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite'}:
+    if model_name() not in APPROVED_MODELS:
         return 'invalid_model'
     return None
 
@@ -135,17 +136,18 @@ def gemini_call(instruction, content, schema, maximum, model=None):
             model=model or model_name(), contents=content,
             config=types.GenerateContentConfig(
                 system_instruction=instruction, response_mime_type='application/json',
-                response_json_schema=schema, max_output_tokens=maximum,
+                response_json_schema={k: v for k, v in schema.items() if k != 'additionalProperties'},
+                max_output_tokens=maximum,
             ),
         )
         return result.model_dump(mode='json', by_alias=True, exclude_none=True)
 
 
 def generate(connect, kind, instruction, data, schema, validate):
-    """Try the other approved model only for a summary model-not-found error."""
+    """Retry once on model/request errors, with the same quota and privacy gates."""
     output, error = _generate(connect, kind, instruction, data, schema, validate)
-    if kind == 'summary' and error == 'configuration_404':
-        alternate = 'gemini-3.5-flash-lite' if model_name() == 'gemini-2.5-flash-lite' else 'gemini-2.5-flash-lite'
+    if error in ('configuration_400', 'configuration_404'):
+        alternate = next(model for model in APPROVED_MODELS if model != model_name())
         return _generate(connect, kind, instruction, data, schema, validate, alternate)
     return output, error
 
