@@ -45,12 +45,12 @@ export default function App(){
   inFlight.current=true;
   setLoggingIn(true);setSlowLogin(false);setError('');
   const slowTimer=window.setTimeout(()=>setSlowLogin(true),8000);
-  let timeout:number|undefined;
   const controller=new AbortController();
+  const timeout=window.setTimeout(()=>controller.abort(),90000);
   try{
    // Let an already-started cold boot finish before sending credentials.
    if(warmRequest.current)await warmRequest.current;
-   timeout=window.setTimeout(()=>controller.abort(),75000);
+   // A single deadline covers both waiting for prewarm and login.
    const r=await fetch(apiOrigin+'/api/auth/login',{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({password}),signal:controller.signal
@@ -66,7 +66,7 @@ export default function App(){
    setError(controller.signal.aborted?'登入連線逾時，後端可能仍在啟動，請稍後再試。':e instanceof Error?e.message:String(e));
   }finally{
    window.clearTimeout(slowTimer);
-   if(timeout!==undefined)window.clearTimeout(timeout);
+   window.clearTimeout(timeout);
    inFlight.current=false;setLoggingIn(false);setSlowLogin(false);
   }
  }
