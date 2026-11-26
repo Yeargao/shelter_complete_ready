@@ -8,14 +8,10 @@ from zoneinfo import ZoneInfo
 import calendar, math
 from contextlib import contextmanager
 from pathlib import Path
-import numpy as np
-import pandas as pd
-from catboost import CatBoostClassifier, CatBoostRegressor
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
-from ortools.sat.python import cp_model
 from uuid import uuid4
 
 ROOT=Path(__file__).resolve().parent.parent
@@ -168,18 +164,31 @@ def load(cls,filename):
  m=cls();m.load_model(str(MODELS/filename));return m
 # Model files are optional in demo mode; never pretend generated values are trained predictions.
 DEMO_MODE=os.environ.get('SHELTER_MODEL_MODE','demo').lower()=='demo'
-def optional_model(cls, filename):
+@lru_cache(maxsize=4)
+def optional_model(kind, filename):
  path=MODELS/filename
  if DEMO_MODE and not path.is_file():return None
+ if not path.is_file():raise FileNotFoundError(f'Missing required model file: {path}')
+ from catboost import CatBoostClassifier, CatBoostRegressor
+ cls=CatBoostClassifier if kind=='classifier' else CatBoostRegressor
  return load(cls,filename)
-health_model=optional_model(CatBoostClassifier,'health_catboost.cbm')
-adoption_model=optional_model(CatBoostClassifier,'adoption_catboost.cbm')
+
+def get_health_model():
+ return optional_model('classifier','health_catboost.cbm')
+
+def get_adoption_model():
+ return optional_model('classifier','adoption_catboost.cbm')
+
+def model_availability(filename):
+ # Health checks must never import ML libraries or load model weights.
+ return 'on_demand' if (MODELS/filename).is_file() else 'demo' if DEMO_MODE else 'missing'
 occupancy_metrics=json.loads((MODELS/'best_params_and_metrics.json').read_text(encoding='utf-8')) if (MODELS/'best_params_and_metrics.json').is_file() else {}
 
 @lru_cache(maxsize=1)
 def occupancy_research_inputs():
- intake_model=optional_model(CatBoostRegressor,'intakes_catboost.cbm')
- outcome_model=optional_model(CatBoostRegressor,'outcomes_catboost.cbm')
+ import pandas as pd
+ intake_model=optional_model('regressor','intakes_catboost.cbm')
+ outcome_model=optional_model('regressor','outcomes_catboost.cbm')
  history_path=Path(__file__).parent/'daily_history.csv'
  if history_path.is_file():
   history=pd.read_csv(history_path,parse_dates=['date']).sort_values('date')
@@ -237,7 +246,8 @@ def resource_totals(animals, food_rate, care_minutes):
  return food,care
 
 @app.get('/healthz')
-def healthz():return {'status':'ok','health_catboost':'demo' if health_model is None else 'loaded','adoption_catboost':'demo' if adoption_model is None else 'loaded','occupancy_catboost':'on_demand'}
+def healthz():
+ return {'status':'ok','health_catboost':model_availability('health_catboost.cbm'),'adoption_catboost':model_availability('adoption_catboost.cbm'),'occupancy_catboost':'on_demand'}
 @app.get('/api/animals')
 def animals(q:str='',species:str='',dataset:str='',skip:int=0,limit:int=500):
  with connect() as c:rows=c.execute('SELECT * FROM animals WHERE is_active=1 AND (name LIKE ? OR CAST(id AS TEXT) LIKE ?) AND (?="" OR species=?) ORDER BY id LIMIT ? OFFSET ?',('%'+q+'%','%'+q+'%',species,species,min(limit,2000),skip)).fetchall()
@@ -304,18 +314,23 @@ def summary():
 def pet_type(a):return '1' if a['species']=='dog' else '2'
 def tri(v):return {'yes':'1','no':'2','unknown':'3'}.get(v,'3')
 def gender(a):return {'male':'1','female':'2','unknown':'3'}[a['sex']]
-def health_features(a):return pd.DataFrame([{'Type':pet_type(a),'Age':int((a['age_months'] or 24)/12),'Gender':gender(a),'Vaccinated':tri(a['vaccinated']),'Dewormed':tri(a['dewormed']),'Sterilized':tri(a['sterilized'])}])[health_model.feature_names_]
+def health_features(a, model=None):
+ import pandas as pd
+ model=model if model is not None else get_health_model()
+ return pd.DataFrame([{'Type':pet_type(a),'Age':int((a['age_months'] or 24)/12),'Gender':gender(a),'Vaccinated':tri(a['vaccinated']),'Dewormed':tri(a['dewormed']),'Sterilized':tri(a['sterilized'])}])[model.feature_names_]
 def health_prediction(a):
+ health_model=get_health_model()
  if health_model is None:
   labels=['1','2','3'];seed=int(a['id'])*41+int(a.get('age_months') or 24)
   base=[0.72,0.20,0.08] if a.get('health_status')=='healthy' else ([0.12,0.26,0.62] if a.get('health_status')=='serious' else [0.22,0.60,0.18])
   jitter=(seed%11-5)*0.005
   probs=[round(base[0]+jitter,5),round(base[1]-jitter,5),round(base[2],5)]
   return {'status':'demo','mode':'demo','predicted_label':labels[max(range(3),key=lambda i:probs[i])],'class_probabilities':dict(zip(labels,probs))}
- x=health_features(a);prob=health_model.predict_proba(x)[0];labels=[str(k) for k in health_model.classes_];ix=int(np.argmax(prob))
+ x=health_features(a,health_model);prob=health_model.predict_proba(x)[0];labels=[str(k) for k in health_model.classes_];ix=max(range(len(prob)),key=lambda i:prob[i])
  return {'status':'ready','predicted_label':labels[ix],'class_probabilities':dict(zip(labels,[round(float(v),5) for v in prob]))}
 
 def assess(a):
+ health_model=get_health_model()
  ml=health_prediction(a)
  tasks=[]
  if a['vaccinated']!='yes':tasks.append('確認疫苗紀錄')
@@ -333,16 +348,19 @@ def batch_health():
 @app.post('/api/adoption/predict')
 def adoption(animal_id:int):
  a=get_animal(animal_id)
+ adoption_model=get_adoption_model()
  if adoption_model is None:
   seed=int(a['id'])*13+int(a.get('age_months') or 24)
   probs=[0.08,0.17,0.36,0.25,0.14]
   idx=seed%5;probs[idx]+=0.05;total=sum(probs);probs=[round(v/total,4) for v in probs]
   return {'mode':'demo','ml_status':'demo','model_version':'synthetic-demo-adoption-v1','adoption_speed':{'predicted_class':max(range(5),key=lambda i:probs[i]),'class_probabilities':{str(i):v for i,v in enumerate(probs)},'label_meaning':'展示用送養速度類別 0–4，非真實模型預測'},'adoption_event':{'available':False,'note':'展示模式未提供真實送養事件預測'},'warnings':['此結果為固定規則產生的模擬資料，不是 CatBoost 推論。']}
+ import pandas as pd
  x=pd.DataFrame([{'Type':pet_type(a),'Age':int((a['age_months'] or 24)/12),'Breed1':'307','Breed2':'0','Gender':gender(a),'MaturitySize':'2','FurLength':'1','Vaccinated':tri(a['vaccinated']),'Dewormed':tri(a['dewormed']),'Sterilized':tri(a['sterilized']),'Health':str({'healthy':1,'needs_review':2,'serious':3}.get(a['health_status'],1)),'Fee':0,'PhotoAmt':0}])[adoption_model.feature_names_]
- p=adoption_model.predict_proba(x)[0];pred=int(adoption_model.classes_[int(np.argmax(p))])
+ p=adoption_model.predict_proba(x)[0];pred=int(adoption_model.classes_[max(range(len(p)),key=lambda i:p[i])])
  return {'mode':'real','ml_status':'real','model_version':'adoption_catboost.cbm','adoption_speed':{'predicted_class':pred,'class_probabilities':{str(k):round(float(v),4) for k,v in zip(adoption_model.classes_,p)},'label_meaning':'PetFinder 送養速度類別 0–4，不等於精確天數'},'warnings':['PetFinder 特徵中的品種代碼、費用、照片數為展示假設值；跨資料集預測未經在地驗證。']}
 
 def features_for(target_date, hist):
+ import numpy as np
  f={'dayofweek':target_date.weekday(),'month':target_date.month,'dayofyear':target_date.timetuple().tm_yday,'dayofmonth':target_date.day,'is_weekend':int(target_date.weekday()>=5),'time_idx':(target_date-date.fromisoformat('2025-05-06')).days}
  for target in ['intakes','outcomes']:
   values=[float(r[target]) for r in hist]
@@ -353,6 +371,8 @@ def features_for(target_date, hist):
 @app.get('/api/occupancy/forecast')
 def forecast(days:int=30):
  if days not in (7,14,30):raise HTTPException(422,'僅支援 7、14、30 天')
+ import numpy as np
+ import pandas as pd
  intake_model,outcome_model,history=occupancy_research_inputs()
  hist=history[['intakes','outcomes']].to_dict('records');last=date.fromisoformat(str(history.iloc[-1]['date'].date()))
  count=summary()['in_care_count'];running=count;points=[]
@@ -800,6 +820,7 @@ def scheduling_priority_weight(task, task_count):
  return 1
 
 def allocate(tasks,workers,days=1,fixed=None,work_date=None):
+ from ortools.sat.python import cp_model
  work_date=work_date or WORK_DATE.isoformat(); fixed=fixed or []
  model=cp_model.CpModel(); edges={}; starts={};ends={};intervals={j:[] for j in range(len(workers))}
  # Reserve manually locked and already completed work, leave it untouched.
