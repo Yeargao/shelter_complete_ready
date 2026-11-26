@@ -1,147 +1,206 @@
-import {useEffect,useRef,useState} from 'react';
-import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
-import {ResponsiveContainer,LineChart,Line,XAxis,YAxis,CartesianGrid,Tooltip,Legend} from 'recharts';
-import {api,type Staff} from '../services/api';
-import {ErrorView,Loading} from '../components/common/States';
-import DailyTimeline,{priorityColor} from '../components/common/DailyTimeline';
-import {displayTaskLabel,reportText} from '../components/common/taskPresentation';
-import {visibleAssignments} from '../components/common/assignmentPresentation';
-import './ResourceBoard.css';
 
-type Assignment={task_id:string;animal_id:number;animal_name:string;staff_id:number|null;staff_name:string|null;category:string;label:string;date:string|null;hours:number;state:string;start_time?:string|null;end_time?:string|null;is_new?:boolean;source?:string;due_date?:string|null;note?:string;result?:string|null;resolved?:string|null;answer?:string|null;priority?:number;eligible_staff_ids?:number[]};
-const EDITABLE_SKILLS=[
- {value:'health:observation',label:'健康觀察（健康狀態待確認、基礎驅蟲）'},
- {value:'health:veterinary',label:'獸醫醫療（傷病治療、健康問題追蹤、疫苗施打）'},
- {value:'admin:records',label:'行政紀錄（疫苗紀錄、絕育安排）'},
- {value:'adoption:followup',label:'送養追蹤'},
-] as const;
+import { useEffect, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { api, type Placement, type Plan, type Staff, type WeeklyShift, type WeeklyTask } from '../services/api';
+import { ErrorView } from '../components/common/States';
+import ScheduleCalendar, {priorityName} from '../components/common/ScheduleCalendar';
+import { addDays, gridTime, lunchBreak, taipeiToday, timeGrid } from '../components/common/scheduleDates';
+import TaskPhotos from '../components/common/TaskPhotos';
+import {displayTaskLabel,healthTaskLabels} from '../components/common/taskPresentation';
 
-export default function ResourcePage(){
- const qc=useQueryClient();
- const profiles=useQuery({queryKey:['profiles'],queryFn:api.profiles,staleTime:60000});
- const staff=useQuery({queryKey:['staff',1],queryFn:()=>api.staff(1),staleTime:60000});
- const [showForecast,setShowForecast]=useState(false);
- const [showAnimals,setShowAnimals]=useState(false);
- const needs=useQuery({enabled:showForecast,staleTime:60000,queryKey:['needs-forecast',30],queryFn:()=>api.needsForecast(30)});
- const animals=useQuery({queryKey:['animal-needs'],queryFn:api.animalNeeds,enabled:showAnimals,staleTime:60000});
- const assignments=useQuery({queryKey:['staff-assignments'],queryFn:api.staffAssignments,refetchInterval:15000,refetchIntervalInBackground:false});
- const occupancy=useQuery({queryKey:['forecast',30],queryFn:()=>api.forecast(30),enabled:false,staleTime:60000});
- const [tab,setTab]=useState<'all'|'unassigned'|'assigned'|'done'|'new'>('all');
- const [query,setQuery]=useState('');const [activeWorker,setActiveWorker]=useState<number|null>(null);
- const [assignedStaffFilter,setAssignedStaffFilter]=useState('all');
- const calendarRef=useRef<HTMLElement|null>(null);
- const workloadRef=useRef<HTMLDivElement|null>(null);
- const [arrowTop,setArrowTop]=useState(92);
- const [selected,setSelected]=useState<string[]>([]);
- const [batchWorker,setBatchWorker]=useState('');
- const [editableTask,setEditableTask]=useState<string|null>(null);
- const [targetWorker,setTargetWorker]=useState<Record<string,string>>({});
- const [editingStaff,setEditingStaff]=useState<Staff|null>(null);
- const saveStaff=useMutation({mutationFn:(w:Staff)=>api.updateStaff(w.id,w),onSuccess:async()=>{setEditingStaff(null);await Promise.all([qc.invalidateQueries({queryKey:['staff']}),qc.invalidateQueries({queryKey:['staff-assignments']})])}});
- const optimize=useMutation({mutationFn:async()=>{const p=profiles.data?.[0];if(!p)throw Error('沒有收容所設定');const f=occupancy.data??(await occupancy.refetch()).data;return api.resources({...p,profile_id:p.id,forecast:f?.forecast||[]})},onSuccess:async()=>{await qc.invalidateQueries({queryKey:['staff-assignments']});await qc.invalidateQueries({queryKey:['tasks']})}});
- const reassign=useMutation({mutationFn:({ids,staffId}:{ids:string[];staffId:number})=>ids.length===1?api.reassign(ids[0],staffId):api.batchReassign(ids,staffId),onSuccess:async()=>{setSelected([]);setEditableTask(null);setTargetWorker({});await Promise.all([qc.invalidateQueries({queryKey:['staff-assignments']}),qc.invalidateQueries({queryKey:['staffAssignments']})])}});
- useEffect(()=>{
-  // Instant cross-tab update for employee reports, plus 15s polling for other devices.
-  if(typeof BroadcastChannel==='undefined')return;
-  const channel=new BroadcastChannel('shelter-task-events');
-  channel.onmessage=()=>{void qc.invalidateQueries({queryKey:['staff-assignments']});void qc.invalidateQueries({queryKey:['tasks']});};
-  return ()=>channel.close();
- },[qc]);
- useEffect(()=>{
-  const calendar=calendarRef.current;
-  const container=workloadRef.current;
-  const targetId=activeWorker??staff.data?.[0]?.id;
-  if(!calendar||!container||targetId==null)return;
-  const item=Array.from(container.querySelectorAll<HTMLElement>('[data-worker-id]'))
-       .find(node=>node.dataset.workerId===String(targetId));
-  if(!item)return;
-  const update=()=>{
-   const box=calendar.getBoundingClientRect();
-   const target=item.getBoundingClientRect();
-   const center=target.top+target.height/2-box.top;
-   setArrowTop(Math.min(Math.max(center,20),box.height-20));
-  };
-  update();
-  window.addEventListener('resize',update);
-  container.addEventListener('scroll',update,{passive:true});
-  return ()=>{window.removeEventListener('resize',update);container.removeEventListener('scroll',update)};
- },[activeWorker,staff.data]);
- const workDate=assignments.data?.planning_start||'';
- // Keep current schedule rows and unscheduled work; historical assignments never win deduplication.
- const list=visibleAssignments(((assignments.data?.assignments||[]) as Assignment[]).filter(t=>t.date===workDate||(t.date==null&&t.staff_id==null&&t.state!=='done')));
- const priority=(t:Assignment)=>t.priority??((t.label.includes('優先')||t.label==='優先確認健康狀況')?0:t.due_date&&t.due_date<(assignments.data?.planning_start||'')?1:t.due_date===assignments.data?.planning_start?2:t.category==='health'?3:4);
- const taskSort=(a:Assignment,b:Assignment)=>String(a.date||a.due_date||'9999').localeCompare(String(b.date||b.due_date||'9999'))||priority(a)-priority(b)||a.animal_id-b.animal_id||a.task_id.localeCompare(b.task_id);
- // `is_new` also exists on rule-created confirmations; only report-derived follow-ups belong in 新增任務.
- const assignedCountByWorker=new Map<number,number>();
- list.forEach(t=>{if(t.date===workDate&&t.staff_id!=null&&t.state!=='done')assignedCountByWorker.set(t.staff_id,(assignedCountByWorker.get(t.staff_id)||0)+1)});
- const assignedSort=(a:Assignment,b:Assignment)=>String(a.staff_name||staff.data?.find(w=>w.id===a.staff_id)?.name||'').localeCompare(String(b.staff_name||staff.data?.find(w=>w.id===b.staff_id)?.name||''),'zh-Hant')||String(a.date||'').localeCompare(String(b.date||''))||String(a.start_time||'99:99').localeCompare(String(b.start_time||'99:99'))||String(a.end_time||'99:99').localeCompare(String(b.end_time||'99:99'))||a.task_id.localeCompare(b.task_id);
- const healthReports=new Set(((assignments.data?.assignments||[]) as Assignment[])
-  .filter(t=>t.label==='健康狀態待確認'&&t.state==='done'&&(t.result==='sick'||t.result==='injured'))
-  .map(t=>t.animal_id));
- const isNewFollowUp=(t:Assignment)=>Boolean(t.is_new)&&(
-  t.source==='employee_report'||(t.label==='優先確認健康狀況'&&healthReports.has(t.animal_id))
- );
- const inNewQueue=(t:Assignment)=>isNewFollowUp(t)&&t.staff_id==null&&t.state!=='done';
- const visible=list.filter(t=>(tab==='all'||tab==='new'&&inNewQueue(t)||tab==='done'&&t.state==='done'||tab==='unassigned'&&t.staff_id==null&&t.state!=='done'||tab==='assigned'&&t.date===workDate&&t.staff_id!=null&&t.state!=='done'&&(assignedStaffFilter==='all'||String(t.staff_id)===assignedStaffFilter))&&`${t.animal_name} ${t.label} ${t.animal_id}`.toLowerCase().includes(query.toLowerCase())).sort(tab==='assigned'?assignedSort:taskSort);
- const count=(k:string)=>list.filter(t=>k==='new'?inNewQueue(t):k==='unassigned'?t.staff_id==null&&t.state!=='done':k==='assigned'?t.date===workDate&&t.staff_id!=null&&t.state!=='done':t.state==='done').length;
- const pendingHealthConfirm=list.filter(t=>t.label==='健康狀態待確認'&&t.staff_id==null&&t.state!=='done').length;
- const workers=staff.data||[];
- const focusedWorker=workers.find(w=>w.id===activeWorker)||workers[0];
- const available=(w:typeof workers[number])=>Math.max(0,w.available_hours-w.scheduled_hours);
- // Both the pool and the timeline use the same visible task records.
- // Count raw schedule rows rather than the task pool's deduplicated display items.
- const workloadAssignments=Array.from(new Map(((assignments.data?.assignments||[]) as Assignment[])
-  .filter(t=>t.date===workDate&&t.staff_id!=null).map(t=>[t.task_id,t] as const)).values());
- const assignedHours=(id:number)=>workloadAssignments.filter(t=>t.staff_id===id).reduce((sum,t)=>sum+Number(t.hours||0),0);
+const skills = [
+ ['health:observation','健康觀察'],['health:veterinary','獸醫醫療'],
+ ['admin:records','行政紀錄'],['adoption:followup','送養追蹤'],
+];
 
- const resultText=(t:Assignment)=>t.result==='no'?(t.label.includes('驅蟲')?'未驅蟲':t.label.includes('疫苗')?'未施打疫苗':'否'):t.result==='yes'?(t.label.includes('驅蟲')?'已驅蟲':t.label.includes('疫苗')?'已注射疫苗':'是'):t.result==='sick'?'生病':t.result==='injured'?'受傷':t.result==='healthy'?'健康':t.answer||t.note?.trim()||'待確認';
- const toggleTask=(id:string,checked:boolean)=>setSelected(old=>checked?[...new Set([...old,id])]:old.filter(x=>x!==id));
- const taskRow=(t:Assignment)=> <div key={t.task_id} className={`resource-task-row ${t.state==='done'?'resource-task-row--done':`resource-task-row--${priorityColor(t)}`} ${tab==='assigned'?'resource-task-row--assigned':''}`}>
-  {t.state!=='done'&&<input type="checkbox" aria-label={`選取 ${t.label}`} checked={selected.includes(t.task_id)} onChange={e=>toggleTask(t.task_id,e.target.checked)}/>}
-  <span className={`priority-dot priority-dot--${priorityColor(t)}`}/>
-  <div className={`resource-task-title resource-task-title--${priorityColor(t)}`}><strong><span className="resource-task-name">{displayTaskLabel(t.label)}</span><span className="resource-task-identity"> · {t.animal_name} #{t.animal_id}</span></strong><small>{t.due_date||'待確認日期'}{(t.state==='done'||t.is_new)&&(t.result||t.answer||t.note)?<> · 員工回報：<span className={t.result==='no'||t.resolved==='no'?'resource-negative':''}>{t.resolved?reportText(t.result,t.resolved):t.result?reportText(t.result):t.answer||'—'}</span></>:null}{t.note?` · 備註：${t.note}`:''} · {t.hours}h{t.start_time&&t.end_time?` · ${t.start_time}–${t.end_time}`:''}</small></div>
-  {t.state==='done'?<div className="resource-task-done"><b>已完成 · {t.staff_name||'未指定'}</b></div>:<div className="resource-assignment-control"><select aria-label={`選擇 ${t.label} 指派對象`} value={editableTask===t.task_id?(targetWorker[t.task_id]??String(t.staff_id??0)):String(t.staff_id??0)} disabled={editableTask!==t.task_id||reassign.isPending} onChange={e=>setTargetWorker(old=>({...old,[t.task_id]:e.target.value}))}><option value="0">未指派</option>{t.staff_id!=null&&!workers.some(w=>w.id===t.staff_id)&&<option value={t.staff_id}>{t.staff_name||`員工 #${t.staff_id}`}（已離開名單）</option>}{workers.filter(w=>w.id===t.staff_id||(t.eligible_staff_ids?.includes(w.id)??false)).map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</select><button type="button" className="resource-assign-button" disabled={reassign.isPending} onClick={()=>{if(editableTask!==t.task_id){setEditableTask(t.task_id);setTargetWorker(old=>({...old,[t.task_id]:String(t.staff_id??0)}));return;}const staffId=Number(targetWorker[t.task_id]??t.staff_id??0);if(staffId!==Number(t.staff_id??0))reassign.mutate({ids:[t.task_id],staffId});else setEditableTask(null)}}>{editableTask===t.task_id?'確認':'指派'}</button></div>}
- </div>;
- return <section className="space-y-5">
-  <div className="hero"><div className="eyebrow">RESOURCE CONTROL / WORKBENCH</div><h1>資源配置</h1><p>左側管理每日待辦，右側顯示員工單日時間表；保留 30 天需求推估。</p></div>
-  {(profiles.isLoading||staff.isLoading||assignments.isLoading)&&<Loading/>}
-  {[profiles.error,staff.error,needs.error,assignments.error,optimize.error,reassign.error].filter(Boolean).map((e,i)=><ErrorView key={i} error={e}/>)}
-  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-   {[["待辦任務",list.length],["未派事項",count('unassigned')],["已分配",count('assigned')],["已完成",count('done')]].map(([label,value])=><div key={label} className="metric"><span>{label}</span><strong>{value}</strong></div>)}
-  </div>
-  <div className="resource-optimization-heading"><h2>⚡ OR-Tools 最佳化派工</h2><p className="muted">單日排程 · 15 分鐘精度 · 優先健康狀態確認（保留已鎖定任務）</p><button type="button" disabled={optimize.isPending||!profiles.data?.length} onClick={()=>{if(window.confirm('重新最佳化會重排今天尚未鎖定、尚未完成的任務；手動指派與已完成任務不會移動。確定繼續？'))optimize.mutate()}}>{optimize.isPending?'重新排程中…':'重新最佳化派工'}</button></div>
-  {pendingHealthConfirm>0&&<p className="resource-high-priority-note" role="status">目前仍有 {pendingHealthConfirm} 項「健康狀態待確認」未指派。可按「重新最佳化派工」優先重新安排；若仍無法指派，請檢查員工技能、工時與已鎖定的工作。</p>}
-  <div className="resource-board">
-   <div className="panel resource-pool">
-    <div className="resource-pool__header">
-      <h2>今日任務池</h2>
-      {selected.length>1?<div className="resource-batch" role="group" aria-label="批次指派"><strong>批次指派</strong><span>已選 {selected.length} 筆</span><select aria-label="批次選擇員工或移至未派" value={batchWorker} onChange={e=>setBatchWorker(e.target.value)}><option value="">選擇員工或操作</option>{workers.filter(w=>selected.every(id=>{const task=list.find(t=>t.task_id===id);return task?.eligible_staff_ids?.includes(w.id)??false})).map(w=><option key={w.id} value={w.id}>{w.name}</option>)}<option value="0">移至未派</option></select><button disabled={!batchWorker||reassign.isPending} onClick={()=>reassign.mutate({ids:selected,staffId:Number(batchWorker)})}>執行</button></div>:<input className="resource-search" placeholder="搜尋動物、任務、編號" value={query} onChange={e=>setQuery(e.target.value)}/>}
+export default function ResourcePage() {
+ const qc = useQueryClient();
+ const [day,setDay]=useState(taipeiToday);
+ const [view,setView]=useState<'day'|'week'>('week');
+ const [worker,setWorker]=useState<number>();
+ const [search,setSearch]=useState('');
+ const [poolTab,setPoolTab]=useState<'pending'|'derived'>('pending');
+ const [eligibleOnly,setEligibleOnly]=useState(false);
+ const [plan,setPlan]=useState<Plan>();
+ const [selected,setSelected]=useState<WeeklyTask>();
+ const [destination,setDestination]=useState({staff_id:0,day:'',start_time:'09:00',locked:true});
+ const [shift,setShift]=useState<WeeklyShift>();
+ const [staffSettings,setStaffSettings]=useState<Staff>();
+ const [dragged,setDragged]=useState<WeeklyTask>();
+ const [notice,setNotice]=useState('');
+ const [dropIssue,setDropIssue]=useState('');
+ const detailRef=useRef<HTMLElement>(null);
+ useEffect(()=>{if(selected)detailRef.current?.focus();},[selected]);
+ const week=useQuery({queryKey:['schedule-week',day],queryFn:()=>api.week(day),refetchInterval:15000});
+ const refresh=async()=>{setPlan(undefined);await qc.invalidateQueries({queryKey:['schedule-week']});await qc.invalidateQueries({queryKey:['resource-overview']});};
+ const preview=useMutation({mutationFn:()=>api.previewWeek(day),onSuccess:setPlan});
+ const apply=useMutation({mutationFn:api.applyWeek,onSuccess:refresh});
+ const move=useMutation({mutationFn:({id,body}:{id:string;body:Parameters<typeof api.place>[1]})=>api.place(id,body),onSuccess:async()=>{setNotice('已儲存指派');setSelected(undefined);await refresh();}});
+ const create=useMutation({mutationFn:api.createWeeklyTask,onSuccess:async()=>{setPoolTab('pending');await refresh();preview.mutate();}});
+ const resolve=useMutation({mutationFn:api.resolveIssue,onSuccess:refresh});
+ const event=useMutation({mutationFn:({id,date}:{id:string;date?:string})=>api.taskEvent(id,date?{event:'delay',earliest:date}:{event:'start'}),onSuccess:async()=>{setSelected(undefined);await refresh();preview.mutate();}});
+ const saveShift=useMutation({mutationFn:api.saveShift,onSuccess:refresh});
+ const saveStaff=useMutation({mutationFn:(staff:Staff)=>api.updateStaff(staff.id,staff),
+  onSuccess:async()=>{setStaffSettings(undefined);await refresh();preview.mutate();}});
+ const workers=week.data?.workers??[], tasks=week.data?.tasks??[], days=week.data?.days??[];
+ const sid=worker??workers[0]?.id;
+ const columns=view==='week'?days.map(date=>({day:date,sid,title:date.slice(5)})):workers.map(w=>({day,sid:w.id,title:w.name}));
+ const ranges=week.data?.shifts??[];
+ const historical=days.length>0&&days[days.length-1]<taipeiToday();
+ const pool=tasks.filter(t=>!t.staff_id&&t.state==='pending'&&t.is_active&&[t.label,t.animal_name,t.animal_id].join(' ').toLowerCase().includes(search.replace('傷病治療','優先確認健康狀況').toLowerCase()));
+ const go=(date:string)=>{setDay(date);setPlan(undefined);setShift(undefined);setSelected(undefined);setNotice('');setDropIssue('');};
+ const focusedWorker=workers.find(w=>w.id===sid);
+ const visiblePool=pool.filter(t=>(poolTab!=='derived'||t.is_derived)
+  &&(!eligibleOnly||focusedWorker?.skills.includes(t.skill)));
+ const choose=(t:WeeklyTask)=>{setSelected(t);setDestination({staff_id:t.staff_id??sid??0,day:t.day??(day<taipeiToday()?taipeiToday():day),start_time:t.start_time??'09:00',locked:t.staff_id===null||Boolean(t.locked)});};
+ const drop=(id:string,staff_id:number|null,date?:string,start_time?:string)=>{
+  if(id&&!move.isPending)move.mutate({id,body:{staff_id,day:date,start_time,locked:true}});
+ };
+ const beginDrag=(event:React.DragEvent,task:WeeklyTask)=>{
+  event.dataTransfer.setData('text/plain',task.task_id);
+  setDragged(task);
+  setNotice('');
+  setDropIssue('');
+ };
+ const dropReason=(task:WeeklyTask,shift:WeeklyShift|undefined,date:string,start:number)=>{
+  if(date<taipeiToday())return '歷史排程只供查閱';
+  if(!shift?.attending)return '員工未出勤';
+  if(!shift.skills.includes(task.skill))return '技能不符';
+  const end=start+task.hours*4;
+  if(start<lunchBreak[1]&&end>lunchBreak[0])return '11:30–13:30 休息時間，暫停派工';
+  if(start<timeGrid(shift.shift_start)||end>timeGrid(shift.shift_end))return '超出上下班時間';
+  if(shift.break_start&&shift.break_end&&start<timeGrid(shift.break_end)&&end>timeGrid(shift.break_start))return '與休息時間重疊';
+  const assigned=tasks.filter(t=>t.staff_id===shift.id&&t.day===date&&t.state!=='cancelled'&&t.task_id!==task.task_id);
+  if(assigned.some(t=>start<timeGrid(t.end_time)&&end>timeGrid(t.start_time)))return '與既有任務重疊';
+  const shiftQuarters=timeGrid(shift.shift_end)-timeGrid(shift.shift_start)
+   -(timeGrid(shift.break_end)-timeGrid(shift.break_start));
+  const available=shift.daily_capacity_hours===undefined
+   ?Math.min(shiftQuarters,Math.floor(shift.available_hours*4))-Math.ceil(shift.scheduled_hours*4)
+   :shift.daily_capacity_hours*4;
+  if(task.hours*4+assigned.reduce((total,t)=>total+t.hours*4,0)>available)return '超出每日可用工時';
+  return '';
+ };
+ const placement=(p:Placement)=>{
+  if(p[0]===null)return '任務池';
+  return [workers.find(w=>w.id===p[0])?.name??p[0],p[1],p[2]===null?'':gridTime(p[2])].join(' ');
+ };
+ const navigating=preview.isPending||apply.isPending||move.isPending;
+ return <section className="space-y-4">
+  <h1>資源配置</h1>
+  {[week.error,create.error,saveShift.error,resolve.error,saveStaff.error].filter(Boolean).map((error,i)=><ErrorView key={i} error={error}/>)}
+  <div className="weekly-board">
+   <aside className="panel weekly-board-panel weekly-pool-panel" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();drop(e.dataTransfer.getData('text/plain'),null);setDragged(undefined);}}>
+    <h2>待指派任務池</h2>
+    <details><summary>建立任務</summary><form className="space-y-2" onSubmit={e=>{
+     e.preventDefault();const f=new FormData(e.currentTarget);
+     create.mutate({...Object.fromEntries(f),animal_id:Number(f.get('animal_id')),priority:Number(f.get('priority'))});
+    }}>
+     <label>動物編號<input name="animal_id" type="number" min="1" required/></label>
+     <label>任務<select name="label">{healthTaskLabels.map(l=><option key={l} value={l}>{displayTaskLabel(l)}</option>)}</select></label>
+     <label>最早日期<input name="earliest" type="date" min={taipeiToday()} defaultValue={taipeiToday()} required/></label>
+     <label>期限<input name="due" type="date" min={taipeiToday()} defaultValue={taipeiToday()} required/></label>
+     <label>優先級<select name="priority" defaultValue="3">{priorityName.map((label,i)=><option key={label} value={i}>{label}</option>)}</select></label>
+     <label>注意事項<textarea name="note"/></label>
+     <button disabled={create.isPending}>新增</button>
+    </form></details>
+    <input aria-label="搜尋任務" placeholder="搜尋動物或任務" value={search} onChange={e=>setSearch(e.target.value)}/>
+    <div className="weekly-pool-tabs" aria-label="任務類別">
+     <button type="button" aria-pressed={poolTab==='pending'} className={poolTab==='pending'?'':'secondary'} onClick={()=>setPoolTab('pending')}>未指派</button>
+     <button type="button" aria-pressed={poolTab==='derived'} className={poolTab==='derived'?'':'secondary'} onClick={()=>setPoolTab('derived')}>衍生任務</button>
     </div>
-    <div className="resource-tabs">{([['all','全部'],['unassigned','未指派'],['assigned','已指派'],['done','已完成'],['new','新增任務']] as const).map(([key,label])=><button type="button" key={key} className={tab===key?'resource-tab--active':''} onClick={()=>setTab(key)}>{label} ({key==='all'?list.length:count(key)})</button>)}</div>
-    {tab==='assigned'&&<div className="resource-assigned-filter"><label htmlFor="assigned-staff-select">依員工篩選</label><select id="assigned-staff-select" value={assignedStaffFilter} onChange={e=>setAssignedStaffFilter(e.target.value)}><option value="all">全部員工 ({count('assigned')})</option>{[...assignedCountByWorker.keys()].sort((a,b)=>String(workers.find(w=>w.id===a)?.name||list.find(t=>t.staff_id===a)?.staff_name||'').localeCompare(String(workers.find(w=>w.id===b)?.name||list.find(t=>t.staff_id===b)?.staff_name||''),'zh-Hant')).map(id=><option key={id} value={String(id)}>{workers.find(w=>w.id===id)?.name||list.find(t=>t.staff_id===id)?.staff_name||`員工 #${id}`} ({assignedCountByWorker.get(id)})</option>)}</select></div>}
-    <div className="resource-pool__scroll"><div className="resource-task-stack">{visible.map(taskRow)}</div>{!visible.length&&<p className="muted resource-no-tasks">此條件沒有工作。</p>}</div>
-    <div className="resource-pool__footer">{tab==='assigned'?'員工 → 執行日期 → 開始時間':'日期 → 重要度 → 動物編碼 · 新任務預設未指派'}</div>
+    <label className="weekly-checkbox"><input type="checkbox" checked={eligibleOnly} disabled={!focusedWorker} onChange={e=>setEligibleOnly(e.target.checked)}/>只顯示{focusedWorker? ` ${focusedWorker.name} `:'所選員工'}技能符合的任務</label>
+    <div className="weekly-pool">{visiblePool.map(t=><button key={t.task_id} className="weekly-task" data-priority={t.display_priority??t.priority} draggable
+     onDragStart={e=>beginDrag(e,t)} onDragEnd={()=>setDragged(undefined)} onClick={()=>choose(t)}>
+     <strong><span className="weekly-dot" aria-hidden="true"/>{displayTaskLabel(t.label)} · {priorityName[t.display_priority??t.priority]}</strong><span className="weekly-animal">
+      {t.photo_url?<img src={t.photo_url} alt=""/>:<span aria-label="尚無照片">🐾</span>}{t.animal_name} #{t.animal_id}</span>
+     <small>{t.hours*60} 分鐘 · 期限 {t.due??'未設定'}</small>{t.reason&&<small>{t.reason}</small>}
+    </button>)}</div>
+    {!visiblePool.length&&<p className="muted">沒有相符的{poolTab==='derived'?'衍生任務':'待指派任務'}</p>}
+   </aside>
+   <div className="panel weekly-board-panel space-y-3 min-w-0">
+    <h2>員工日曆</h2>
+    <div className="weekly-toolbar">
+     <button className="secondary" disabled={navigating} onClick={()=>go(addDays(day,-7))}>上一週</button>
+     <button className="secondary" disabled={navigating} onClick={()=>go(taipeiToday())}>今天</button>
+     <button className="secondary" disabled={navigating} onClick={()=>go(addDays(day,7))}>下一週</button>
+     <input aria-label="排程日期" type="date" disabled={navigating} value={day} onChange={e=>{if(e.target.value)go(e.target.value);}}/>
+     <select aria-label="日曆檢視" value={view} onChange={e=>setView(e.target.value==='day'?'day':'week')}><option value="day">日檢視</option><option value="week">週檢視</option></select>
+     <select aria-label="員工" value={sid??''} onChange={e=>setWorker(Number(e.target.value))}>{workers.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</select>
+     <button disabled={navigating||historical||week.isPending} onClick={()=>preview.mutate()}>七天最佳化派工</button>
+    </div>
+    {week.isLoading&&<p role="status">正在載入排程…</p>}
+    {preview.isPending&&<p role="status">正在計算七天排程…</p>}
+    {historical&&<p>歷史週只供查閱</p>}
+    {notice&&<p role="status">{notice}</p>}
+    {[preview.error,apply.error,move.error,event.error].filter(Boolean).map((error,i)=><ErrorView key={i} error={error}/>)}
+    {workers.length>0&&<details><summary>全員每日工時</summary><ul>
+     {workers.map(w=>{
+      const assigned=tasks.filter(t=>t.staff_id===w.id&&t.day===day&&t.state!=='cancelled').reduce((total,t)=>total+t.hours,0);
+      const shift=ranges.find(s=>s.id===w.id&&s.day===day);
+      return <li key={w.id}>{w.name} · 已排 {assigned}h · 可派 {shift?.assignable_hours??'—'}h</li>;
+     })}
+    </ul></details>}
+    {plan&&<section className="weekly-plan space-y-2"><h3>調整方案 · CP-SAT {plan.solver_status}</h3>
+     <ul>{plan.changes.map(c=><li key={c.task_id}>{c.animal_name} · {c.label}　{placement(c.before)} → {placement(c.after)} {c.adjustment_reason}</li>)}</ul>
+     {!plan.changes.length&&<p>沒有排程變動</p>}
+     <button disabled={apply.isPending||!plan.plan_id} onClick={()=>{if(plan.plan_id)apply.mutate(plan.plan_id);}}>確認儲存</button>{' '}
+     <button className="secondary" onClick={()=>setPlan(undefined)}>取消</button>
+    </section>}
+    {selected&&<section ref={detailRef} tabIndex={-1} aria-label="任務詳細資料" className="weekly-task-detail">
+     <div className="weekly-detail-heading"><h3>{selected.animal_name} · {selected.label}</h3>
+      <button type="button" className="secondary" onClick={()=>setSelected(undefined)}>關閉</button></div>
+     <p className="muted">{selected.day??'待指派'}　{selected.start_time??''} {selected.end_time?`– ${selected.end_time}`:''}
+      {selected.state==='done'?' · 已完成':selected.state==='in_progress'?' · 執行中':''}</p>
+     {selected.note&&<p>{selected.note}</p>}
+     {selected.report&&<p>回報：{selected.report.result} {selected.report.note}</p>}
+     {selected.state==='pending'&&(!selected.day||selected.day>=taipeiToday())&&<form className="weekly-toolbar" onSubmit={e=>{e.preventDefault();move.mutate({id:selected.task_id,body:destination});}}>
+     <select aria-label="指派員工" value={destination.staff_id} onChange={e=>setDestination({...destination,staff_id:Number(e.target.value)})}>{workers.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</select>
+     <input aria-label="指派日期" type="date" value={destination.day} required onChange={e=>setDestination({...destination,day:e.target.value})}/>
+     <input aria-label="開始時間" type="time" step={900} value={destination.start_time} required onChange={e=>setDestination({...destination,start_time:e.target.value})}/>
+     <label className="weekly-checkbox"><input type="checkbox" checked={destination.locked} onChange={e=>setDestination({...destination,locked:e.target.checked})}/>鎖定</label>
+     <button disabled={move.isPending}>儲存指派</button>
+     {selected.staff_id&&<button type="button" className="secondary" onClick={()=>drop(selected.task_id,null)}>移回任務池</button>}
+     {!selected.locked&&<button type="button" className="secondary" disabled={event.isPending} onClick={()=>event.mutate({id:selected.task_id,date:destination.day})}>延遲至所選日期</button>}
+     {selected.staff_id&&selected.day===taipeiToday()&&<button type="button" className="secondary"
+      onClick={()=>event.mutate({id:selected.task_id})}>標記執行中</button>}
+     </form>}
+    </section>}
+    {week.data&&<ScheduleCalendar columns={columns} shifts={ranges} tasks={tasks} onTask={choose} selectedId={selected?.task_id}
+     drag={{start:beginDrag,end:()=>setDragged(undefined),
+      canMove:t=>t.state==='pending'&&Boolean(t.day&&t.day>=taipeiToday()),
+      reason:dragged?(s,d,tick)=>dropReason(dragged,s,d,tick):undefined,
+      hover:setDropIssue,
+      drop:(id,column,start,reason)=>{setDropIssue(reason);if(!reason&&column.sid)drop(id,column.sid,column.day,start);setDragged(undefined);}}}/>}
    </div>
-   <section className="panel resource-calendar" ref={calendarRef} style={{"--resource-arrow-top":`${arrowTop}px`} as React.CSSProperties} aria-label="選定員工的時間表">
-    <div className="resource-calendar__head"><h2>員工時間表</h2><span>{workDate}</span></div>
-    {focusedWorker?<>
-     <div className="resource-calendar__person"><strong>{focusedWorker.name}</strong><span>{focusedWorker.attending?'當日出勤':'未出勤'} · {assignedHours(focusedWorker.id).toFixed(2)}h / {available(focusedWorker).toFixed(2)}h 可派工時</span></div>
-     <DailyTimeline key={focusedWorker.id} compact tasks={(assignments.data?.assignments||[]).filter(t=>t.date===workDate&&t.staff_id===focusedWorker.id)} shiftStart={focusedWorker.shift_start} shiftEnd={focusedWorker.shift_end} breakStart={focusedWorker.break_start} breakEnd={focusedWorker.break_end}/>
-     <button type="button" className="secondary resource-calendar__edit" onClick={()=>setEditingStaff({...focusedWorker})}>編輯員工技能與工時</button>
-    </>:<p className="muted">目前沒有員工資料。</p>}
-   </section>
-   <section className="resource-workload"><h2>員工負載</h2><div className="resource-workload__scroll" ref={workloadRef}>{workers.map(w=>{const workerTasks=workloadAssignments.filter(t=>t.staff_id===w.id),hours=assignedHours(w.id),used=w.scheduled_hours+hours,limit=w.available_hours,total=workerTasks.length,completed=workerTasks.filter(t=>t.state==='done').length,completedPercent=total?100*completed/total:0;return <button type="button" key={w.id} data-worker-id={w.id} className={`resource-worker ${focusedWorker?.id===w.id?'resource-worker--active':''}`} onClick={()=>setActiveWorker(w.id)}><span className="resource-worker__heading"><strong>{w.name}</strong><span>{focusedWorker?.id===w.id?'正在查看':'查看時間表'}</span></span><small>{w.skills.join('、')||'無技能資料'} · {w.attending?'出勤':'未出勤'}</small><span className="resource-worker__stats"><b>{used.toFixed(2)}h / {limit.toFixed(2)}h</b><span>{limit?Math.round(used/limit*100):0}%</span></span><span className={`resource-worker__progress ${!total?'resource-worker__progress--empty':''}`} aria-label={`已完成 ${completed} 項，未完成 ${total-completed} 項`}><span className="resource-worker__progress-done" style={{width:`${completedPercent}%`}}/>{total>0&&<span className="resource-worker__progress-pending" style={{width:`${100-completedPercent}%`}}/>}</span><span className="resource-worker__foot"><small>剩餘可派 {Math.max(0,available(w)-hours).toFixed(2)}h</small><b>工作完成 {completed}/{total}</b></span></button>})}{!workers.length&&<p className="muted">尚無員工</p>}</div></section>
   </div>
-  {editingStaff&&<form className="panel space-y-3" onSubmit={e=>{e.preventDefault();saveStaff.mutate(editingStaff)}}><h2>編輯員工：{editingStaff.name}</h2><div className="grid md:grid-cols-3 gap-3"><label>每日可用工時<input type="number" min="0" step="0.25" value={editingStaff.available_hours} onChange={e=>setEditingStaff({...editingStaff,available_hours:Number(e.target.value)})}/></label><label>既有占用工時<input type="number" min="0" step="0.25" value={editingStaff.scheduled_hours} onChange={e=>setEditingStaff({...editingStaff,scheduled_hours:Number(e.target.value)})}/></label><label>每週工時上限<input type="number" min="0" step="0.25" value={editingStaff.weekly_hours} onChange={e=>setEditingStaff({...editingStaff,weekly_hours:Number(e.target.value)})}/></label></div><div className="grid md:grid-cols-4 gap-3"><label>上班時間<input type="time" step="900" value={editingStaff.shift_start} onChange={e=>setEditingStaff({...editingStaff,shift_start:e.target.value})}/></label><label>下班時間<input type="time" step="900" value={editingStaff.shift_end} onChange={e=>setEditingStaff({...editingStaff,shift_end:e.target.value})}/></label><label>休息開始<input type="time" step="900" value={editingStaff.break_start||''} onChange={e=>setEditingStaff({...editingStaff,break_start:e.target.value||null})}/></label><label>休息結束<input type="time" step="900" value={editingStaff.break_end||''} onChange={e=>setEditingStaff({...editingStaff,break_end:e.target.value||null})}/></label></div><fieldset className="resource-skill-editor"><legend>員工技能（可複選，影響派工資格）</legend><div className="resource-skill-options">{EDITABLE_SKILLS.map(skill=><label key={skill.value}><input type="checkbox" checked={editingStaff.skills.includes(skill.value)} onChange={e=>setEditingStaff({...editingStaff,skills:e.target.checked?[...editingStaff.skills,skill.value]:editingStaff.skills.filter(value=>value!==skill.value)})}/><span>{skill.label}</span></label>)}</div></fieldset><label className="flex gap-2 items-center"><input type="checkbox" className="!w-4 !h-4" checked={editingStaff.attending} onChange={e=>setEditingStaff({...editingStaff,attending:e.target.checked})}/>當日出勤</label><div className="flex gap-2"><button disabled={saveStaff.isPending}>儲存</button><button type="button" className="secondary" onClick={()=>setEditingStaff(null)}>取消</button></div>{saveStaff.error&&<ErrorView error={saveStaff.error}/>}</form>}
-  <div className="panel space-y-4"><h2>未來 30 天飼料與基礎照護工時</h2><button type="button" onClick={()=>setShowForecast(true)} disabled={needs.isFetching||showForecast}>{needs.isFetching?"預測載入中…":showForecast?"已啟用預測":"載入 30 天預測"}</button>{needs.isError&&<button type="button" onClick={()=>void needs.refetch()}>重試預測</button>}
-   <div className="resource-forecast-grid"><div className="h-72"><ResponsiveContainer width="100%" height="100%"><LineChart data={needs.data?.forecast||[]}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="date" minTickGap={30}/><YAxis/><Tooltip/><Legend/><Line dataKey="expected_food_kg" name="每日飼料 kg" stroke="#0f766e" dot={false}/><Line dataKey="food_lower_kg" name="飼料情境下界 kg" stroke="#5eead4" dot={false} strokeDasharray="4 4"/><Line dataKey="food_upper_kg" name="飼料情境上界 kg" stroke="#5eead4" dot={false} strokeDasharray="4 4"/></LineChart></ResponsiveContainer></div>
-   <div className="h-72"><ResponsiveContainer width="100%" height="100%"><LineChart data={needs.data?.forecast||[]}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="date" minTickGap={30}/><YAxis/><Tooltip/><Legend/><Line dataKey="expected_care_hours" name="每日照護 h" stroke="#2563eb" dot={false}/><Line dataKey="care_lower_hours" name="工時情境下界 h" stroke="#93c5fd" dot={false} strokeDasharray="4 4"/><Line dataKey="care_upper_hours" name="工時情境上界 h" stroke="#93c5fd" dot={false} strokeDasharray="4 4"/></LineChart></ResponsiveContainer></div></div>
-   <details><summary className="cursor-pointer font-semibold">預測說明與統計</summary><div className="space-y-3 mt-3">
-    <p className="muted">{needs.data?.note||'依個體資料估算；等待後端資料。'}</p>
-    <div className="grid md:grid-cols-3 gap-3">{[['個體估算筆數',`${needs.data?.estimated_animals??0} / ${needs.data?.animal_count??0}`],['目前每日飼料',`${needs.data?.daily_food_kg??'—'} kg`],['目前每日基礎照護',`${needs.data?.daily_care_hours??'—'} h`]].map(([a,b])=><div className="metric" key={a}><span>{a}</span><strong>{b}</strong></div>)}</div>
-    <p className="muted">外推或訓練範圍稀疏：{needs.data?.extrapolated_or_sparse_animals??0} 隻；使用資源對照表補值：{needs.data?.imputed_animals??0} 隻。{needs.data?.warnings?.length?`需注意：${needs.data.warnings.join('；')}`:''}</p>
-   </div></details>
-   <details onToggle={e=>{if(e.currentTarget.open){setShowAnimals(true);setShowForecast(true)}}}><summary className="cursor-pointer font-semibold">每隻動物的個別估算（{animals.data?.length||0} 隻）</summary><div className="max-h-96 overflow-auto mt-3"><table className="data-table"><thead><tr><th>動物</th><th>物種</th><th>飼料 g/日</th><th>基礎照護 h/日</th><th>資源來源</th><th>30天條件存活</th></tr></thead><tbody>{animals.data?.map(a=><tr key={a.id}><td>{a.name} #{a.id}</td><td>{a.species}</td><td>{a.food_grams_per_day??'尚未估算'}</td><td>{a.routine_care_hours_per_day??'尚未估算'}</td><td>{a.resource_source||'—'}</td><td>{(()=>{const p=needs.data?.individual_predictions?.find(p=>p.animal_id===a.id);return p?`${(p.conditional_survival_30d*100).toFixed(1)}%${p.tail_extrapolated?'（尾端外推）':''}`:'—'})()}</td></tr>)}</tbody></table></div></details>
-  </div>
- </section>
+  {dropIssue&&<div className="schedule-drop-message" role="status">{dropIssue}
+   {!dragged&&<button type="button" className="secondary" onClick={()=>setDropIssue('')}>關閉</button>}
+  </div>}
+  {tasks.some(t=>t.state==='cancelled')&&<details className="panel"><summary>本週已取消任務</summary>
+   <ul>{tasks.filter(t=>t.state==='cancelled').map(t=><li key={t.task_id}>{t.day??t.earliest} · {t.animal_name} · {t.label} · {t.reason}</li>)}</ul>
+  </details>}
+  <details className="panel"><summary>每日班表與員工設定</summary>
+   <div className="weekly-toolbar">{workers.map(w=><button key={w.id} className="secondary" onClick={()=>setStaffSettings(w)}>編輯 {w.name}</button>)}</div>
+   {staffSettings&&<form className="weekly-toolbar" onSubmit={e=>{e.preventDefault();saveStaff.mutate(staffSettings);}}>
+    <strong>{staffSettings.name}</strong>
+    {skills.map(([key,label])=><label key={key} className="weekly-checkbox"><input type="checkbox"
+     checked={staffSettings.skills.includes(key)} onChange={e=>setStaffSettings({...staffSettings,
+      skills:e.target.checked?[...staffSettings.skills,key]:staffSettings.skills.filter(skill=>skill!==key)})}/>{label}</label>)}
+    <button disabled={saveStaff.isPending}>儲存員工設定</button>
+   </form>}
+   <div className="weekly-toolbar">{ranges.filter(s=>s.day===day).map(s=><button key={s.id} className="secondary" onClick={()=>setShift(s)}>{s.name} · 可派 {s.assignable_hours??'—'}h</button>)}</div>
+   {shift&&<form className="weekly-toolbar" onSubmit={e=>{e.preventDefault();saveShift.mutate(shift);}}>
+    <strong>{shift.name} {shift.day}</strong>
+    <label className="weekly-checkbox"><input type="checkbox" checked={Boolean(shift.attending)} onChange={e=>setShift({...shift,attending:e.target.checked})}/>出勤</label>
+    {([['shift_start','上班'],['shift_end','下班'],['break_start','額外休息開始'],['break_end','額外休息結束']] as const).map(([key,label])=><label key={key}>{label}<input type="time" step={900} value={shift[key]??''} onChange={e=>setShift({...shift,[key]:e.target.value||null})}/></label>)}
+    <p className="muted">固定休息 11:30–13:30</p>
+    {([['available_hours','每日可用工時'],['scheduled_hours','已占用工時']] as const).map(([key,label])=><label key={key}>{label}<input type="number" min={0} max={24} step={.25} value={shift[key]} onChange={e=>setShift({...shift,[key]:Number(e.target.value)})}/></label>)}
+    <button disabled={saveShift.isPending||day<taipeiToday()}>儲存班表</button>
+   </form>}
+  </details>
+  <details className="panel"><summary>已完成任務與異常回報</summary><ul>{tasks.filter(t=>t.state==='done').map(t=><li key={t.task_id}>{t.day} {t.animal_name} · {t.label}　{t.report?.result} {t.report?.note}
+   {t.issue&&<span> · {t.issue.resolved_at?'問題已解決':'問題待處理'} {!t.issue.resolved_at&&
+    <button type="button" className="secondary" disabled={resolve.isPending} onClick={()=>resolve.mutate(t.task_id)}>標記已解決</button>}</span>}
+   <TaskPhotos task={t}/></li>)}</ul></details>
+ </section>;
 }

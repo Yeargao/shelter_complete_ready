@@ -14,7 +14,7 @@ assert.equal(sandboxExports.visibleAssignments([old,injury]).map(x=>x.label).joi
 assert.equal(sandboxExports.visibleAssignments([injury,injury]).length,1);
 assert.equal(sandboxExports.visibleAssignments([mk('1:疫苗施打@2026-01-01','疫苗施打','done',{due_date:'2026-01-01'}),mk('1:疫苗施打@2027-01-01','疫苗施打','done',{due_date:'2027-01-01'})]).length,2);
 const d=fs.readFileSync(path.join(__dirname,'../src/pages/Dashboard.tsx'),'utf8');
-assert.match(d,/displayStart=80/);assert.doesNotMatch(d,/expected_occupancy:162/);
+assert.match(d,/ResourceOverview/);assert.doesNotMatch(d,/displayStart|expected_occupancy|api\.forecast/);
 const h=fs.readFileSync(path.join(__dirname,'../src/pages/HealthPage.tsx'),'utf8');
 assert.doesNotMatch(h,/api\.setTask|change\.mutate|aria-label="任務狀態"/);
 const timeline=fs.readFileSync(path.join(__dirname,'../src/components/common/DailyTimeline.tsx'),'utf8');

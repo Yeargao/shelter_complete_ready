@@ -7,3 +7,9 @@ numpy>=1.26,<3
 ortools>=9.10,<10
 lightgbm>=4.0,<5
 scikit-learn>=1.9.1,<2
+Pillow>=10,<14
+boto3>=1.34,<2
+tzdata
+# Official Gemini Developer API SDK and FastAPI TestClient
+google-genai>=2.34,<3
+httpx>=0.28.1,<1

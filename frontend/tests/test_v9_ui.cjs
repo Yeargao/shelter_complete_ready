@@ -44,23 +44,15 @@ assert.match(css,/\.daily-timeline__event--staff-paired--left/);
 assert.match(css,/\.daily-timeline__event--staff-paired--right/);
 assert.match(css,/\.daily-timeline__event--staff-paired \.daily-timeline__staff-answer\{display:none\}/);
 
-const logic=extractBetween(page,' const healthReports=new Set(', ' const visible=list.filter(');
-const classify=evaluateTs(`function build(assignments){\n${logic}\nreturn {isNewFollowUp,inNewQueue};\n}`,'build');
-const health={animal_id:7,label:'健康狀態待確認',state:'done',result:'sick'};
-const {inNewQueue}=classify({data:{assignments:[health]}});
-const newTask=(animal_id,label,source,is_new=true,staff_id=null,state='pending')=>({animal_id,label,source,is_new,staff_id,state});
-assert.equal(inNewQueue(newTask(2,'健康狀態待確認','rule')),false,'Original health confirmation');
-assert.equal(inNewQueue(newTask(3,'疫苗紀錄待確認','rule')),false,'Original vaccine confirmation');
-assert.equal(inNewQueue(newTask(4,'優先確認健康狀況','rule')),false,'Original urgent confirmation');
-assert.equal(inNewQueue(newTask(7,'優先確認健康狀況','rule')),true,'Sick report derived urgent follow-up');
-assert.equal(inNewQueue(newTask(8,'健康問題追蹤','employee_report')),true,'Treatment report follow-up');
-assert.equal(inNewQueue(newTask(9,'疫苗施打','employee_report')),true,'Negative vaccine report follow-up');
-assert.equal(inNewQueue(newTask(9,'疫苗施打','rule')),false,'Rule-created vaccine cycle not a report follow-up');
-assert.equal(inNewQueue(newTask(9,'疫苗施打','employee_report',false)),false,'Existing unmarked task');
-assert.equal(inNewQueue(newTask(9,'疫苗施打','employee_report',true,1)),false,'Already assigned');
-assert.equal(inNewQueue(newTask(9,'疫苗施打','employee_report',true,null,'done')),false,'Completed');
-assert.match(page,/tab==='new'&&inNewQueue\(t\)/);
-assert.match(page,/k==='new'\?inNewQueue\(t\)/);
+const pool=extractBetween(page,' const pool=',' const go=');
+const inPool=evaluateTs(`function filter(tasks,search){${pool}return pool;}`,'filter');
+const urgent={task_id:'urgent',animal_id:7,animal_name:'Test',label:'健康問題追蹤',priority:0,state:'pending',is_active:1};
+const ordinary={...urgent,task_id:'ordinary',priority:4,label:'基礎照護'};
+const data=[urgent,ordinary,{...urgent,task_id:'done',state:'done'},
+ {...urgent,task_id:'placed',staff_id:3},{...urgent,task_id:'exited',is_active:0}];
+assert.equal(inPool(data,'健康問題追蹤').map(x=>x.task_id).join(','),'urgent');
+assert.equal(inPool(data,'基礎照護').map(x=>x.task_id).join(','),'ordinary');
+assert.equal(inPool(data,'7').map(x=>x.task_id).join(','),'urgent,ordinary');
 for(const file of ['components/common/DailyTimeline.tsx','pages/ResourcePage.tsx']){
  const out=ts.transpileModule(fs.readFileSync(path.join(src,file),'utf8'),{fileName:file,reportDiagnostics:true,compilerOptions:{jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022}});
  assert.equal(out.diagnostics.length,0,file+' TSX parses');

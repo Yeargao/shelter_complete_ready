@@ -1,61 +1,161 @@
-import React from 'react';
-import {useQuery,useMutation,useQueryClient} from '@tanstack/react-query';
-import {api} from '../services/api';
-import DailyTimeline, {type TimelineTask} from '../components/common/DailyTimeline';
+
+import { useEffect, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { api, type WeeklyTask } from '../services/api';
+import { ErrorView } from '../components/common/States';
+import { addDays, taipeiToday } from '../components/common/scheduleDates';
+import ScheduleCalendar from '../components/common/ScheduleCalendar';
+import {aiGuidance} from '../components/common/aiStatus';
+import {displayTaskLabel} from '../components/common/taskPresentation';
+import TaskPhotos from '../components/common/TaskPhotos';
 import './StaffHome.css';
-export default function StaffHome({userId}:{userId:number}){
- const client=useQueryClient();
- const staff=useQuery({queryKey:['staff',1],queryFn:()=>api.staff(1)});
- const plan=useQuery({queryKey:['staffAssignments',userId],queryFn:api.staffAssignments,refetchInterval:15000,refetchIntervalInBackground:false});
- const [selectedTaskId,setSelectedTaskId]=React.useState<string|null>(null);
- const [choice,setChoice]=React.useState('');
- const [resolved,setResolved]=React.useState('');
- const [note,setNote]=React.useState('');
- const [administeredDate,setAdministeredDate]=React.useState(new Date().toISOString().slice(0,10));
- const [states,setStates]=React.useState<Record<string,string>>({});
- React.useEffect(()=>{setStates({})},[plan.dataUpdatedAt]);
- const change=useMutation({mutationFn:api.setTask,onSuccess:(_r,v)=>{
-  setStates(old=>({...old,[`${v.animal_id}:${v.label}`]:v.state}));
-  setSelectedTaskId(null);setChoice('');setResolved('');setNote('');setAdministeredDate(new Date().toISOString().slice(0,10));
-  client.invalidateQueries({queryKey:['tasks']});client.invalidateQueries({queryKey:['staffAssignments']});client.invalidateQueries({queryKey:['staff-assignments']});client.invalidateQueries({queryKey:['animals']});
-  if(typeof BroadcastChannel!=='undefined'){const channel=new BroadcastChannel('shelter-task-events');channel.postMessage({type:'task-updated'});channel.close();}
+
+const choices:Record<string,[string,string][]> = {
+ '確認驅蟲紀錄': [['yes','已驅蟲'],['no','未驅蟲']],
+ '基礎驅蟲': [['done','已完成'],['failed','未能執行']],
+ '補做驅蟲': [['done','已完成'],['failed','未能執行']],
+ '健康狀態待確認': [['healthy','健康'],['sick','生病'],['injured','受傷']],
+ '優先確認健康狀況': [['healthy','健康'],['sick','生病'],['injured','受傷']],
+ '疫苗紀錄待確認': [['yes','已施打'],['no','未施打']],
+ '確認疫苗紀錄': [['yes','已施打'],['no','未施打']],
+ '疫苗施打': [['done','已完成'],['failed','未能執行']],
+};
+
+function encodePhoto(file:File) {
+ return new Promise<string>((resolve,reject)=>{
+  const reader=new FileReader();
+  reader.onload=()=>resolve(String(reader.result).split(',')[1]);
+  reader.onerror=()=>reject(Error('無法讀取圖片'));
+  reader.readAsDataURL(file);
+ });
+}
+
+function PhotoPreview({file}:{file:File}) {
+ const [url,setUrl]=useState('');
+ useEffect(()=>{const next=URL.createObjectURL(file);setUrl(next);return()=>URL.revokeObjectURL(next);},[file]);
+ return url?<img className="care-image" src={url} alt="待上傳照片"/>:null;
+}
+
+function TaskCard({task:t}:{task:WeeklyTask}) {
+ const qc=useQueryClient();
+ const [choice,setChoice]=useState('');
+ const [note,setNote]=useState('');
+ const [dose,setDose]=useState('');
+ const [files,setFiles]=useState<File[]>([]);
+ const [upload,setUpload]=useState<number>();
+ const summary=useMutation({mutationFn:()=>api.taskSummary(t.task_id)});
+ const care=summary.data??t.summary;
+ const follow=t.label==='健康問題追蹤';
+ const needsDate=(result:string)=>t.label.includes('疫苗')&&['yes','done'].includes(result);
+ const needsNote=(result:string)=>['reported','failed','sick','injured'].includes(result);
+ const result=choice;
+ const displayPriority=t.display_priority??t.priority;
+ const refresh=async()=>{await qc.invalidateQueries({queryKey:['schedule-week']});await qc.invalidateQueries({queryKey:['resource-overview']});};
+ const withdraw=useMutation({mutationFn:()=>api.withdrawReport(t.task_id),onSuccess:async()=>{
+  setChoice('');setNote('');setFiles([]);setDose('');summary.reset();await refresh();
  }});
- const worker=staff.data?.[userId-2];
- const assignments=(plan.data?.assignments||[]).filter(a=>a.staff_id===worker?.id);
- const start=plan.data?.planning_start||'';
- const stateOf=(a:typeof assignments[number])=>states[`${a.animal_id}:${a.label}`]||a.state;
- const activeTask=assignments.find(a=>a.task_id===selectedTaskId);
- const active=activeTask?`${activeTask.animal_id}:${activeTask.label}`:null;
- const item=(a:typeof assignments[number])=>{
-  const done=stateOf(a)==='done',urgent=a.label.includes('優先確認健康狀況');
-  const isHealth=a.label==='健康狀態待確認';
-  const key=`${a.animal_id}:${a.label}`;
-  return <div className="staff-inline-report space-y-2">
-   {(active===key&&!done||done&&selectedTaskId===a.task_id)&&<>
-   {done&&<p>✓ 已完成 · 已儲存的回報{a.note?.trim()?` · 備註：${a.note}`:''}</p>}
-   {!urgent&&<><p>{isHealth?'請選擇健康狀況':a.label.includes('疫苗')?'是否已注射疫苗？':a.label.includes('驅蟲')?'是否已驅蟲？':a.label==='評估絕育安排'?'是否已絕育？':'請回報此項工作結果'}</p>
-    <select value={choice} disabled={done} onChange={e=>setChoice(e.target.value)}><option value="">請選擇</option>{(isHealth?[['healthy','健康'],['sick','生病'],['injured','受傷']]:[['yes','是'],['no','否']]).map(([v,t])=><option value={v} key={v}>{t}</option>)}</select>
-   </>}
-   {a.label.includes('疫苗')&&choice==='yes'&&<label className="block">實際施打日期<input type="date" value={administeredDate} disabled={done} onChange={e=>setAdministeredDate(e.target.value)}/></label>}
-   {urgent&&<label className="block">健康問題是否解決？<select value={resolved} disabled={done} onChange={e=>setResolved(e.target.value)}><option value="">請選擇</option><option value="yes">是</option><option value="no">否</option></select></label>}
-   <label className="block">{urgent&&resolved==='no'?'未解決原因與後續處理紀錄（必填）':'備註（選填）'}<textarea className="w-full" value={note} onChange={e=>setNote(e.target.value)} /></label>
-   {done&&<p className="muted">已完成的判定結果與醫療施打日期不可直接改寫；此處可更新備註，不會重複完成任務。</p>}
-   {change.error&&<p className="text-red-700">回報失敗：{String(change.error)}</p>}
-   <div className="staff-report-actions" data-three={done}>
-    <button type="button" disabled={(!done&&!urgent&&!choice)||(!done&&urgent&&(!resolved||(resolved==='no'&&!note.trim())))||change.isPending} onClick={()=>change.mutate({animal_id:a.animal_id,label:a.label,state:'done',result:urgent?undefined:choice as 'healthy'|'sick'|'injured'|'yes'|'no',resolved:urgent?resolved as 'yes'|'no':undefined,note,administered_date:a.label.includes('疫苗')&&choice==='yes'?administeredDate:undefined,edit_report:done})}>{done?'儲存修改':'確認送出'}</button>
-    <button type="button" className="secondary" onClick={()=>setSelectedTaskId(null)}>關閉</button>
-    {done&&<button type="button" className="secondary" disabled={change.isPending} onClick={()=>change.mutate({animal_id:a.animal_id,label:a.label,state:'pending'})}>取消完成</button>}
+ const canWithdraw=t.is_active&&t.report?.reported_at.slice(0,10)===taipeiToday()&&!t.issue?.resolved_at;
+ const report=useMutation({
+  mutationFn:async(value:string)=>{
+   setUpload(undefined);
+   const photos=needsNote(value)?files:[];
+   if(photos.length>4||photos.some(f=>f.size>5*1024*1024))throw Error('最多四張，每張最多 5 MB');
+   return api.reportWeekly(t.task_id,{result:value,note,administered_date:dose||null,
+    photos:await Promise.all(photos.map(encodePhoto))},photos.length?setUpload:undefined);
+  },
+  onSuccess:refresh
+ });
+ const cancelReport=()=>{setChoice('');setNote('');setDose('');setFiles([]);setUpload(undefined);report.reset();};
+ return <article className="staff-care-card weekly-task" data-priority={displayPriority} data-done={t.state==='done'}>
+  <div className="staff-care-identity">
+   <strong><span className="weekly-dot" aria-hidden="true"/>{t.start_time}–{t.end_time}　{displayTaskLabel(t.label)}</strong><div>{t.animal_name} #{t.animal_id}</div>
+  {displayPriority<=1&&<span className="attention-badge alert-high">{displayPriority===0?'緊急':'高優先級'}</span>}
+  </div>
+  <div className="staff-care-controls">
+  {care&&<p>{care.animal_summary} <small>（{care.mode==='llm'?'Gemini AI':care.mode==='cache'?'AI 快取摘要':'規則式摘要'}{
+    care.fallback_reason==='in_progress'?' · AI 摘要處理中':care.fallback_reason?' · 目前 AI 無法使用':''
+  }）</small></p>}
+  <details onToggle={e=>{
+   if(e.currentTarget.open&&!summary.isPending)summary.mutate();
+  }}>
+   <summary>動物資料及照護重點</summary>
+   {t.photo_url?<img className="rounded-lg max-w-xs w-full" src={t.photo_url} alt={t.animal_name}/>:<p className="muted">🐾 尚無動物照片</p>}
+   {t.note&&<p>注意事項：{t.note}</p>}
+   {care&&<ul>{[...care.known_issues,...care.observations,...care.unconfirmed].filter(x=>x!==t.note&&x!==`本次任務：${t.label}`).map((x,i)=><li key={i}>{x}</li>)}</ul>}
+   {summary.isPending&&<p role="status">正在查詢照護摘要…</p>}
+   {summary.error&&<ErrorView error={summary.error}/>}
+   {summary.data&&<button type="button" className="secondary" disabled={summary.isPending}
+    onClick={()=>summary.mutate()}>重新查詢摘要</button>}
+  </details>
+  {care?.fallback_reason&&<p className="muted">{aiGuidance(care.fallback_reason)}</p>}
+  {t.report?<div><strong>已回報</strong> · {t.report.result} {t.report.note}{t.issue&&<p>{t.issue.resolved_at?'問題已解決':'待管理者處理'}</p>}<TaskPhotos task={t}/>
+   {canWithdraw&&<button type="button" className="secondary" disabled={withdraw.isPending}
+    title="收回任務完成回報，已記錄的醫療紀錄仍會保留" onClick={()=>withdraw.mutate()}>收回完成回報</button>}
+   {withdraw.error&&<ErrorView error={withdraw.error}/>}</div>:
+   t.day&&t.day<=taipeiToday()&&t.is_active&&['pending','in_progress'].includes(t.state)?<>
+    {!follow&&<div className="flex flex-wrap gap-2">{(choices[t.label]??[['done','完成任務']]).map(([value,label])=><button key={value} disabled={report.isPending}
+     className={choice===value?'':'secondary'} onClick={()=>{setChoice(value);if(!needsDate(value)&&!needsNote(value))report.mutate(value);}}>{label}</button>)}
+     <button type="button" className="secondary" disabled={report.isPending} onClick={()=>setChoice('reported')}>回報異常</button></div>}
+    {follow&&!choice&&<button type="button" className="secondary" onClick={()=>setChoice('reported')}>填寫追蹤回報</button>}
+    {(needsDate(result)||needsNote(result))&&<form className="space-y-2" onSubmit={e=>{e.preventDefault();report.mutate(result);}}>
+     {needsDate(result)&&<label>實際施打日期<input required type="date" max={taipeiToday()} value={dose} onChange={e=>setDose(e.target.value)}/></label>}
+     <label>情況說明（選填）<textarea value={note} onChange={e=>setNote(e.target.value)}/></label>
+     {needsNote(result)&&<>
+      <label>選擇照片<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>setFiles(Array.from(e.target.files??[]))}/></label>
+      <label>手機拍照<input type="file" accept="image/*" capture="environment" onChange={e=>setFiles([...files,...Array.from(e.target.files??[])])}/></label>
+      <div className="flex flex-wrap gap-2">{files.map((file,i)=><PhotoPreview key={file.name+i} file={file}/>)}</div>
+      {files.length>0&&<button type="button" className="secondary" onClick={()=>setFiles([])}>清除照片</button>}
+     </>}
+     <button disabled={report.isPending}>送出回報</button>
+     <button type="button" className="secondary ml-2" disabled={report.isPending} onClick={cancelReport}>取消回報</button>
+    </form>}
+   </>:null}
+  {report.error&&<ErrorView error={report.error}/>}
+  {report.isPending&&<p role="status">{files.length
+   ?upload===undefined?'正在準備照片…':upload<100?`照片上傳 ${upload}%`:'照片已上傳，正在儲存回報…'
+   :'正在儲存回報…'}</p>}
+  {withdraw.isSuccess&&!t.report&&<p role="status">已收回，任務恢復待辦。</p>}
+  </div>
+ </article>;
+}
+
+export default function StaffHome({userId}:{userId:number}) {
+ const [day,setDay]=useState(taipeiToday);
+ const [weekly,setWeekly]=useState(false);
+ const [selectedId,setSelectedId]=useState<string>();
+ const detail=useRef<HTMLElement>(null);
+ useEffect(()=>{if(selectedId)detail.current?.focus();},[selectedId]);
+ const query=useQuery({queryKey:['schedule-week','staff',userId,day],queryFn:()=>api.week(day),refetchInterval:15000});
+ const today=taipeiToday();
+ const tasks=query.data?.tasks??[];
+ const worker=query.data?.workers[0];
+ const days=weekly?(query.data?.days??[]):[day];
+ const selected=tasks.find(task=>task.task_id===selectedId&&days.includes(task.day??''));
+ const go=(date:string)=>{setDay(date);setSelectedId(undefined);};
+ return <section className="space-y-4">
+  <h1>照護人員工作台</h1>
+  <section className="panel weekly-board-panel space-y-3">
+   <h2>個人日曆</h2>
+   <div className="weekly-toolbar">
+    <button type="button" className="secondary" onClick={()=>go(addDays(day,weekly?-7:-1))}>{weekly?'上一週':'前一天'}</button>
+    <button type="button" className="secondary" onClick={()=>go(today)}>今天</button>
+    <button type="button" className="secondary" onClick={()=>go(addDays(day,weekly?7:1))}>{weekly?'下一週':'後一天'}</button>
+    <input aria-label="排程日期" type="date" value={day} onChange={e=>{if(e.target.value)go(e.target.value);}}/>
+    <select aria-label="日曆檢視" value={weekly?'week':'day'} onChange={e=>{setWeekly(e.target.value==='week');setSelectedId(undefined);}}>
+     <option value="day">日檢視</option><option value="week">週檢視</option>
+    </select>
    </div>
-   </>}
-  </div>;
- };
- const todayAssignments=assignments.filter(a=>a.date===start).map(a=>({...a,state:stateOf(a)})).sort((a,b)=>String(a.start_time||'').localeCompare(String(b.start_time||'')));
- const conflictingIntervals=todayAssignments.some((a,i)=>a.start_time&&a.end_time&&todayAssignments.some((b,j)=>j!==i&&b.start_time&&b.end_time&&a.start_time!<b.end_time!&&b.start_time!<a.end_time!));
- const openTask=(task:TimelineTask)=>{
-  const a=todayAssignments.find(entry=>entry.task_id===task.task_id);
-  if(!a)return;
-  if(selectedTaskId===a.task_id){setSelectedTaskId(null);return;}
-  setSelectedTaskId(a.task_id);setChoice(a.result||'');setResolved(a.resolved||'');setNote(a.note||'');setAdministeredDate(a.administered_date||new Date().toISOString().slice(0,10));
- };
- return <section className="space-y-5 staff-workspace"><div className="hero"><h1>照護人員工作台</h1><p>登入編號 {String(userId).padStart(2,'0')} · {worker?.name||'待指定員工'}。</p></div><div className="panel space-y-3"><h2>個人單日時間表</h2><p className="muted">{start} · {plan.data?.note||'載入派工中…'}</p>{change.error&&<p className="text-red-700">回報失敗：{String(change.error)}</p>}{plan.error&&<p className="text-red-700">讀取失敗：{String(plan.error)}</p>}{conflictingIntervals&&<p role="alert" className="text-red-700">警告：同一員工有時間重疊的展示紀錄，請管理者核對派工與資料來源；本頁只調整呈現，不修改排程。</p>}<DailyTimeline tasks={todayAssignments} shiftStart={worker?.shift_start} shiftEnd={worker?.shift_end} breakStart={worker?.break_start} breakEnd={worker?.break_end} expandedTaskId={selectedTaskId} renderTaskDetails={task=>{const original=todayAssignments.find(a=>a.task_id===task.task_id);return original?item(original):null}} onTaskClick={openTask}/></div></section>;
+   {query.error&&<ErrorView error={query.error}/>}
+   {query.isLoading&&<p role="status">載入任務中…</p>}
+   {selected&&<section ref={detail} tabIndex={-1} aria-label="照護任務詳細資料" className="weekly-task-detail staff-task-detail">
+    <div className="weekly-detail-heading"><h3>{selected.state==='done'?'已回報任務':'照護任務'}</h3>
+     <button type="button" className="secondary" onClick={()=>setSelectedId(undefined)}>關閉</button></div>
+    <TaskCard key={selected.task_id} task={selected}/>
+   </section>}
+   {worker&&<ScheduleCalendar columns={days.map(date=>({day:date,sid:worker.id,title:date.slice(5)}))}
+    shifts={query.data?.shifts??[]} tasks={tasks} onTask={task=>setSelectedId(task.task_id)} selectedId={selectedId}
+    renderInline={weekly?undefined:task=><TaskCard task={task}/>}/>}
+   {worker&&!tasks.some(task=>task.day&&days.includes(task.day)&&task.state!=='cancelled')&&<p className="muted">這段期間沒有指派任務</p>}
+  </section>
+ </section>;
 }

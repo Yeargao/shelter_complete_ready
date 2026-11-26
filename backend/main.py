@@ -2,6 +2,7 @@
 from __future__ import annotations
 import json, random, sqlite3, threading, os, hmac, hashlib, base64, time, sys
 from contextlib import closing
+from functools import lru_cache
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 import calendar, math
@@ -12,13 +13,14 @@ import pandas as pd
 from catboost import CatBoostClassifier, CatBoostRegressor
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from ortools.sat.python import cp_model
+from uuid import uuid4
 
 ROOT=Path(__file__).resolve().parent.parent
 SEED_DB=ROOT/'backend'/'showcase.sqlite3'
-DB=Path(os.environ.get('SHELTER_DB_PATH',str(SEED_DB))).resolve()
+DB=Path(os.environ.get('SHELTER_DB_PATH') or str(SEED_DB)).resolve()
 if DB!=SEED_DB.resolve() and not DB.exists():
  DB.parent.mkdir(parents=True,exist_ok=True)
  if not SEED_DB.is_file():raise RuntimeError('Missing seed SQLite database')
@@ -26,42 +28,56 @@ if DB!=SEED_DB.resolve() and not DB.exists():
 MODELS=ROOT/'models'
 lock=threading.RLock()
 app=FastAPI(title='Shelter AI Showcase',version='1.0')
-app.add_middleware(CORSMiddleware,allow_origins=['http://127.0.0.1:8000','http://localhost:8000'],allow_methods=['*'],allow_headers=['*'])
+allowed_origins=['http://127.0.0.1:8000','http://localhost:8000']
+allowed_origins.extend(origin.strip() for origin in os.environ.get('SHELTER_CORS_ORIGINS','').split(',') if origin.strip())
+app.add_middleware(CORSMiddleware,allow_origins=allowed_origins,allow_methods=['*'],allow_headers=['*'])
 
-# DEMO ONLY: change the secret and passwords before any real deployment.
-AUTH_SECRET=os.environ.get('SHELTER_AUTH_SECRET','local-demo-change-me').encode()
+AUTH_SECRET=os.environ.get('SHELTER_AUTH_SECRET') or 'local-demo-change-me'
+configured_passwords=os.environ.get('SHELTER_AUTH_PASSWORDS')
+AUTH_PASSWORDS=json.loads(configured_passwords) if configured_passwords else {str(n):f'{n:02}' for n in range(1,7)}
+if configured_passwords and (len(AUTH_SECRET)<32 or not AUTH_PASSWORDS or any(
+ key not in {'1','2','3','4','5','6'} or not isinstance(value,str) or len(value)<12
+ for key,value in AUTH_PASSWORDS.items()
+) or '1' not in AUTH_PASSWORDS or len(set(AUTH_PASSWORDS.values()))!=len(AUTH_PASSWORDS)):
+ raise RuntimeError('Configure a strong SHELTER_AUTH_SECRET and distinct per-account passwords')
+AUTH_SECRET=AUTH_SECRET.encode()
 class LoginInput(BaseModel):
  password: str
 
 def token_for(user_id:int):
- payload=f'{user_id}:{int(time.time())+86400}'
+ payload=f'{user_id}:{int(time.time())+86400}:{uuid4().hex}'
  signature=hmac.new(AUTH_SECRET,payload.encode(),hashlib.sha256).hexdigest()
  return base64.urlsafe_b64encode(f'{payload}:{signature}'.encode()).decode()
 
 def verify_token(token:str):
  try:
   raw=base64.urlsafe_b64decode(token.encode()).decode()
-  uid,expiry,signature=raw.split(':')
-  payload=f'{uid}:{expiry}'
+  payload,signature=raw.rsplit(':',1)
+  uid,expiry,*_=payload.split(':')
   valid=hmac.compare_digest(signature,hmac.new(AUTH_SECRET,payload.encode(),hashlib.sha256).hexdigest())
-  return int(uid) if valid and int(expiry)>time.time() and 1<=int(uid)<=6 else None
+  return int(uid) if valid and int(expiry)>time.time() and uid in AUTH_PASSWORDS else None
  except (ValueError,TypeError,UnicodeError):return None
 
 @app.post('/api/auth/login')
 def login(body:LoginInput):
- if body.password not in [f'{n:02}' for n in range(1,7)]:raise HTTPException(401,'密碼錯誤')
- uid=int(body.password)
+ uid=next((int(key) for key,value in AUTH_PASSWORDS.items()
+           if hmac.compare_digest(value.encode(),body.password.encode())),None)
+ if uid is None:raise HTTPException(401,'密碼錯誤')
  return {'token':token_for(uid),'user_id':uid,'role':'manager' if uid==1 else 'staff'}
 
 @app.middleware('http')
 async def auth_guard(request:Request,call_next):
  global WORK_DATE
  WORK_DATE=datetime.now(ZoneInfo('Asia/Taipei')).date()
- path=request.url.path
+ path=request.url.path.rstrip('/')
  if not path.startswith('/api/') or path=='/api/auth/login' or request.method=='OPTIONS':return await call_next(request)
  uid=verify_token(request.headers.get('Authorization','').removeprefix('Bearer ').strip())
  if uid is None:return JSONResponse(status_code=401,content={'detail':'請先登入'})
- if uid!=1 and request.method in ('POST','PATCH','DELETE','PUT') and path not in ('/api/tasks','/api/stage2/answer'):
+ if uid!=1 and (path=='/api/tasks' or path.startswith('/api/staff/assignments')):
+  return JSONResponse(status_code=403,content={'detail':'請在個人工作台查看與回報任務'})
+ task_action=path.removeprefix('/api/schedule/tasks/').split('/') if path.startswith('/api/schedule/tasks/') else []
+ own_task_action=request.method=='POST' and len(task_action)==2 and task_action[1] in {'report','summary','withdraw-report'}
+ if uid!=1 and request.method in ('POST','PATCH','DELETE','PUT') and path not in ('/api/stage2/answer','/api/chat') and not own_task_action:
   return JSONResponse(status_code=403,content={'detail':'此操作僅管理者可執行'})
  request.state.user_id=uid
  return await call_next(request)
@@ -158,18 +174,22 @@ def optional_model(cls, filename):
  return load(cls,filename)
 health_model=optional_model(CatBoostClassifier,'health_catboost.cbm')
 adoption_model=optional_model(CatBoostClassifier,'adoption_catboost.cbm')
-intake_model=optional_model(CatBoostRegressor,'intakes_catboost.cbm')
-outcome_model=optional_model(CatBoostRegressor,'outcomes_catboost.cbm')
 occupancy_metrics=json.loads((MODELS/'best_params_and_metrics.json').read_text(encoding='utf-8')) if (MODELS/'best_params_and_metrics.json').is_file() else {}
-history_path=Path(__file__).parent/'daily_history.csv'
-if history_path.is_file():
- history=pd.read_csv(history_path,parse_dates=['date']).sort_values('date')
-elif DEMO_MODE:
- rng=random.Random(731)
- end=date.today()-timedelta(days=1)
- history=pd.DataFrame([{'date':pd.Timestamp(end-timedelta(days=119-i)),'intakes':rng.randint(1,7),'outcomes':rng.randint(1,6)} for i in range(120)])
-else:raise FileNotFoundError(f'Missing required history file: {history_path}')
-PLANNING_DATE=history.iloc[-1]['date'].date()+timedelta(days=1)
+
+@lru_cache(maxsize=1)
+def occupancy_research_inputs():
+ intake_model=optional_model(CatBoostRegressor,'intakes_catboost.cbm')
+ outcome_model=optional_model(CatBoostRegressor,'outcomes_catboost.cbm')
+ history_path=Path(__file__).parent/'daily_history.csv'
+ if history_path.is_file():
+  history=pd.read_csv(history_path,parse_dates=['date']).sort_values('date')
+ elif DEMO_MODE:
+  rng=random.Random(731)
+  end=date.today()-timedelta(days=1)
+  history=pd.DataFrame([{'date':pd.Timestamp(end-timedelta(days=119-i)),'intakes':rng.randint(1,7),'outcomes':rng.randint(1,6)} for i in range(120)])
+ else:raise FileNotFoundError(f'Missing required history file: {history_path}')
+ return intake_model,outcome_model,history
+
 WORK_DATE=datetime.now(ZoneInfo("Asia/Taipei")).date() # Taiwan-local task scheduling date
 
 class AnimalInput(BaseModel):
@@ -217,7 +237,7 @@ def resource_totals(animals, food_rate, care_minutes):
  return food,care
 
 @app.get('/healthz')
-def healthz():return {'status':'ok','health_catboost':'demo' if health_model is None else 'loaded','adoption_catboost':'demo' if adoption_model is None else 'loaded','occupancy_catboost':'demo' if intake_model is None or outcome_model is None else 'loaded'}
+def healthz():return {'status':'ok','health_catboost':'demo' if health_model is None else 'loaded','adoption_catboost':'demo' if adoption_model is None else 'loaded','occupancy_catboost':'on_demand'}
 @app.get('/api/animals')
 def animals(q:str='',species:str='',dataset:str='',skip:int=0,limit:int=500):
  with connect() as c:rows=c.execute('SELECT * FROM animals WHERE is_active=1 AND (name LIKE ? OR CAST(id AS TEXT) LIKE ?) AND (?="" OR species=?) ORDER BY id LIMIT ? OFFSET ?',('%'+q+'%','%'+q+'%',species,species,min(limit,2000),skip)).fetchall()
@@ -333,6 +353,7 @@ def features_for(target_date, hist):
 @app.get('/api/occupancy/forecast')
 def forecast(days:int=30):
  if days not in (7,14,30):raise HTTPException(422,'僅支援 7、14、30 天')
+ intake_model,outcome_model,history=occupancy_research_inputs()
  hist=history[['intakes','outcomes']].to_dict('records');last=date.fromisoformat(str(history.iloc[-1]['date'].date()))
  count=summary()['in_care_count'];running=count;points=[]
  # Model training data ends 2026-10-22; forecast is explicitly anchored at that historical cutoff.
@@ -464,8 +485,7 @@ def edit_staff(id:int,item:StaffInput):
   if incompatible:raise HTTPException(409,'請先重新指派使用該技能的未完成任務：'+'、'.join(incompatible))
   planned=c.execute('SELECT hours FROM assignment_snapshot WHERE staff_id=? AND date=?',(id,WORK_DATE.isoformat() if 'WORK_DATE' in globals() else date.today().isoformat())).fetchall()
   used=sum(math.ceil(float(r['hours'])*4-1e-9) for r in planned)
-  week_left=remaining_weekly_hours(c,id,WORK_DATE.isoformat(),item.weekly_hours) if 'WORK_DATE' in globals() else item.weekly_hours
-  new_limit=max(0,math.floor(min(item.available_hours-item.scheduled_hours,week_left)*4+1e-9)) if item.attending else 0
+  new_limit=max(0,math.floor((item.available_hours-item.scheduled_hours)*4+1e-9)) if item.attending else 0
   if used>new_limit:raise HTTPException(409,'調整後員工工時不足，請先重新安排現有任務')
   cur=c.execute('UPDATE staff SET profile_id=?,name=?,skills=?,available_hours=?,scheduled_hours=?,attending=?,weekly_hours=?,shift_start=?,shift_end=?,break_start=?,break_end=? WHERE id=?',(item.profile_id,item.name,json.dumps(item.skills),item.available_hours,item.scheduled_hours,int(item.attending),item.weekly_hours,item.shift_start,item.shift_end,item.break_start,item.break_end,id))
   if not cur.rowcount:raise HTTPException(404,'員工不存在')
@@ -671,8 +691,6 @@ class ResourceRequest(BaseModel):
  care_minutes:float=Field(ge=0)
  unit_cost:float=Field(ge=0)
  food_stock_kg:float=Field(default=0,ge=0)
- forecast:list[dict]=[]
- forecast_is_mock:bool=False
 
 def month_after(d,months):
  m=d.month-1+months;y=d.year+m//12;m=m%12+1
@@ -723,18 +741,26 @@ def expand_recurring(tasks,days=1):
 def quarter(hours):
  return max(1,math.ceil(float(hours)*4-1e-9))
 
-def remaining_weekly_hours(c,staff_id,work_date,weekly_hours):
- day=date.fromisoformat(work_date)
- monday=(day-timedelta(days=day.weekday())).isoformat()
- sunday=(day+timedelta(days=6-day.weekday())).isoformat()
- prior=c.execute('SELECT COALESCE(SUM(hours),0) FROM assignment_snapshot WHERE staff_id=? AND date BETWEEN ? AND ? AND date<>?',(staff_id,monday,sunday,work_date)).fetchone()[0] or 0
- return max(0,float(weekly_hours)-float(prior))
+SHELTER_LUNCH = (46,54)  # 11:30–13:30
+
+def shift_break_windows(w):
+ begin,end=time_quarter(w['shift_start']),time_quarter(w['shift_end'])
+ breaks=[SHELTER_LUNCH]
+ if w.get('break_start') and w.get('break_end'):
+  breaks.append((time_quarter(w['break_start']),time_quarter(w['break_end'])))
+ merged=[]
+ for lo,hi in sorted(breaks):
+  lo,hi=max(begin,lo),min(end,hi)
+  if lo>=hi:continue
+  if merged and lo<=merged[-1][1]:merged[-1]=(merged[-1][0],max(hi,merged[-1][1]))
+  else:merged.append((lo,hi))
+ return merged
 
 def effective_capacity(w):
  if not w['attending']:return 0
  interval=max(0,time_quarter(w['shift_end'])-time_quarter(w['shift_start']))
- if w.get('break_start') and w.get('break_end'):interval-=time_quarter(w['break_end'])-time_quarter(w['break_start'])
- return max(0,min(math.floor(min(float(w['available_hours'])-float(w['scheduled_hours']),float(w['weekly_hours']))*4+1e-9),interval))
+ interval-=sum(hi-lo for lo,hi in shift_break_windows(w))
+ return max(0,min(math.floor(float(w['available_hours'])*4+1e-9),interval)-math.ceil(float(w['scheduled_hours'])*4-1e-9))
 
 def schedule_fixed(c,work_date):
  return [dict(r) for r in c.execute("SELECT * FROM assignment_snapshot WHERE date=? AND staff_id IS NOT NULL",(work_date,))]
@@ -746,9 +772,10 @@ def find_slot(staff, task_quarters, records, work_date, exclude=None):
  if used+task_quarters>cap:return None
  # 09:00 start; include an implicit daily shift budget. Existing time ranges are blocked.
  start=time_quarter(staff['shift_start']);end=time_quarter(staff['shift_end'])
- if staff.get('break_start') and staff.get('break_end'):existing=existing+[{'task_id':'shift_break','start_time':staff['break_start'],'end_time':staff['break_end']}]
+ breaks=shift_break_windows(staff)
 
  for t in range(start,end-task_quarters+1):
+  if any(t<hi and t+task_quarters>lo for lo,hi in breaks):continue
   if any(r.get('start_time') and r.get('end_time') and t < time_quarter(r['end_time']) and t+task_quarters>time_quarter(r['start_time']) for r in existing):continue
   # Legacy assigned records with no interval reserve capacity, even before they get scheduled.
   return t
@@ -793,9 +820,8 @@ def allocate(tasks,workers,days=1,fixed=None,work_date=None):
  for wi,w in enumerate(workers):
   held=occupied[w['id']]
   cap=effective_capacity(w)
-  if w.get('break_start') and w.get('break_end'):
-   brs=time_quarter(w['break_start']);bre=time_quarter(w['break_end'])
-   intervals[wi].append(model.NewIntervalVar(brs,bre-brs,bre,f'break_{wi}'))
+  for brs,bre in shift_break_windows(w):
+   intervals[wi].append(model.NewIntervalVar(brs,bre-brs,bre,f'break_{wi}_{brs}'))
   model.Add(sum(quarter(tasks[ti]['hours'])*v for (ti,j),v in edges.items() if j==wi)+sum(quarter(r['hours']) for r in held)<=cap)
   for r in held:
    if r.get('start_time') and r.get('end_time'):
@@ -812,7 +838,6 @@ def allocate(tasks,workers,days=1,fixed=None,work_date=None):
  return assigned,unassigned,'OPTIMAL' if status==cp_model.OPTIMAL else 'FEASIBLE' if ok else 'NO_SOLUTION'
 
 optimization_lock=threading.Lock()
-@app.post('/api/resources/optimize')
 def resources(p:ResourceRequest):
  if not optimization_lock.acquire(blocking=False):raise HTTPException(409,'已有派工正在執行')
  try:
@@ -830,7 +855,6 @@ def _resources_locked(p:ResourceRequest):
  work_date=WORK_DATE.isoformat()
  with connect() as c:
   existing=schedule_fixed(c,work_date)
-  for w in workers:w['weekly_hours']=remaining_weekly_hours(c,w['id'],work_date,w['weekly_hours'])
   generated_ids={r['task_id'] for r in c.execute('SELECT task_id FROM generated_tasks')}
  tasks=[t for t in build_tasks(animals,overrides) if t['label']!='疫苗施打' or not t['due_date'] or t['due_date']<=work_date]
  # Historical snapshots must retain their original dates. New work gets date-qualified IDs.
@@ -858,18 +882,12 @@ def _resources_locked(p:ResourceRequest):
   # Manual optimization explicitly ends the demonstration reset state.
   c.execute("DELETE FROM demo_ui_state WHERE key='reset_mode'")
   c.commit()
- forecast=[]
- for point in p.forecast:
-  if all(k in point for k in ('expected_occupancy','lower_bound','upper_bound')):
-   forecast.append({'date':point.get('date'),'expected_food_kg':round(point['expected_occupancy']*(daily_food/count if count else p.food_rate),2),'food_lower_kg':round(point['lower_bound']*(daily_food/count if count else p.food_rate),2),'food_upper_kg':round(point['upper_bound']*(daily_food/count if count else p.food_rate),2),'expected_care_hours':round(point['expected_occupancy']*(care/count if count else p.care_minutes/60),2),'care_lower_hours':round(point['lower_bound']*(care/count if count else p.care_minutes/60),2),'care_upper_hours':round(point['upper_bound']*(care/count if count else p.care_minutes/60),2)})
- # CatBoost occupancy forecast -> seven-day food and baseline-care demand; no separately trained resource model.
- next7=forecast[:7]
- food_demand=sum(x['expected_food_kg'] for x in next7) if next7 else daily_food*7
- care_demand=sum(x['expected_care_hours'] for x in next7) if next7 else care*7
+ food_demand=daily_food*7
+ care_demand=care*7
  stock=float(profile['food_stock_kg']) if profile else 0
- available_hours=sum(max(0,min(7*max(0,w['available_hours']-w['scheduled_hours']),w['weekly_hours'])) for w in workers if w['attending'] and w['name']!='王助理')
+ available_hours=sum(7*effective_capacity(w)/4 for w in workers if w['name']!='王助理')
  resources7={'food_stock_kg':stock,'predicted_food_kg':round(food_demand,2),'food_shortage_kg':round(max(0,food_demand-stock),2),'available_staff_hours':round(available_hours,2),'predicted_care_hours':round(care_demand,2),'care_shortage_hours':round(max(0,care_demand-available_hours),2),'method':f'在養數量情境 × 目前{count}隻個體估算的平均飼料／工時；缺口為規則換算，並非另行訓練的資源需求 ML 模型。'}
- return {'resource_sufficiency_7d':resources7,'planning_start':WORK_DATE.isoformat(),'planning_days':1,'mode':'optimization','current_count':count,'occupancy_rate':round(100*count/p.capacity,1) if p.capacity else None,'daily_food_kg':round(daily_food,2),'daily_care_hours':round(care,2),'daily_cost':round(cost,2),'capacity_gap':max(0,count-p.capacity),'staff_gap_hours':round(max(0,care-p.staff_hours),2),'budget_days':round(p.budget/cost,1) if cost else None,'assignments':assigned,'unassigned':unassigned,'workers':workers,'forecast_resources':forecast,'category_summary':{cat:{'total':sum(t['category']==cat for t in tasks),'assigned':sum(t['category']==cat for t in assigned)} for cat in ['health','admin','adoption']},'optimization':{'solver_status':status,'message':'Google OR-Tools CP-SAT：未完成任務於單日最多指派一次，硬性限制技能、工時與時間重疊；先嚴重健康任務，再健康狀態待確認、健康問題追蹤、一般任務；已鎖定與完成的工作不移動。' },'warnings':['個體飼料與工時為規則式展示估算，非實測；未來動物組成假設不變。','展示人員與任務工時為示範設定，實際部署需由主管核對資格及工作量。','預測區間為未校正情境帶，不是信賴區間。']}
+ return {'resource_sufficiency_7d':resources7,'planning_start':WORK_DATE.isoformat(),'planning_days':1,'mode':'optimization','current_count':count,'occupancy_rate':round(100*count/p.capacity,1) if p.capacity else None,'daily_food_kg':round(daily_food,2),'daily_care_hours':round(care,2),'daily_cost':round(cost,2),'capacity_gap':max(0,count-p.capacity),'staff_gap_hours':round(max(0,care-p.staff_hours),2),'budget_days':round(p.budget/cost,1) if cost else None,'assignments':assigned,'unassigned':unassigned,'workers':workers,'category_summary':{cat:{'total':sum(t['category']==cat for t in tasks),'assigned':sum(t['category']==cat for t in assigned)} for cat in ['health','admin','adoption']},'optimization':{'solver_status':status,'message':'Google OR-Tools CP-SAT：未完成任務於單日最多指派一次，硬性限制技能、工時與時間重疊；先嚴重健康任務，再健康狀態待確認、健康問題追蹤、一般任務；已鎖定與完成的工作不移動。' },'warnings':['個體飼料與工時為規則式展示估算，非實測；七日試算為當日估算乘以七。','展示人員與任務工時為示範設定，實際部署需由主管核對資格及工作量。']}
 def reconcile_completed_followups():
  """Backfill generated tasks from previously saved completed reports.
  Safe to run repeatedly; never deletes or reshuffles existing assignments.
@@ -925,7 +943,7 @@ def staff_assignments(request:Request):
   # Only advertise staff that pass the same shift, skill and capacity checks
   # as manual assignment. Reserved slots and breaks are considered here.
   staff_eligibility={}
-  eligible_workers=[{**w,'weekly_hours':remaining_weekly_hours(c,w['id'],WORK_DATE.isoformat(),w['weekly_hours'])} for w in workers] if uid==1 else []
+  eligible_workers=workers if uid==1 else []
   all_snapshots=[dict(r) for r in c.execute('SELECT * FROM assignment_snapshot WHERE date=?',(WORK_DATE.isoformat(),))]
   snapshot_by_id={r['task_id']:r for r in all_snapshots}
   snapshots_by_worker={w['id']:[] for w in eligible_workers}
@@ -1069,7 +1087,7 @@ def _reassign_in_tx(c,task_id,item):
  except (ValueError,TypeError):raise HTTPException(422,'日期必須為 YYYY-MM-DD')
  if target_date!=WORK_DATE.isoformat():raise HTTPException(422,'目前僅支援目標工作日單日派工')
  rows=[dict(r) for r in c.execute('SELECT * FROM assignment_snapshot WHERE date=? AND staff_id=? AND task_id<>?',(target_date,item.staff_id,task_id))]
- w=staff_row(staff);w['weekly_hours']=remaining_weekly_hours(c,w['id'],target_date,w['weekly_hours']);length=quarter(task['hours'])
+ w=staff_row(staff);length=quarter(task['hours'])
  if sum(quarter(r['hours']) for r in rows)+length>effective_capacity(w):raise HTTPException(409,'超過員工當日可用工時上限')
  if item.start_time:
   try:
@@ -1077,7 +1095,7 @@ def _reassign_in_tx(c,task_id,item):
    if quarter_time(start)!=item.start_time:raise ValueError()
   except (ValueError,TypeError):raise HTTPException(422,'開始時間必須為 15 分鐘整點 HH:MM')
   if start<time_quarter(w['shift_start']) or start+length>time_quarter(w['shift_end']):raise HTTPException(409,'任務超出員工工作時段')
-  if w.get('break_start') and w.get('break_end') and start<time_quarter(w['break_end']) and start+length>time_quarter(w['break_start']):raise HTTPException(409,'任務與休息時間重疊')
+  if any(start<hi and start+length>lo for lo,hi in shift_break_windows(w)):raise HTTPException(409,'任務與休息時間重疊')
   if any(r['start_time'] and start<time_quarter(r['end_time']) and start+length>time_quarter(r['start_time']) for r in rows):raise HTTPException(409,'與員工既有任務時間重疊')
  else:
   slot=find_slot(w,length,rows,target_date)
@@ -1159,3 +1177,12 @@ def stage2_answer(body:Stage2Question):
   messages.append(f"CatBoost {target} 測試 MAE={metrics.get('MAE')}, RMSE={metrics.get('RMSE')}, WAPE={metrics.get('WAPE')}%；屬單步測試，不能解讀成準確率。")
  messages.extend(report['warnings'])
  return {'question':body.question,'model_explanation':'\n'.join(messages),'evaluation':report,'note':'此端點只提供可稽核的模型表現敘述；預測值請從 /api/stage2/animal/{id}/risks、/api/stage2/counts 或 /api/resources/needs-forecast 取得。'}
+
+
+from weekly_schedule import mount as mount_weekly_schedule
+app.include_router(mount_weekly_schedule(sys.modules[__name__]))
+
+@app.post('/api/resources/optimize', deprecated=True)
+def optimize_week_alias(week:date|None=None):
+ target=week or datetime.now(ZoneInfo('Asia/Taipei')).date()
+ return RedirectResponse(f'/api/schedule/preview?week={target.isoformat()}',status_code=307)

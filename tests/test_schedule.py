@@ -17,10 +17,15 @@ class SchedulingTests(unittest.TestCase):
         root=Path(cls.temp.name)
         (root/'backend').mkdir()
         shutil.copyfile(SOURCE,root/'backend/main.py')
+        shutil.copyfile(SOURCE.with_name('weekly_schedule.py'),root/'backend/weekly_schedule.py')
         spec=importlib.util.spec_from_file_location('isolated_shelter_schedule_tests',root/'backend/main.py')
         cls.mod=importlib.util.module_from_spec(spec)
         sys.modules[spec.name]=cls.mod
-        spec.loader.exec_module(cls.mod)
+        sys.path.insert(0,str(root/'backend'))
+        try:
+            spec.loader.exec_module(cls.mod)
+        finally:
+            sys.path.pop(0)
 
     @classmethod
     def tearDownClass(cls):
