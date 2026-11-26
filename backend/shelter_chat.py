@@ -317,9 +317,9 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
                 # Local routing handles common questions without spending quota.
                 local=ci.local_intent(question,animal=entities['animal_id'] is not None,
                                       staff=entities['staff_id'] is not None,task=entities['task_id'] is not None)
-                blocked=ci.has(question,'刪除','刪掉','新增','幫我指派','幫我分配','幫我安排','改成','取消任務','執行SQL','DELETE FROM','UPDATE ','DROP TABLE','忽略之前','忽略以上')
-                if local['intent']=='unknown' and follow and not blocked and (
-                    explicit_date or temporal['period']!='all_day' or ci.has(question,'呢','那','他','她','牠','它','這個')):
+                blocked=ci.blocked(question)
+                continuation = re.fullmatch(r'(?:那|所以|另外|請問|他|她|牠|它|這隻|這個|該員工|該動物|大後天|大前天|今天|明天|後天|昨天|前天|明日|今日|上午|下午|早上|本週|下週|上週|全天|整天|的|呢|嗎|[\s?？。！!])*',question)
+                if local['intent']=='unknown' and follow and not blocked and continuation:
                     local={'intent':prior['intent'],'period':'all_day','sort':prior.get('sort','none'),'count_only':prior.get('count_only',False)}
                 routed_by='local'
                 if local['intent']=='unknown' and not blocked:
@@ -341,9 +341,9 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
                     if not ci.has(question,'誰','哪些員工','所有員工','全體','哪個','哪位'):
                         plan['staff_id']=prior.get('staff_id')
                 if intent in ('pending_tasks','staff_schedule','urgent_tasks','leave_impact','assignment_reason','next_task') and prior:
-                    if ci.has(question,'他','她','該員工') and plan['staff_id'] is None:
+                    if (continuation or ci.has(question,'他','她','該員工')) and plan['staff_id'] is None:
                         plan['staff_id']=prior.get('staff_id')
-                    if ci.has(question,'牠','它','這隻','該動物') and plan['animal_id'] is None:
+                    if (continuation or ci.has(question,'牠','它','這隻','該動物')) and plan['animal_id'] is None:
                         plan['animal_id']=prior.get('animal_id')
                     if intent=='assignment_reason' and not explicit_date and plan['task_id'] is None:
                         plan['task_id']=prior.get('task_id')
@@ -352,11 +352,14 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
                     intent=plan['intent']='unknown'
                 if plan['staff_id'] is not None and plan['sort']!='none':
                     plan['sort']='none'
-                if intent in ('staff_availability','staff_workload','workload_balance') and sid is not None:
+                if intent in ('staff_availability','staff_workload','workload_balance','staff_schedule') and sid is not None:
                     plan['staff_id']=sid
                 # Use local species/label matches, never model-generated IDs or SQL.
                 plan['species']='dog' if ci.has(question,'狗狗','犬隻','狗','犬') and not ci.has(question,'貓','猫') else 'cat' if ci.has(question,'貓','猫') and not ci.has(question,'狗','犬') else None
                 plan['labels']=[label for label in legacy.TASK_CATALOG if label in question]
+                if continuation and prior:
+                    plan['species']=prior.get('species')
+                    plan['labels']=prior.get('labels',[])
                 extra={}
                 with legacy.connect() as db:
                     db.execute('PRAGMA query_only=ON')
@@ -397,8 +400,8 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
                         source='rules'
                     else:
                         lines,sources,extra=cq.execute(legacy,db,plan,sid,shifts_for,daily_limit,tasks_for,task_answer)
-                if source!='rules' and intent!='unknown':
-                    state={key:plan[key] for key in ('intent','start','end','period','sort','count_only','explicit_date','animal_id','staff_id','task_id')}
+                if source!='rules' and intent!='unknown' and sources:
+                    state={key:plan[key] for key in ('intent','start','end','period','sort','count_only','explicit_date','animal_id','staff_id','task_id','species','labels')}
                     state.update(extra)
                     token=ci.encode_context(legacy.AUTH_SECRET,auth,state)
         if model_data:
