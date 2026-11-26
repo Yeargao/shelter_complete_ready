@@ -75,18 +75,6 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
   {care&&<p>{care.animal_summary} <small>（{care.mode==='llm'?'Gemini AI':care.mode==='cache'?'AI 快取摘要':'規則式摘要'}{
     care.fallback_reason==='in_progress'?' · AI 摘要處理中':care.fallback_reason?' · 目前 AI 無法使用':''
   }）</small></p>}
-  <details onToggle={e=>{
-   if(e.currentTarget.open&&!summary.isPending)summary.mutate();
-  }}>
-   <summary>動物資料及照護重點</summary>
-   {t.photo_url?<img className="rounded-lg max-w-xs w-full" src={t.photo_url} alt={t.animal_name}/>:<p className="muted">🐾 尚無動物照片</p>}
-   {t.note&&<p>注意事項：{t.note}</p>}
-   {care&&<ul>{[...care.known_issues,...care.observations,...care.unconfirmed].filter(x=>x!==t.note&&x!==`本次任務：${t.label}`).map((x,i)=><li key={i}>{x}</li>)}</ul>}
-   {summary.isPending&&<p role="status">正在查詢照護摘要…</p>}
-   {summary.error&&<ErrorView error={summary.error}/>}
-   {summary.data&&<button type="button" className="secondary" disabled={summary.isPending}
-    onClick={()=>summary.mutate()}>重新查詢摘要</button>}
-  </details>
   {care?.fallback_reason&&<p className="muted">{aiGuidance(care.fallback_reason)}</p>}
   {t.report?<div><strong>已回報</strong> · {t.report.result} {t.report.note}{t.issue&&<p>{t.issue.resolved_at?'問題已解決':'待管理者處理'}</p>}<TaskPhotos task={t}/>
    {canWithdraw&&<button type="button" className="secondary" disabled={withdraw.isPending}
@@ -110,6 +98,18 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
      <button type="button" className="secondary ml-2" disabled={report.isPending} onClick={cancelReport}>取消回報</button>
     </form>}
    </>:null}
+  <details onToggle={e=>{
+   if(e.currentTarget.open&&!summary.isPending)summary.mutate();
+  }}>
+   <summary>動物資料及照護重點</summary>
+   {t.photo_url?<img className="rounded-lg max-w-xs w-full" src={t.photo_url} alt={t.animal_name}/>:<p className="muted">🐾 尚無動物照片</p>}
+   {t.note&&<p>注意事項：{t.note}</p>}
+   {care&&<ul>{[...care.known_issues,...care.observations,...care.unconfirmed].filter(x=>x!==t.note&&x!==`本次任務：${t.label}`).map((x,i)=><li key={i}>{x}</li>)}</ul>}
+   {summary.isPending&&<p role="status">正在查詢照護摘要…</p>}
+   {summary.error&&<ErrorView error={summary.error}/>}
+   {summary.data&&<button type="button" className="secondary" disabled={summary.isPending}
+    onClick={()=>summary.mutate()}>重新查詢摘要</button>}
+  </details>
   {report.error&&<ErrorView error={report.error}/>}
   {report.isPending&&<p role="status">{files.length
    ?upload===undefined?'正在準備照片…':upload<100?`照片上傳 ${upload}%`:'照片已上傳，正在儲存回報…'
