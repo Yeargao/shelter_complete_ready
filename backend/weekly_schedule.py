@@ -393,7 +393,14 @@ def mount(legacy):
                 continue
             delta = model.new_int_var(0, bound, f'half_delta_{sid}_{day}')
             model.add_abs_equality(delta, sum(half_load[(sid, day), 0]) - sum(half_load[(sid, day), 1]))
+            model.add(delta <= 1)  # Mandatory: at most one 15-minute slot per full-day worker.
             half_deviations.append(delta)
+        # Mandatory daily total balance, including staff with only one available half.
+        for day in working_days:
+            am = sum(sum(half_load[(sid, day), 0]) for sid in workers)
+            pm = sum(sum(half_load[(sid, day), 1]) for sid in workers)
+            model.add(am - pm <= 1)
+            model.add(pm - am <= 1)
         # First minimize the worst individual daily AM/PM imbalance, then the total.
         worst_half = model.new_int_var(0, bound, 'worst_half_delta')
         model.add_max_equality(worst_half, half_deviations or [0])
@@ -484,7 +491,7 @@ def mount(legacy):
                 else:
                     status = cp_model.UNKNOWN
             if status == cp_model.INFEASIBLE:
-                raise HTTPException(409, '固定或歷史任務與班表、休息或每日工時上限衝突')
+                raise HTTPException(409, '無法同時滿足固定任務、班表、休息、工時上限及每日上下午工時差不超過15分鐘')
             if status not in (cp_model.OPTIMAL,cp_model.FEASIBLE):
                 if status_name is None:
                     raise HTTPException(503, '在時限內未取得可行方案')
