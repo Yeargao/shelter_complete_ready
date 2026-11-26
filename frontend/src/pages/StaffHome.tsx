@@ -134,7 +134,7 @@ export default function StaffHome({userId}:{userId:number}) {
  const go=(date:string)=>{setDay(date);setSelectedId(undefined);};
  return <section className="space-y-4">
   <h1>照護人員工作台</h1>
-  <section className="panel weekly-board-panel space-y-3">
+  <section className="panel weekly-board-panel space-y-3" data-personal-calendar-user={userId}>
    <h2>個人日曆</h2>
    <div className="weekly-toolbar">
     <button type="button" className="secondary" onClick={()=>go(addDays(day,weekly?-7:-1))}>{weekly?'上一週':'前一天'}</button>

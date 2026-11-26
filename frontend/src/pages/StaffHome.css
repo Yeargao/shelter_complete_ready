@@ -1,3 +1,8 @@
+/* Keep staff 04’s personal calendar viewport at the same standard 42rem as staff 02. */
+[data-personal-calendar-user="4"] .weekly-scroll{height:42rem;max-height:42rem}
+[data-personal-calendar-user="4"] .weekly-times>div,
+[data-personal-calendar-user="4"] .weekly-slots>div:not(.weekly-event){min-height:var(--slot-height);flex-shrink:0}
+
 /* V7: the expanded task's action row is always one horizontal line. */
 .staff-report-actions{display:flex;flex-flow:row nowrap;align-items:center;gap:6px;width:100%;min-width:0;overflow-x:auto;scrollbar-width:thin}
 .staff-report-actions>button{flex:1 1 auto;min-width:0;width:auto;white-space:nowrap;margin:0!important;padding:5px 3px!important}

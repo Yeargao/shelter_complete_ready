@@ -24,9 +24,18 @@ def digest(value):
     return hashlib.sha256(canonical(value).encode('utf-8')).hexdigest()
 
 
-def limit(name, default=0):
+LOCAL_BUDGET_DEFAULTS = {
+    'MAX_REQUESTS_PER_DAY': 20,
+    'MAX_REQUESTS_PER_MINUTE': 5,
+    'MAX_INPUT_TOKENS_PER_MINUTE': 20000,
+}
+
+
+def limit(name, default=None):
+    if default is None:
+        default = LOCAL_BUDGET_DEFAULTS.get(name, 0)
     try:
-        return max(0, int(os.getenv('LLM_' + name, default)))
+        return max(0, int(os.getenv('LLM_' + name, str(default))))
     except ValueError:
         return 0
 
@@ -91,6 +100,8 @@ def reserve(connect, kind, tokens, model=None):
         daily = db.execute('SELECT COUNT(*) FROM llm_attempts WHERE day=?', (day_key(now),)).fetchone()[0]
         minute, used = db.execute('SELECT COUNT(*),COALESCE(SUM(input_tokens),0) FROM llm_attempts WHERE at>?',
                                   (now-60,)).fetchone()
+        if any(limit(name) == 0 for name in LOCAL_BUDGET_DEFAULTS):
+            return None, 'local_budget_disabled'
         maximum = limit('MAX_REQUESTS_PER_DAY')
         if kind != 'chat':
             maximum = max(0, maximum - limit('CHAT_RESERVED_REQUESTS'))

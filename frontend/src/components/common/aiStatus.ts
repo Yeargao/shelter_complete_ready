@@ -3,6 +3,7 @@ const guidance:Record<string,string> = {
  missing_key:'後端缺少 Gemini API 金鑰。請管理者用 Google AI Studio 免費層專案的金鑰設定 GEMINI_API_KEY。',
  data_not_approved:'後端尚未允許將資料交由 Gemini 處理。確認資料適用後，請管理者設定 LLM_DATA_APPROVED=1。',
  invalid_model:'模型設定無效。請管理者在 AI Studio 確認專案有可用免費額度，並更新後端 GEMINI_MODEL。',
+ local_budget_disabled:'後端本地預算設為 0 或設定無效，尚未送出 Gemini 請求。請在 Render 設定 LLM_MAX_REQUESTS_PER_DAY、LLM_MAX_REQUESTS_PER_MINUTE、LLM_MAX_INPUT_TOKENS_PER_MINUTE 為符合 AI Studio 專案額度的正整數。',
  daily_budget:'本地每日額度已達上限，或剩餘請求已保留給聊天。請等太平洋時間午夜重設，或由管理者核對本地預算。',
  minute_budget:'本地每分鐘請求額度已滿。請稍後重試，或由管理者核對 AI Studio 的限制設定。',
  token_budget:'本地每分鐘輸入 Token 額度不足。請稍後重試，或由管理者核對 AI Studio 的限制設定。',

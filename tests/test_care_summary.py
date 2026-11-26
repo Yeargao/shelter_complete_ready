@@ -119,7 +119,7 @@ class CareSummaryTests(unittest.TestCase):
 
     def test_budgets_and_reserved_chat(self):
         for setting, value, expected in [
-            ('MAX_REQUESTS_PER_MINUTE','0','minute_budget'),
+            ('MAX_REQUESTS_PER_MINUTE','0','local_budget_disabled'),
             ('MAX_INPUT_TOKENS_PER_MINUTE','1','token_budget'),
             ('MAX_REQUESTS_PER_DAY','2','daily_budget'),
         ]:
