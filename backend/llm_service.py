@@ -133,7 +133,7 @@ def retry_after(value):
 
 
 def http_client():
-    return httpx.Client(timeout=8, follow_redirects=False)
+    return httpx.Client(timeout=20, follow_redirects=False)
 
 
 def gemini_call(instruction, content, schema, maximum, model=None):
@@ -142,7 +142,7 @@ def gemini_call(instruction, content, schema, maximum, model=None):
         vertexai=False,
         http_options=types.HttpOptions(
             api_version='v1beta', base_url='https://generativelanguage.googleapis.com',
-            timeout=8000, httpx_client=transport,
+            timeout=20000, httpx_client=transport,
             retry_options=types.HttpRetryOptions(attempts=1),
         ),
     ) as client:
