@@ -11,7 +11,7 @@ import httpx
 from google import genai
 from google.genai import errors as genai_errors, types
 
-DEFAULT_MODEL = 'gemini-3.5-flash-lite'
+DEFAULT_MODEL = 'gemini-2.5-flash-lite'
 PACIFIC = ZoneInfo('America/Los_Angeles')
 
 

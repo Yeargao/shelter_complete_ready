@@ -169,7 +169,25 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
         if '為什麼' in question or '原因' in question:
             named = next((t for t in active if len(t['task_id']) > 4 and t['task_id'] in question), None)
             if named is None:
-                return ['請提供可查看的任務 ID，以查詢排程記錄的原因。'], []
+                names = {t['animal_name'] for t in tasks if t['animal_name'] and t['animal_name'] in question}
+                labels = {t['label'] for t in tasks if t['label'] and t['label'] in question}
+                candidates = active if ('週' in question or names or labels) and not date_text else daily
+                matches = [t for t in candidates if (not names or t['animal_name'] in names)
+                           and (not labels or t['label'] in labels)]
+                if len(matches) == 1:
+                    named = matches[0]
+                elif matches:
+                    lines = [f"找到 {len(matches)} 項符合的任務，以下為已記錄的排程原因："]
+                    sources = []
+                    for task in matches[:12]:
+                        reason = task['reason'] or ('目前已指派，沒有其他已記錄原因。' if task['staff_id'] else '目前沒有已記錄的未指派原因。')
+                        lines.append(f"{task['day'] or '待指派'} · {task['animal_name']} · {task['label']}：{reason}")
+                        sources.append(f"任務 {task['task_id']}")
+                    if len(matches) > 12:
+                        lines.append('僅顯示前 12 項，可加入動物名稱或任務名稱縮小範圍。')
+                    return lines, sources
+                else:
+                    return ['找不到符合的可查看任務，請提供動物名稱、任務名稱或日期。'], []
             applied = db.execute('SELECT body FROM weekly_applied WHERE week=?', (days[0],)).fetchone()
             proposal = json.loads(applied['body']) if applied else None
             recorded = proposal and next((change for change in proposal['changes']
@@ -232,7 +250,7 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
             animal = animal_scope(db, sid, question, aid)
             if any(word in question for word in ('劑量', '診斷', '開藥', '用藥', '給藥')):
                 result = (['我可以查詢照護及醫療紀錄。診斷與用藥請由獸醫確認。'], [])
-            elif animal and not any(word in question for word in ('派工', '工時', '班表')):
+            elif animal and not any(word in question for word in ('派工', '工時', '班表', '排程', '指派')) and not (any(word in question for word in ('為什麼', '原因')) and '任務' in question):
                 token = sign(request, animal['id'])
                 lines, sources, model_data = animal_details(db, animal, question, sid)
                 result = lines, sources

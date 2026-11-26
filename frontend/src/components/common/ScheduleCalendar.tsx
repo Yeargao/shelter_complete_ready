@@ -27,9 +27,9 @@ export default function ScheduleCalendar({columns, shifts, tasks, onTask, drag, 
  const first=Math.min(36,...activeShifts.map(s=>timeGrid(s.shift_start)),...placed.map(t=>timeGrid(t.start_time)));
  const last=Math.max(68,...activeShifts.map(s=>timeGrid(s.shift_end)),...placed.map(t=>t.end_time?timeGrid(t.end_time):timeGrid(t.start_time)+t.hours*4));
  const ticks=Array.from({length:last-first},(_,i)=>first+i);
- const rowHeight=88;
+ const rowHeight=drag?88:66;
  // Both personal views use the same lunch height and the same coordinate function.
- const lunchHeight=88;
+ const lunchHeight=drag?88:66;
  const gridTicks=ticks.filter(tick=>tick<=lunchBreak[0]||tick>=lunchBreak[1]);
  const lunchTicks=lunchBreak[1]-lunchBreak[0];
  const gridOffset=(tick:number)=>(tick-first-Math.max(0,Math.min(lunchTicks,tick-lunchBreak[0]))*(1-lunchHeight/(rowHeight*lunchTicks)))*rowHeight;
@@ -66,23 +66,25 @@ export default function ScheduleCalendar({columns, shifts, tasks, onTask, drag, 
        const start=timeGrid(task.start_time);
        const priority=task.display_priority??task.priority;
        const label=displayTaskLabel(task.label);
+       const showPriority=label!=='健康狀態待確認';
+       const minutes=(taskEnd(task)-start)*15;
        const lane=lanes.get(task.task_id)??{index:0,count:1};
-       const title=`${task.start_time}–${task.end_time} · ${task.animal_name} · ${label} · ${task.state==='done'?'已完成':priority===1&&label==='健康狀態待確認'?'':priorityName[priority]}${task.locked?' · 已鎖定':''}`;
+       const title=`${task.start_time}–${task.end_time} · ${task.animal_name} · ${label} · ${task.state==='done'?'已完成':!showPriority?'':priorityName[priority]}${task.locked?' · 已鎖定':''}`;
        const movable=Boolean(drag?.canMove(task));
-       if(renderInline)return <div key={task.task_id} className="weekly-event weekly-event--staff-inline" data-priority={priority} data-done={task.state==='done'}
+       if(renderInline)return <div key={task.task_id} className="weekly-event weekly-event--staff-inline" data-personal="true" data-personal-minutes={minutes} data-priority={priority} data-done={task.state==='done'}
         style={{top:gridOffset(start)+1,height:Math.max(2,gridOffset(taskEnd(task))-gridOffset(start)-2),
          left:`calc(${lane.index*100/lane.count}% + 2px)`,right:`calc(${(lane.count-lane.index-1)*100/lane.count}% + 2px)`}}>
         {renderInline(task)}
        </div>;
        return <button type="button" key={task.task_id} className="weekly-event weekly-event--three-lines" data-priority={priority}
-        data-done={task.state==='done'} data-manager-minutes={drag?(taskEnd(task)-start)*15:undefined} data-personal={!drag||undefined} draggable={movable} aria-pressed={selectedId===task.task_id}
+        data-done={task.state==='done'} data-manager-minutes={drag?minutes:undefined} data-personal-minutes={!drag?minutes:undefined} data-personal={!drag||undefined} draggable={movable} aria-pressed={selectedId===task.task_id}
         onDragStart={movable?e=>drag?.start(e,task):undefined} onDragEnd={movable?drag?.end:undefined}
         onClick={()=>onTask(task)} title={title} aria-label={title}
         style={{top:gridOffset(start)+1,height:Math.max(2,gridOffset(taskEnd(task))-gridOffset(start)-2),
          left:`calc(${lane.index*100/lane.count}% + 2px)`,right:`calc(${(lane.count-lane.index-1)*100/lane.count}% + 2px)`}}>
         <span className="weekly-event-time"><span className="weekly-dot" aria-hidden="true"/>{task.start_time}–{task.end_time}</span>
         <span className="weekly-event-animal">{task.animal_name}</span>
-        <span className="weekly-event-label">{priority<=1&&task.state!=='done'&&!(priority===1&&label==='健康狀態待確認')?`${priorityName[priority]} · `:''}{label}</span>
+        <span className="weekly-event-label">{priority<=1&&task.state!=='done'&&showPriority?`${priorityName[priority]} · `:''}{label}</span>
        </button>;
       })}
      </div>

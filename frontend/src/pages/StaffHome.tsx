@@ -69,7 +69,7 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
  return <article className="staff-care-card weekly-task" data-priority={displayPriority} data-done={t.state==='done'}>
   <div className="staff-care-identity">
    <strong><span className="weekly-dot" aria-hidden="true"/>{t.start_time}–{t.end_time}</strong><div>{t.animal_name} #{t.animal_id}</div>
-   <div>{displayTaskLabel(t.label)} {displayPriority<=1&&!(displayPriority===1&&t.label==='健康狀態待確認')&&<span className="attention-badge alert-high">{displayPriority===0?'緊急':'高優先級'}</span>}</div>
+   <div>{displayTaskLabel(t.label)} {displayPriority<=1&&displayTaskLabel(t.label)!=='健康狀態待確認'&&<span className="attention-badge alert-high">{displayPriority===0?'緊急':'高優先級'}</span>}</div>
   </div>
   <div className="staff-care-controls">
   {care&&<p>{care.animal_summary} <small>（{care.mode==='llm'?'Gemini AI':care.mode==='cache'?'AI 快取摘要':'規則式摘要'}{
