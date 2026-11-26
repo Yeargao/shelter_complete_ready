@@ -76,15 +76,15 @@ def settings_error():
     return None
 
 
-def config_id():
-    return digest([model_name(), os.getenv('GEMINI_API_KEY', '').strip()])
+def config_id(model=None):
+    return digest([model or model_name(), os.getenv('GEMINI_API_KEY', '').strip()])
 
 
-def reserve(connect, kind, tokens):
+def reserve(connect, kind, tokens, model=None):
     with connect() as db:
         db.execute('BEGIN IMMEDIATE')
         now = time.time()
-        state = db.execute('SELECT until,error FROM llm_state WHERE config=?', (config_id(),)).fetchone()
+        state = db.execute('SELECT until,error FROM llm_state WHERE config=?', (config_id(model),)).fetchone()
         if state and state['until'] > now:
             return None, state['error']
         daily = db.execute('SELECT COUNT(*) FROM llm_attempts WHERE day=?', (day_key(now),)).fetchone()[0]
@@ -121,7 +121,7 @@ def http_client():
     return httpx.Client(timeout=8, follow_redirects=False)
 
 
-def gemini_call(instruction, content, schema, maximum):
+def gemini_call(instruction, content, schema, maximum, model=None):
     with http_client() as transport, genai.Client(
         api_key=os.getenv('GEMINI_API_KEY', '').strip(),
         vertexai=False,
@@ -132,7 +132,7 @@ def gemini_call(instruction, content, schema, maximum):
         ),
     ) as client:
         result = client.models.generate_content(
-            model=model_name(), contents=content,
+            model=model or model_name(), contents=content,
             config=types.GenerateContentConfig(
                 system_instruction=instruction, response_mime_type='application/json',
                 response_json_schema=schema, max_output_tokens=maximum,
@@ -142,19 +142,28 @@ def gemini_call(instruction, content, schema, maximum):
 
 
 def generate(connect, kind, instruction, data, schema, validate):
-    """One external attempt per action, with a charged reservation before transport."""
+    """Try the other approved model only for a summary model-not-found error."""
+    output, error = _generate(connect, kind, instruction, data, schema, validate)
+    if kind == 'summary' and error == 'configuration_404':
+        alternate = 'gemini-3.5-flash-lite' if model_name() == 'gemini-2.5-flash-lite' else 'gemini-2.5-flash-lite'
+        return _generate(connect, kind, instruction, data, schema, validate, alternate)
+    return output, error
+
+
+def _generate(connect, kind, instruction, data, schema, validate, model=None):
+    """Charge a separate quota reservation before each external attempt."""
     error = settings_error()
     if error:
         return None, error
     content = canonical(data)
     maximum = max(1, limit('MAX_OUTPUT_TOKENS', 512))
     estimated = len(canonical([instruction, content, schema]).encode('utf-8')) + 256
-    attempt, error = reserve(connect, kind, estimated)
+    attempt, error = reserve(connect, kind, estimated, model) if model else reserve(connect, kind, estimated)
     if error:
         return None, error
     output, cooldown, tokens = None, 0, estimated
     try:
-        body = gemini_call(instruction, content, schema, maximum)
+        body = gemini_call(instruction, content, schema, maximum, model) if model else gemini_call(instruction, content, schema, maximum)
         actual = body.get('usageMetadata', {}).get('promptTokenCount')
         if type(actual) is int and actual > 0:
             tokens = actual
@@ -184,7 +193,7 @@ def generate(connect, kind, instruction, data, schema, validate):
         if error:
             db.execute("""INSERT INTO llm_state VALUES (?,?,?) ON CONFLICT(config) DO UPDATE
                 SET until=excluded.until,error=excluded.error WHERE excluded.until>=llm_state.until""",
-                       (config_id(), time.time()+cooldown, error))
+                       (config_id(model), time.time()+cooldown, error))
     return output, error
 
 
