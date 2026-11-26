@@ -31,17 +31,17 @@ export default function ResourcePage() {
  const [dropIssue,setDropIssue]=useState('');
  const detailRef=useRef<HTMLElement>(null);
  useEffect(()=>{if(selected)detailRef.current?.focus();},[selected]);
- const week=useQuery({queryKey:['schedule-week',day],queryFn:()=>api.week(day),refetchInterval:15000});
+ const week=useQuery({queryKey:['schedule-week',day],queryFn:()=>api.week(day),refetchInterval:dragged?false:15000,refetchOnWindowFocus:!dragged});
  const refresh=async()=>{setPlan(undefined);await qc.invalidateQueries({queryKey:['schedule-week']});await qc.invalidateQueries({queryKey:['resource-overview']});};
  const preview=useMutation({mutationFn:()=>api.previewWeek(day),onSuccess:setPlan});
  const apply=useMutation({mutationFn:api.applyWeek,onSuccess:refresh});
  const move=useMutation({mutationFn:({id,body}:{id:string;body:Parameters<typeof api.place>[1]})=>api.place(id,body),onSuccess:async()=>{setNotice('已儲存指派');setSelected(undefined);await refresh();}});
- const create=useMutation({mutationFn:api.createWeeklyTask,onSuccess:async()=>{setPoolTab('pending');await refresh();preview.mutate();}});
+ const create=useMutation({mutationFn:api.createWeeklyTask,onSuccess:async()=>{setPoolTab('pending');await refresh();}});
  const resolve=useMutation({mutationFn:api.resolveIssue,onSuccess:refresh});
- const event=useMutation({mutationFn:({id,date}:{id:string;date?:string})=>api.taskEvent(id,date?{event:'delay',earliest:date}:{event:'start'}),onSuccess:async()=>{setSelected(undefined);await refresh();preview.mutate();}});
+ const event=useMutation({mutationFn:({id,date}:{id:string;date?:string})=>api.taskEvent(id,date?{event:'delay',earliest:date}:{event:'start'}),onSuccess:async()=>{setSelected(undefined);await refresh();}});
  const saveShift=useMutation({mutationFn:api.saveShift,onSuccess:refresh});
  const saveStaff=useMutation({mutationFn:(staff:Staff)=>api.updateStaff(staff.id,staff),
-  onSuccess:async()=>{setStaffSettings(undefined);await refresh();preview.mutate();}});
+  onSuccess:async()=>{setStaffSettings(undefined);await refresh();}});
  const workers=week.data?.workers??[], tasks=week.data?.tasks??[], days=week.data?.days??[];
  const sid=worker??workers[0]?.id;
  const columns=view==='week'?days.map(date=>({day:date,sid,title:date.slice(5)})):workers.map(w=>({day,sid:w.id,title:w.name}));
