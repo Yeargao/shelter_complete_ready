@@ -146,6 +146,20 @@ def gemini_call(instruction, content, schema, maximum, model=None):
             retry_options=types.HttpRetryOptions(attempts=1),
         ),
     ) as client:
+        function_name = schema.get('x_function_name')
+        if function_name:
+            parameters = {k: v for k, v in schema.items() if k not in ('additionalProperties', 'x_function_name')}
+            config = types.GenerateContentConfig(
+                system_instruction=instruction, max_output_tokens=maximum,
+                tools=[types.Tool(function_declarations=[types.FunctionDeclaration(
+                    name=function_name, description='Select one authorized read-only shelter query.',
+                    parameters_json_schema=parameters)])],
+                tool_config=types.ToolConfig(function_calling_config=types.FunctionCallingConfig(
+                    mode='ANY', allowed_function_names=[function_name])),
+                automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+            )
+            result = client.models.generate_content(model=model or model_name(), contents=content, config=config)
+            return result.model_dump(mode='json', by_alias=True, exclude_none=True)
         result = client.models.generate_content(
             model=model or model_name(), contents=content,
             config=types.GenerateContentConfig(
@@ -166,6 +180,12 @@ def generate(connect, kind, instruction, data, schema, validate):
         if alternate != model_name():
             output, error = _generate(connect, kind, instruction, data, schema, validate, alternate)
     return output, error
+
+
+def generate_tool(connect, instruction, data, schema, validate):
+    """One native function-call attempt, charged against the existing chat budget."""
+    return _generate(connect, 'chat', instruction, data,
+                     {**schema, 'x_function_name': 'query_shelter'}, validate)
 
 
 def _generate(connect, kind, instruction, data, schema, validate, model=None):
@@ -189,9 +209,16 @@ def _generate(connect, kind, instruction, data, schema, validate, model=None):
         candidate = body['candidates'][0]
         if candidate.get('finishReason') != 'STOP':
             raise ValueError('Incomplete response')
-        output = validate(json.loads(''.join(
-            part['text'] for part in candidate['content']['parts'] if not part.get('thought')
-        )))
+        if schema.get('x_function_name'):
+            calls = [part['functionCall'] for part in candidate['content']['parts']
+                     if 'functionCall' in part and not part.get('thought')]
+            if len(calls) != 1 or calls[0].get('name') != schema['x_function_name']:
+                raise ValueError('Unexpected function call')
+            output = validate(calls[0]['args'])
+        else:
+            output = validate(json.loads(''.join(
+                part['text'] for part in candidate['content']['parts'] if not part.get('thought')
+            )))
     except (genai_errors.APIError, httpx.HTTPStatusError) as exc:
         status = exc.code if isinstance(exc, genai_errors.APIError) else exc.response.status_code
         headers = getattr(getattr(exc, 'response', None), 'headers', None) or {}
