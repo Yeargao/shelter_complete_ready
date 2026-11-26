@@ -27,8 +27,7 @@ export default function ScheduleCalendar({columns, shifts, tasks, onTask, drag, 
  const first=Math.min(36,...activeShifts.map(s=>timeGrid(s.shift_start)),...placed.map(t=>timeGrid(t.start_time)));
  const last=Math.max(68,...activeShifts.map(s=>timeGrid(s.shift_end)),...placed.map(t=>timeGrid(t.start_time)+t.hours*4));
  const ticks=Array.from({length:last-first},(_,i)=>first+i);
- const personal=!drag;
- const rowHeight=personal?88:44;
+ const rowHeight=88;
  const lunchHeight=88;
  const gridTicks=ticks.filter(tick=>tick<=lunchBreak[0]||tick>=lunchBreak[1]);
  const lunchTicks=lunchBreak[1]-lunchBreak[0];
@@ -89,13 +88,15 @@ export default function ScheduleCalendar({columns, shifts, tasks, onTask, drag, 
        const lane=lanes.get(task.task_id)??{index:0,count:1};
        const title=`${task.start_time}–${task.end_time} · ${task.animal_name} · ${label} · ${task.state==='done'?'已完成':priorityName[priority]}${task.locked?' · 已鎖定':''}`;
        const movable=Boolean(drag?.canMove(task));
-       return <button type="button" key={task.task_id} className={`weekly-event${personal?' weekly-event--personal':''}`} data-priority={priority}
+       return <button type="button" key={task.task_id} className="weekly-event weekly-event--three-lines" data-priority={priority}
         data-done={task.state==='done'} draggable={movable} aria-pressed={selectedId===task.task_id}
         onDragStart={movable?e=>drag?.start(e,task):undefined} onDragEnd={movable?drag?.end:undefined}
         onClick={()=>onTask(task)} title={title} aria-label={title}
         style={{top:gridOffset(start)+1,height:Math.max(2,gridOffset(start+task.hours*4)-gridOffset(start)-2),
          left:`calc(${lane.index*100/lane.count}% + 2px)`,right:`calc(${(lane.count-lane.index-1)*100/lane.count}% + 2px)`}}>
-        <span className="weekly-dot" aria-hidden="true"/>{task.start_time}–{task.end_time} {priority<=1&&task.state!=='done'?`${priorityName[priority]} · `:''}{task.animal_name} · {label}
+        <span className="weekly-event-time"><span className="weekly-dot" aria-hidden="true"/>{task.start_time}–{task.end_time}</span>
+        <span className="weekly-event-animal">{task.animal_name}</span>
+        <span className="weekly-event-label">{priority<=1&&task.state!=='done'?`${priorityName[priority]} · `:''}{label}</span>
        </button>;
       })}
      </div>

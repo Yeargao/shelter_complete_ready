@@ -394,6 +394,9 @@ def mount(legacy):
             delta = model.new_int_var(0, bound, f'half_delta_{sid}_{day}')
             model.add_abs_equality(delta, sum(half_load[(sid, day), 0]) - sum(half_load[(sid, day), 1]))
             half_deviations.append(delta)
+        # First minimize the worst individual daily AM/PM imbalance, then the total.
+        worst_half = model.new_int_var(0, bound, 'worst_half_delta')
+        model.add_max_equality(worst_half, half_deviations or [0])
         gap_deviations = []
         for wk, events in window_events.items():
             sid, day, lo, hi = wk
@@ -462,7 +465,7 @@ def mount(legacy):
         best = {}
         status_name = None
         proved_optimal = True
-        objectives = [-sum(assigned_quarters), -sum(urgent), -sum(high), sum(late), balance, sum(half_deviations), sum(rest_penalties), sum(gap_deviations), -sum(retained)]
+        objectives = [-sum(assigned_quarters), -sum(urgent), -sum(high), sum(late), worst_half, sum(half_deviations), balance, sum(rest_penalties), sum(gap_deviations), -sum(retained)]
         objectives = [item for item in objectives if not isinstance(item,int)] or [model.new_constant(0)]
         for objective in objectives:
             model.minimize(objective)
