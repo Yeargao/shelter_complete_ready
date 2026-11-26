@@ -292,6 +292,8 @@ def mount(legacy):
         fixed_errors = []
         busy, day_used, date_used = defaultdict(set), defaultdict(int), defaultdict(int)
         completed_daily = defaultdict(int)
+        seed_half = defaultdict(int)
+        seed_person_half = defaultdict(int)
         half_load = defaultdict(list)
         rest_intervals = defaultdict(list)
         rest_penalties = []
@@ -314,7 +316,10 @@ def mount(legacy):
                     fixed_errors.append(tid)
                 intervals[key].append(model.new_fixed_size_interval_var(start, length, f'fixed_{tid}'))
                 daily[key].append(length)
-                half_load[key, 0 if start < 46 else 1].append(length)
+                half = 0 if start < 46 else 1
+                half_load[key, half].append(length)
+                seed_half[day, half] += length
+                seed_person_half[key, half] += length
                 for lo, hi in windows(shift):
                     if lo <= start and start + length <= hi:
                         wk = (sid, day, lo, hi)
@@ -450,7 +455,10 @@ def mount(legacy):
             tid, length = task['task_id'], task['quarters']
             options = choices[tid]
             options.sort(key=lambda option:(bool(task['due'] and option[2]>task['due']),
-                                            date_used[option[2]], day_used[option[1],option[2]],
+                                            abs(seed_half[option[2], 0] - seed_half[option[2], 1] + (length if option[4] < 46 else -length)) - abs(seed_half[option[2], 0] - seed_half[option[2], 1]),
+                                            date_used[option[2]],
+                                            abs(seed_person_half[(option[1],option[2]), 0] - seed_person_half[(option[1],option[2]), 1] + (length if option[4] < 46 else -length)),
+                                            day_used[option[1],option[2]],
                                             (option[1],option[2])!=(task['staff_id'],task['day']),
                                             option[2],option[1]))
             assigned = False
@@ -471,6 +479,9 @@ def mount(legacy):
                             busy[key].update(range(tick,tick+length))
                             day_used[key] += length
                             date_used[day] += length
+                            half = 0 if tick < 46 else 1
+                            seed_half[day, half] += length
+                            seed_person_half[key, half] += length
                             seed[tid] = (sid, day, tick)
                             break
                 model.add_hint(use,int(selected))
@@ -484,19 +495,27 @@ def mount(legacy):
         proved_optimal = True
         # Keep task coverage and clinical priorities; then balance every day before
         # optimizing individual balance and the 15-minute rest target.
-        objectives = [-sum(assigned_quarters), -sum(urgent), -sum(high), sum(late),
-                      worst_daily_half, sum(daily_half_deviations),
-                      worst_half, sum(half_deviations),
-                      sum(rest_penalties), sum(gap_deviations), balance, -sum(retained)]
+        primary = [-sum(assigned_quarters), -sum(urgent), -sum(high), sum(late),
+                   worst_daily_half, sum(daily_half_deviations)]
+        # Lexicographic objective: every incumbent already considers daily AM/PM balance.
+        # Each component ranges over at most bound quarters (or task count).
+        radix = max(2, bound + 1, len(tasks) + 1)
+        # CP-SAT validates domains conservatively; cap coefficients using option count.
+        option_count = sum(len(options) for options in choices.values())
+        combined = radix**5 * max(1, option_count) * max(1, bound) < 2**60
+        if combined:
+            primary = [sum(term * radix**(5-i) for i, term in enumerate(primary))]
+        objectives = primary + [worst_half, sum(half_deviations),
+                                sum(rest_penalties), sum(gap_deviations), balance, -sum(retained)]
         objectives = [item for item in objectives if not isinstance(item,int)] or [model.new_constant(0)]
         deadline = time.monotonic() + max(0.01, float(os.environ.get(
-            'SHELTER_SOLVER_TOTAL_SECONDS', str(phase_seconds * len(objectives)))))
+            'SHELTER_SOLVER_TOTAL_SECONDS', str(phase_seconds * (len(objectives) + (5 if combined else 0))))))
         for objective in objectives:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 status_name = 'FEASIBLE'
                 break
-            solver.parameters.max_time_in_seconds = min(phase_seconds, remaining)
+            solver.parameters.max_time_in_seconds = min(phase_seconds * (6 if combined and objective is objectives[0] else 1), remaining)
             model.minimize(objective)
             status = solver.solve(model)
             if status == cp_model.INFEASIBLE:
@@ -514,7 +533,27 @@ def mount(legacy):
             # The first objective is coverage; never replace the seed with a worse one.
             if objective is objectives[0]:
                 lengths = {t['task_id']: t['quarters'] for t in tasks}
-                if sum(lengths[t] for t in candidate) < sum(lengths[t] for t in best):
+                def primary_score(plan):
+                    by_day = defaultdict(int)
+                    for task in tasks:
+                        tid = task['task_id']
+                        if fixed_task(task) and task['state'] != 'cancelled':
+                            sid, day, start = placement(task)
+                        elif tid in plan:
+                            sid, day, start = plan[tid]
+                        else:
+                            continue
+                        if start is not None:
+                            by_day[day] += task['quarters'] * (1 if start < 46 else -1)
+                    differences = [abs(by_day[day]) for day in working_days]
+                    selected = [task for task in tasks if task['task_id'] in plan]
+                    return (-sum(lengths[t] for t in plan),
+                            -sum(t['priority'] == 0 for t in selected),
+                            -sum(t['priority'] == 1 for t in selected),
+                            sum(bool(t['due'] and plan[t['task_id']][1] > t['due']) for t in selected),
+                            max(differences, default=0), sum(differences))
+                if (primary_score(candidate) > primary_score(best) if combined else
+                        sum(lengths[t] for t in candidate) < sum(lengths[t] for t in best)):
                     status_name = 'FEASIBLE'
                     break
             best = candidate

@@ -67,7 +67,7 @@ export default function ScheduleCalendar({columns, shifts, tasks, onTask, drag, 
        const priority=task.display_priority??task.priority;
        const label=displayTaskLabel(task.label);
        const lane=lanes.get(task.task_id)??{index:0,count:1};
-       const title=`${task.start_time}–${task.end_time} · ${task.animal_name} · ${label} · ${task.state==='done'?'已完成':priorityName[priority]}${task.locked?' · 已鎖定':''}`;
+       const title=`${task.start_time}–${task.end_time} · ${task.animal_name} · ${label} · ${task.state==='done'?'已完成':priority===1&&label==='健康狀態待確認'?'':priorityName[priority]}${task.locked?' · 已鎖定':''}`;
        const movable=Boolean(drag?.canMove(task));
        if(renderInline)return <div key={task.task_id} className="weekly-event weekly-event--staff-inline" data-priority={priority} data-done={task.state==='done'}
         style={{top:gridOffset(start)+1,height:Math.max(2,gridOffset(taskEnd(task))-gridOffset(start)-2),
@@ -75,14 +75,14 @@ export default function ScheduleCalendar({columns, shifts, tasks, onTask, drag, 
         {renderInline(task)}
        </div>;
        return <button type="button" key={task.task_id} className="weekly-event weekly-event--three-lines" data-priority={priority}
-        data-done={task.state==='done'} draggable={movable} aria-pressed={selectedId===task.task_id}
+        data-done={task.state==='done'} data-manager-minutes={drag?(taskEnd(task)-start)*15:undefined} data-personal={!drag||undefined} draggable={movable} aria-pressed={selectedId===task.task_id}
         onDragStart={movable?e=>drag?.start(e,task):undefined} onDragEnd={movable?drag?.end:undefined}
         onClick={()=>onTask(task)} title={title} aria-label={title}
         style={{top:gridOffset(start)+1,height:Math.max(2,gridOffset(taskEnd(task))-gridOffset(start)-2),
          left:`calc(${lane.index*100/lane.count}% + 2px)`,right:`calc(${(lane.count-lane.index-1)*100/lane.count}% + 2px)`}}>
         <span className="weekly-event-time"><span className="weekly-dot" aria-hidden="true"/>{task.start_time}–{task.end_time}</span>
         <span className="weekly-event-animal">{task.animal_name}</span>
-        <span className="weekly-event-label">{priority<=1&&task.state!=='done'?`${priorityName[priority]} · `:''}{label}</span>
+        <span className="weekly-event-label">{priority<=1&&task.state!=='done'&&!(priority===1&&label==='健康狀態待確認')?`${priorityName[priority]} · `:''}{label}</span>
        </button>;
       })}
      </div>
