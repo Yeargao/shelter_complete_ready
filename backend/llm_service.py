@@ -12,7 +12,7 @@ from google import genai
 from google.genai import errors as genai_errors, types
 
 DEFAULT_MODEL = 'gemini-3.1-flash-lite'
-APPROVED_MODELS = (DEFAULT_MODEL, 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite')
+APPROVED_MODELS = (DEFAULT_MODEL, 'gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-3.5-flash-lite')
 PACIFIC = ZoneInfo('America/Los_Angeles')
 
 
@@ -144,11 +144,13 @@ def gemini_call(instruction, content, schema, maximum, model=None):
 
 
 def generate(connect, kind, instruction, data, schema, validate):
-    """Retry once on model/request errors, with the same quota and privacy gates."""
+    """Try approved alternatives for model/request errors, retaining all quota and privacy gates."""
     output, error = _generate(connect, kind, instruction, data, schema, validate)
-    if error in ('configuration_400', 'configuration_404'):
-        alternate = next(model for model in APPROVED_MODELS if model != model_name())
-        return _generate(connect, kind, instruction, data, schema, validate, alternate)
+    for alternate in APPROVED_MODELS:
+        if error not in ('configuration_400', 'configuration_404'):
+            break
+        if alternate != model_name():
+            output, error = _generate(connect, kind, instruction, data, schema, validate, alternate)
     return output, error
 
 

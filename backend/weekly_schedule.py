@@ -753,12 +753,21 @@ def mount(legacy):
         with legacy.lock, legacy.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             migrate(db)
-            release_lunch_tasks(db, days)
             populate(db, days)
             workers, shifts = shifts_for(db, days)
             tasks = tasks_for(db, days)
             version = revision(db)
-        changes, status = solve(tasks, workers, shifts, days)
+        # Preview must not change any existing placement. Only unlock invalid lunch
+        # placements in the solver's private copy; apply handles the actual update.
+        lunch_start, lunch_end = legacy.SHELTER_LUNCH
+        lunch_ids = {t['task_id'] for t in tasks if t['state'] == 'pending' and t['is_active']
+                     and t['day'] and t['day'] >= today().isoformat() and t['start'] is not None
+                     and t['start'] < lunch_end and t['start'] + t['quarters'] > lunch_start}
+        solver_tasks = [dict(t, locked=0) if t['task_id'] in lunch_ids else t for t in tasks]
+        changes, status = solve(solver_tasks, workers, shifts, days)
+        for change in changes:
+            if change['task_id'] in lunch_ids:
+                change['unlock_lunch'] = True
         plan_id = uuid4().hex
         with legacy.connect() as db:
             db.execute('INSERT INTO weekly_plans VALUES (?,?,?,?)',
@@ -785,8 +794,8 @@ def mount(legacy):
                     lunch_start,lunch_end = legacy.SHELTER_LUNCH
                     if start<lunch_end and start+length>lunch_start:
                         raise HTTPException(409,'預覽包含與午休重疊的任務，請重新預覽')
-                db.execute('UPDATE weekly_tasks SET staff_id=?,day=?,start=?,reason=? WHERE task_id=?',
-                           (sid, day, start, change['reason'], change['task_id']))
+                db.execute('UPDATE weekly_tasks SET staff_id=?,day=?,start=?,reason=?,locked=CASE WHEN ? THEN 0 ELSE locked END WHERE task_id=?',
+                           (sid, day, start, change['reason'], bool(change.get('unlock_lunch')), change['task_id']))
             event, _ = event_state(db, plan['week'])
             db.execute('INSERT OR REPLACE INTO weekly_applied VALUES (?,?,?,?,?)',
                        (plan['week'], event, proposal['status'], plan['body'], datetime.now(TAIPEI).isoformat()))

@@ -27,7 +27,7 @@ export default function ScheduleCalendar({columns, shifts, tasks, onTask, drag, 
  const first=Math.min(36,...activeShifts.map(s=>timeGrid(s.shift_start)),...placed.map(t=>timeGrid(t.start_time)));
  const last=Math.max(68,...activeShifts.map(s=>timeGrid(s.shift_end)),...placed.map(t=>t.end_time?timeGrid(t.end_time):timeGrid(t.start_time)+t.hours*4));
  const ticks=Array.from({length:last-first},(_,i)=>first+i);
- const rowHeight=(drag?88:66)*0.75;
+ const rowHeight=drag?88*0.75:66*0.75*0.75;
  // Both personal views use the same lunch height and the same coordinate function.
  const lunchHeight=rowHeight;
  const gridTicks=ticks.filter(tick=>tick<=lunchBreak[0]||tick>=lunchBreak[1]);
@@ -59,7 +59,7 @@ export default function ScheduleCalendar({columns, shifts, tasks, onTask, drag, 
        return <div key={tick} className={tick%4===0?'hour-line':''} style={{height:slotHeight(tick),boxSizing:'border-box'}} data-drop={reason===undefined?undefined:reason?'blocked':'allowed'}
         data-lunch={lunch||undefined} title={reason||(lunch?'11:30–13:30 休息，暫停派工':undefined)}
         onDragOver={drag&&reason!==undefined?e=>{e.preventDefault();drag.hover(reason);}:undefined}
-        onDrop={drag&&reason!==undefined?e=>{e.preventDefault();drag.drop(e.dataTransfer.getData('text/plain'),column,gridTime(tick),reason);}:undefined}>
+        onDrop={drag&&reason!==undefined?e=>{e.preventDefault();e.stopPropagation();drag.drop(e.dataTransfer.getData('text/plain'),column,gridTime(tick),reason);}:undefined}>
         {tick===lunchBreak[0]&&<span className="lunch-label">11:30–13:30 休息</span>}</div>;
       })}
       {daily.map(task=>{

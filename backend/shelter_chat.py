@@ -133,7 +133,7 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
             selected += timedelta(days=7)
         elif '上週' in question:
             selected -= timedelta(days=7)
-        days = week_days(selected)
+        days = week_days(selected, rolling=True)
         day = selected.isoformat()
         workers, shifts = shifts_for(db, days)
         if sid is not None:
@@ -187,7 +187,8 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
                         lines.append('僅顯示前 12 項，可加入動物名稱或任務名稱縮小範圍。')
                     return lines, sources
                 else:
-                    return task_answer(candidates, '未找到指定任務；以下是可查看的任務，可依名稱或 ID 再查詢', workers)
+                    visible = active if not date_text and not names and not labels else candidates
+                    return task_answer(visible, '未找到指定任務；以下是可查看的任務，可依名稱或 ID 再查詢', workers)
             applied = db.execute('SELECT body FROM weekly_applied WHERE week=?', (days[0],)).fetchone()
             proposal = json.loads(applied['body']) if applied else None
             recorded = proposal and next((change for change in proposal['changes']

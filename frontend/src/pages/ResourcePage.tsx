@@ -27,6 +27,8 @@ export default function ResourcePage() {
  const [shift,setShift]=useState<WeeklyShift>();
  const [staffSettings,setStaffSettings]=useState<Staff>();
  const [dragged,setDragged]=useState<WeeklyTask>();
+ const dragTaskId=useRef<string>();
+ const endDrag=()=>{dragTaskId.current=undefined;setDragged(undefined);};
  const [notice,setNotice]=useState('');
  const [dropIssue,setDropIssue]=useState('');
  const detailRef=useRef<HTMLElement>(null);
@@ -57,7 +59,9 @@ export default function ResourcePage() {
   if(id&&!move.isPending)move.mutate({id,body:{staff_id,day:date,start_time,locked:true}});
  };
  const beginDrag=(event:React.DragEvent,task:WeeklyTask)=>{
+  dragTaskId.current=task.task_id;
   event.dataTransfer.setData('text/plain',task.task_id);
+  event.dataTransfer.effectAllowed='move';
   setDragged(task);
   setNotice('');
   setDropIssue('');
@@ -89,7 +93,7 @@ export default function ResourcePage() {
   <h1>資源配置</h1>
   {[week.error,create.error,saveShift.error,resolve.error,saveStaff.error].filter(Boolean).map((error,i)=><ErrorView key={i} error={error}/>)}
   <div className="weekly-board">
-   <aside className="panel weekly-board-panel weekly-pool-panel" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();drop(e.dataTransfer.getData('text/plain'),null);setDragged(undefined);}}>
+   <aside className="panel weekly-board-panel weekly-pool-panel" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();e.stopPropagation();const id=e.dataTransfer.getData('text/plain');if(id&&id===dragTaskId.current&&dragged?.staff_id)drop(id,null);endDrag();}}>
     <h2>待指派任務池</h2>
     <details><summary>建立任務</summary><form className="space-y-2" onSubmit={e=>{
      e.preventDefault();const f=new FormData(e.currentTarget);
@@ -110,7 +114,7 @@ export default function ResourcePage() {
     </div>
     <label className="weekly-checkbox"><input type="checkbox" checked={eligibleOnly} disabled={!focusedWorker} onChange={e=>setEligibleOnly(e.target.checked)}/>只顯示{focusedWorker? ` ${focusedWorker.name} `:'所選員工'}技能符合的任務</label>
     <div className="weekly-pool">{visiblePool.map(t=><button key={t.task_id} className="weekly-task" data-priority={t.display_priority??t.priority} draggable
-     onDragStart={e=>beginDrag(e,t)} onDragEnd={()=>setDragged(undefined)} onClick={()=>choose(t)}>
+     onDragStart={e=>beginDrag(e,t)} onDragEnd={endDrag} onClick={()=>choose(t)}>
      <strong><span className="weekly-dot" aria-hidden="true"/>{displayTaskLabel(t.label)} · {priorityName[t.display_priority??t.priority]}</strong><span className="weekly-animal">
       {t.photo_url?<img src={t.photo_url} alt=""/>:<span aria-label="尚無照片">🐾</span>}{t.animal_name} #{t.animal_id}</span>
      <small>{t.hours*60} 分鐘 · 期限 {t.due??'未設定'}</small>{t.reason&&<small>{t.reason}</small>}
@@ -166,11 +170,11 @@ export default function ResourcePage() {
      </form>}
     </section>}
     {week.data&&<ScheduleCalendar columns={columns} shifts={ranges} tasks={tasks} onTask={choose} selectedId={selected?.task_id}
-     drag={{start:beginDrag,end:()=>setDragged(undefined),
+     drag={{start:beginDrag,end:endDrag,
       canMove:t=>t.state==='pending'&&Boolean(t.day&&t.day>=taipeiToday()),
       reason:dragged?(s,d,tick)=>dropReason(dragged,s,d,tick):undefined,
       hover:setDropIssue,
-      drop:(id,column,start,reason)=>{setDropIssue(reason);if(!reason&&column.sid)drop(id,column.sid,column.day,start);setDragged(undefined);}}}/>}
+      drop:(id,column,start,reason)=>{setDropIssue(reason);if(id&&id===dragTaskId.current&&!reason&&column.sid)drop(id,column.sid,column.day,start);endDrag();}}}/>}
    </div>
   </div>
   {dropIssue&&<div className="schedule-drop-message" role="status">{dropIssue}
