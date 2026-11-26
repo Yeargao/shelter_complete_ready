@@ -10,12 +10,14 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 import llm_service as llm
+import chat_intent as ci
+import chat_queries as cq
 
 
 class Question(BaseModel):
     model_config = ConfigDict(extra='forbid')
     question: str = Field(min_length=1, max_length=500)
-    context: str | None = Field(default=None, max_length=120)
+    context: str | None = Field(default=None, max_length=2048)
 
 
 SCHEMA = {'type': 'object', 'properties': {'order': {'type': 'array', 'items': {'type': 'integer'}}},
@@ -237,60 +239,193 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
         with legacy.connect() as db:
             return llm.usage(db)
 
+    def resolve_entities(db, sid, question):
+        """Resolve names and IDs only on the server; ambiguity and permission errors fail closed."""
+        animals = list(db.execute('SELECT id,name FROM animals ORDER BY id'))
+        staff = list(db.execute('SELECT id,name FROM staff WHERE profile_id=1 ORDER BY id'))
+        q = ci.normalize(question)
+        def matches(rows):
+            found=[r for r in rows if r['name'] and ci.normalize(r['name']) in q]
+            if found:
+                # Ignore a shorter name only when it is contained in another matched name.
+                found=[r for r in found if not any(r['name']!=other['name'] and r['name'] in other['name'] for other in found)]
+            return found
+        am,sm = matches(animals),matches(staff)
+        aid_match=re.search(r'(?:動物\s*#?|#)\s*([0-9]{1,18})(?!\d)',q)
+        staff_match=re.search(r'(?:員工|照顧人員|照護人員)\s*#?\s*(\d{1,6})(?!\d)',q)
+        aid=int(aid_match[1]) if aid_match else am[0]['id'] if len(am)==1 else None
+        staff_id=sm[0]['id'] if len(sm)==1 else None
+        if staff_match and not sm:
+            row=db.execute('SELECT staff_id FROM weekly_staff_accounts WHERE user_id=?',(int(staff_match[1]),)).fetchone()
+            staff_id=row[0] if row else None
+        tids=[r for r in db.execute("""SELECT task_id,staff_id FROM weekly_tasks
+            WHERE length(task_id)>4 AND instr(?,task_id)>0""",(q,))
+              if re.search(r'(?<![A-Za-z0-9_:-])'+re.escape(r['task_id'])+r'(?![A-Za-z0-9_:-])',q)]
+        if len(tids)>1 or (len(am)>1 and not aid_match) or len(sm)>1:
+            return {},'找到多個符合的查詢對象，請提供單一動物、員工或任務編號。',q
+        if aid_match and am and not any(r['id']==aid for r in am):
+            return {},'動物名稱與編號不一致，請確認。',q
+        if aid is not None and animal_scope(db,sid,f'動物 #{aid}',None) is None:
+            return {},'目前沒有可查看的動物紀錄。請提供已授權的動物名稱或編號。',q
+        if (staff_match and staff_id is None) or (staff_id is not None and sid is not None and staff_id!=sid):
+            return {},'目前沒有可查看的員工紀錄。',q
+        if tids and sid is not None and tids[0]['staff_id']!=sid:
+            return {},'目前沒有可查看的任務紀錄。',q
+        redacted=q
+        for name in sorted({ci.normalize(r['name']) for r in [*animals,*staff] if r['name']},key=len,reverse=True):
+            redacted=redacted.replace(name,'某對象')
+        redacted=re.sub(r'(?:動物|員工|照顧人員|照護人員)\s*#?\s*\d+|#\s*\d+','某對象',redacted)
+        for item in tids:
+            redacted=redacted.replace(item['task_id'],'某任務')
+        return {'animal_id':aid,'staff_id':staff_id,'task_id':tids[0]['task_id'] if tids else None},None,redacted
+
     @router.post('/chat')
     def ask(body: Question, request: Request):
-        question = body.question.strip()
+        question = ci.normalize(body.question)
         if not question:
-            raise HTTPException(422, '請輸入問題')
-        model_data = None
-        token = None
+            raise HTTPException(422,'請輸入問題')
+        source,error,model_data,token = 'db',None,None,None
+        current = today()
+        auth = request.headers.get('Authorization','')
+        previous = ci.decode_context(legacy.AUTH_SECRET,auth,body.context)
+        explicit_date=False
+        plan=None
+        # Resolve entities and locally parse dates before sending anything externally.
         with legacy.connect() as db:
             db.execute('PRAGMA query_only=ON')
-            sid = staff_identity(db, request)
-            aid = context_id(request, body.context)
-            animal = animal_scope(db, sid, question, aid)
-            if any(word in question for word in ('劑量', '診斷', '開藥', '用藥', '給藥')):
-                result = (['我可以查詢照護及醫療紀錄。診斷與用藥請由獸醫確認。'], [])
-            elif any(word in question for word in ('為什麼', '為何', '原因', '怎麼會')) and any(word in question for word in ('任務', '派工', '排程', '指派')):
-                result = schedule_answer(db, question, sid)
-            elif animal and not any(word in question for word in ('派工', '工時', '班表', '排程', '指派')) and not (any(word in question for word in ('為什麼', '原因')) and '任務' in question):
-                token = sign(request, animal['id'])
-                lines, sources, model_data = animal_details(db, animal, question, sid)
-                result = lines, sources
-                if not any(word in question for word in ('健康', '近況', '整理', '總結', '注意')):
-                    model_data = None
-            elif any(word in question for word in ('驅蟲', '疫苗', '這隻', '牠', '該動物')):
-                result = (['目前沒有可查看的動物紀錄。請提供已授權的動物名稱或編號。'], [])
+            sid=staff_identity(db,request)
+            old_animal=context_id(request,body.context)
+            if previous is None and old_animal is not None:
+                previous={'intent':'animal_health','animal_id':old_animal,'start':current.isoformat(),
+                          'end':current.isoformat(),'period':'all_day','sort':'none'}
+            entities,problem,redacted=resolve_entities(db,sid,question)
+        follow = bool(previous and ci.followup(question))
+        prior = previous if follow else None
+        if any(word in question for word in ('劑量','診斷','開藥','用藥','給藥')):
+            lines,sources=['我可以查詢照護及醫療紀錄。診斷與用藥請由獸醫確認。'],[]
+            source='rules'
+        elif problem:
+            lines,sources=[problem],[]
+            source='rules'
+        else:
+            try:
+                temporal,explicit_date=ci.dates(question,current,prior)
+            except ValueError as exc:
+                lines,sources=[str(exc)],[]
+                source='rules'
             else:
-                result = schedule_answer(db, question, sid)
-                token = body.context if aid is not None else None
-        source, error = 'db', None
-        if result is None:
-            result = (['目前無法查詢這個問題。可詢問已授權的動物紀錄或派工資料。'], [])
-            source = 'rules'
-        lines, sources = result
+                # Local routing handles common questions without spending quota.
+                local=ci.local_intent(question,animal=entities['animal_id'] is not None,
+                                      staff=entities['staff_id'] is not None,task=entities['task_id'] is not None)
+                blocked=ci.has(question,'刪除','刪掉','新增','幫我指派','幫我分配','幫我安排','改成','取消任務','執行SQL','DELETE FROM','UPDATE ','DROP TABLE','忽略之前','忽略以上')
+                if local['intent']=='unknown' and follow and not blocked and (
+                    explicit_date or temporal['period']!='all_day' or ci.has(question,'呢','那','他','她','牠','它','這個')):
+                    local={'intent':prior['intent'],'period':'all_day','sort':prior.get('sort','none'),'count_only':prior.get('count_only',False)}
+                routed_by='local'
+                if local['intent']=='unknown' and not blocked:
+                    parsed,error=llm.generate_tool(legacy.connect,ci.PROMPT,
+                        {'question':redacted,'role':'manager' if sid is None else 'caregiver',
+                         'previous_intent':prior['intent'] if prior else None},ci.TOOL_SCHEMA,ci.validate_tool)
+                    if parsed is not None:
+                        local=parsed
+                        routed_by='gemini_function'
+                        if temporal['period']=='all_day' and not ci.has(question,'全天','整天','上下午','上午','下午'):
+                            temporal['period']=parsed['period']
+                intent=local['intent']
+                plan={**local,**temporal,**entities,'today':current.isoformat(),
+                      'explicit_date':explicit_date or bool(prior and prior.get('explicit_date')),
+                      'routed_by':routed_by}
+                if intent in ci.ANIMAL_INTENTS and plan['animal_id'] is None and prior:
+                    plan['animal_id']=prior.get('animal_id')
+                if intent in ci.STAFF_INTENTS and plan['staff_id'] is None and prior:
+                    if not ci.has(question,'誰','哪些員工','所有員工','全體','哪個','哪位'):
+                        plan['staff_id']=prior.get('staff_id')
+                if intent in ('pending_tasks','staff_schedule','urgent_tasks','leave_impact','assignment_reason','next_task') and prior:
+                    if ci.has(question,'他','她','該員工') and plan['staff_id'] is None:
+                        plan['staff_id']=prior.get('staff_id')
+                    if ci.has(question,'牠','它','這隻','該動物') and plan['animal_id'] is None:
+                        plan['animal_id']=prior.get('animal_id')
+                    if intent=='assignment_reason' and not explicit_date and plan['task_id'] is None:
+                        plan['task_id']=prior.get('task_id')
+                if plan['staff_id'] is not None and sid is not None and plan['staff_id']!=sid:
+                    plan['staff_id']=None
+                    intent=plan['intent']='unknown'
+                if plan['staff_id'] is not None and plan['sort']!='none':
+                    plan['sort']='none'
+                if intent in ('staff_availability','staff_workload','workload_balance') and sid is not None:
+                    plan['staff_id']=sid
+                # Use local species/label matches, never model-generated IDs or SQL.
+                plan['species']='dog' if ci.has(question,'狗狗','犬隻','狗','犬') and not ci.has(question,'貓','猫') else 'cat' if ci.has(question,'貓','猫') and not ci.has(question,'狗','犬') else None
+                plan['labels']=[label for label in legacy.TASK_CATALOG if label in question]
+                extra={}
+                with legacy.connect() as db:
+                    db.execute('PRAGMA query_only=ON')
+                    if staff_identity(db,request)!=sid:
+                        raise HTTPException(403,'帳號權限已變更，請重新查詢')
+                    if plan['animal_id'] is not None:
+                        animal=animal_scope(db,sid,f'動物 #{plan["animal_id"]}',None)
+                    else:
+                        animal=None
+                    if plan['animal_id'] is not None and animal is None:
+                        lines,sources=['目前沒有可查看的動物紀錄。請提供已授權的動物名稱或編號。'],[]
+                        source='rules'
+                    elif intent in ci.ANIMAL_INTENTS:
+                        if not animal:
+                            lines,sources=['目前沒有可查看的動物紀錄。請提供已授權的動物名稱或編號。'],[]
+                            source='rules'
+                        elif intent=='animal_health' and plan['explicit_date'] and (plan['start']!=current.isoformat() or plan['end']!=current.isoformat()):
+                            lines,sources=['目前健康狀態是即時登錄，尚無指定日期的歷史健康快照。可查詢具日期的疫苗或驅蟲紀錄。'],[f'動物 #{animal["id"]}']
+                        elif intent in ('vaccination','deworming') and plan['explicit_date']:
+                            if plan['period']!='all_day':
+                                lines,sources=['醫療紀錄只有日期，沒有施作時段，請查詢全天。'],[f'動物 #{animal["id"]}']
+                            else:
+                                if intent=='vaccination':
+                                    records=db.execute('SELECT id,administered_date AS day FROM vaccination_records WHERE animal_id=? AND administered_date BETWEEN ? AND ? ORDER BY administered_date DESC,id DESC',(animal['id'],plan['start'],plan['end'])).fetchall()
+                                    label='疫苗'
+                                else:
+                                    records=db.execute('SELECT completed_date AS day FROM deworming_events WHERE animal_id=? AND completed_date BETWEEN ? AND ? ORDER BY completed_date DESC',(animal['id'],plan['start'],plan['end'])).fetchall()
+                                    label='驅蟲'
+                                lines=[f'{animal["name"]}在 {plan["start"]} 至 {plan["end"]} 有 {len(records)} 筆具日期的{label}紀錄。',*[f'{label}日期：{row["day"]}。' for row in records[:12]]]
+                                sources=[f'動物 #{animal["id"]}',*[f'{label}紀錄 {row["day"]}' for row in records[:12]]]
+                        else:
+                            canonical={'animal_health':'健康','vaccination':'疫苗','deworming':'驅蟲'}[intent]
+                            lines,sources,model_data=animal_details(db,animal,canonical,sid)
+                            if intent!='animal_health' or routed_by!='local' or not ci.has(question,'健康','近況','整理','總結','注意','身體狀況'):
+                                model_data=None
+                    elif intent=='unknown':
+                        lines,sources=['目前無法查詢這個問題。可詢問已授權的動物紀錄或派工資料。請補充查詢對象、日期或想了解的項目。'],[]
+                        source='rules'
+                    else:
+                        lines,sources,extra=cq.execute(legacy,db,plan,sid,shifts_for,daily_limit,tasks_for,task_answer)
+                if source!='rules' and intent!='unknown':
+                    state={key:plan[key] for key in ('intent','start','end','period','sort','count_only','explicit_date','animal_id','staff_id','task_id')}
+                    state.update(extra)
+                    token=ci.encode_context(legacy.AUTH_SECRET,auth,state)
         if model_data:
             def validate(answer):
-                order = answer['order']
-                if not isinstance(order, list) or not order or any(
-                    type(i) is not int or not 0 <= i < len(lines) for i in order
-                ):
+                order=answer['order']
+                if not isinstance(order,list) or not order or any(
+                    type(i) is not int or not 0<=i<len(lines) for i in order):
                     raise ValueError('Invalid synthesis')
-                return list(dict.fromkeys([*order, *range(len(lines))]))
-
-            indices, error = llm.generate(legacy.connect, 'chat',
+                return list(dict.fromkeys([*order,*range(len(lines))]))
+            indices,error=llm.generate(legacy.connect,'chat',
                 'Order these anonymized veterinary record facts by relevance for a health overview. '
                 'Return zero-based indices. Prioritize unresolved issues and symptoms. Do not diagnose.',
-                model_data, SCHEMA, validate)
+                model_data,SCHEMA,validate)
             if indices is not None:
-                lines = [lines[i] for i in indices]
-                source = 'gemini'
+                lines=[lines[i] for i in indices]
+                source='gemini'
+        if token is None and previous and not problem:
+            token=body.context
         with legacy.connect() as db:
-            llm.count_event(db, 'chat', 'interaction')
-            if source != 'gemini':
-                llm.count_event(db, 'chat', 'rule')
-        return {'answer': '\n'.join(lines), 'source': source, 'sources': sources,
-                'context': token, 'fallback_reason': error,
-                'queried_at': datetime.now(TAIPEI).isoformat()}
+            llm.count_event(db,'chat','interaction')
+            if source!='gemini' and (not plan or plan.get('routed_by')!='gemini_function'):
+                llm.count_event(db,'chat','rule')
+        return {'answer':'\n'.join(lines),'source':source,'sources':sources,
+                'context':token,'fallback_reason':error,
+                'intent':plan['intent'] if plan else 'unknown',
+                'intent_source':plan['routed_by'] if plan else 'local',
+                'query':{key:plan[key] for key in ('start','end','period','sort')} if plan else None,
+                'queried_at':datetime.now(TAIPEI).isoformat()}
 
     return router
