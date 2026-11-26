@@ -28,6 +28,17 @@ assert.match(style,/\.daily-timeline__event--done\{background:#edf0f2!important/
 const weeklyGrid=fs.readFileSync(path.resolve(__dirname,'../src/components/common/ScheduleCalendar.tsx'),'utf8');
 assert.match(resource,/view==='week'\?days\.map/);
 assert.match(weeklyGrid,/gridTime\(tick\)/);
+ // Read the actual calendar scale expression; staff 02 and 04 use the same
+ // renderInline path, and short tasks must have enough space for report controls.
+ const rowExpression=weeklyGrid.match(/const rowHeight=([^;]+);/)[1];
+ const heightFor=new Function('drag','renderInline','return '+rowExpression);
+ assert.equal(heightFor(undefined,()=>null),66,'staff day: 15 minutes');
+ assert.equal(heightFor(undefined,()=>null)*4,264,'staff day: one hour');
+ assert.equal(heightFor({},undefined),66,'manager calendar unchanged');
+ assert.equal(heightFor(undefined,undefined),37.125,'staff week unchanged');
+ const cardHeight=minutes=>heightFor(undefined,()=>null)*minutes/15-2;
+ assert.deepEqual([15,30,60].map(cardHeight),[64,130,262]);
+
 assert.match(weeklyGrid,/top:gridOffset\(start\)/);
 assert.match(weeklyGrid,/data-done=\{task.state==='done'\}/);
 assert.match(board,/height:var\(--slot-height\)/);

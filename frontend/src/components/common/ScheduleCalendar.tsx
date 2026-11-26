@@ -27,7 +27,9 @@ export default function ScheduleCalendar({columns, shifts, tasks, onTask, drag, 
  const first=Math.min(36,...activeShifts.map(s=>timeGrid(s.shift_start)),...placed.map(t=>timeGrid(t.start_time)));
  const last=Math.max(68,...activeShifts.map(s=>timeGrid(s.shift_end)),...placed.map(t=>t.end_time?timeGrid(t.end_time):timeGrid(t.start_time)+t.hours*4));
  const ticks=Array.from({length:last-first},(_,i)=>first+i);
- const rowHeight=drag?88*0.75:66*0.75*0.75;
+ // Personal day cards contain report controls: keep the full 66px quarter-hour scale
+ // for every staff account, regardless of task count or duration.
+ const rowHeight=drag?88*0.75:renderInline?66:66*0.75*0.75;
  // Both personal views use the same lunch height and the same coordinate function.
  const lunchHeight=rowHeight;
  const gridTicks=ticks.filter(tick=>tick<=lunchBreak[0]||tick>=lunchBreak[1]);
