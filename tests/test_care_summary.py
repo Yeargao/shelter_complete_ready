@@ -136,6 +136,20 @@ class CareSummaryTests(unittest.TestCase):
             self.assertEqual(error, 'daily_budget')
         self.post.assert_called_once()
 
+    def test_rejected_configuration_does_not_consume_daily_budget(self):
+        self.post.return_value = httpx.Response(403,request=self.request)
+        self.assertEqual(self.call()['fallback_reason'], 'configuration_403')
+        self.assertEqual(self.use()['failures'], 1)
+        self.assertEqual(self.use()['used'], 0)
+        with self.connect() as db:
+            db.execute('UPDATE llm_state SET until=0')
+        self.post.return_value = self.response({'order':[0]})
+        with patch.dict(os.environ, {'LLM_MAX_REQUESTS_PER_DAY':'1'}):
+            output,error = self.llm.generate(self.connect,'chat','Select',[],{},lambda answer:answer)
+        self.assertIsNone(error)
+        self.assertEqual(output,{'order':[0]})
+        self.assertEqual(self.use()['used'],1)
+
     def test_429_charges_attempt_and_cools_down_shared_service(self):
         self.post.return_value = httpx.Response(429, request=self.request, headers={'Retry-After':'90'})
         self.assertEqual(self.call()['fallback_reason'], 'rate_limited')

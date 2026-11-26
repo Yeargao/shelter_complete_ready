@@ -35,7 +35,8 @@ def limit(name, default=None):
     if default is None:
         default = LOCAL_BUDGET_DEFAULTS.get(name, 0)
     try:
-        return max(0, int(os.getenv('LLM_' + name, str(default))))
+        value = os.getenv('LLM_' + name, '').strip()
+        return max(0, int(value if value else default))
     except ValueError:
         return 0
 
@@ -83,6 +84,8 @@ def settings_error():
         return 'data_not_approved'
     if model_name() not in APPROVED_MODELS:
         return 'invalid_model'
+    if any(limit(name) == 0 for name in LOCAL_BUDGET_DEFAULTS):
+        return 'local_budget_disabled'
     return None
 
 
@@ -97,7 +100,7 @@ def reserve(connect, kind, tokens, model=None):
         state = db.execute('SELECT until,error FROM llm_state WHERE config=?', (config_id(model),)).fetchone()
         if state and state['until'] > now:
             return None, state['error']
-        daily = db.execute('SELECT COUNT(*) FROM llm_attempts WHERE day=?', (day_key(now),)).fetchone()[0]
+        daily = db.execute("SELECT COUNT(*) FROM llm_attempts WHERE day=? AND status!='rejected'", (day_key(now),)).fetchone()[0]
         minute, used = db.execute('SELECT COUNT(*),COALESCE(SUM(input_tokens),0) FROM llm_attempts WHERE at>?',
                                   (now-60,)).fetchone()
         if any(limit(name) == 0 for name in LOCAL_BUDGET_DEFAULTS):
@@ -177,6 +180,7 @@ def _generate(connect, kind, instruction, data, schema, validate, model=None):
     if error:
         return None, error
     output, cooldown, tokens = None, 0, estimated
+    rejected = False
     try:
         body = gemini_call(instruction, content, schema, maximum, model) if model else gemini_call(instruction, content, schema, maximum)
         actual = body.get('usageMetadata', {}).get('promptTokenCount')
@@ -194,6 +198,8 @@ def _generate(connect, kind, instruction, data, schema, validate, model=None):
         if status == 429:
             error, cooldown = 'rate_limited', retry_after(headers.get('Retry-After'))
         elif status in (400, 401, 403, 404):
+            # No generation was produced: retain minute throttling and failure statistics.
+            rejected = True
             error, cooldown = f'configuration_{status}', 3600
         else:
             error, cooldown = 'upstream_error', 15
@@ -204,7 +210,7 @@ def _generate(connect, kind, instruction, data, schema, validate, model=None):
     with connect() as db:
         db.execute('BEGIN IMMEDIATE')
         db.execute('UPDATE llm_attempts SET status=?,input_tokens=? WHERE id=?',
-                   ('failed' if error else 'succeeded', tokens, attempt))
+                   ('rejected' if rejected else 'failed' if error else 'succeeded', tokens, attempt))
         if error:
             db.execute("""INSERT INTO llm_state VALUES (?,?,?) ON CONFLICT(config) DO UPDATE
                 SET until=excluded.until,error=excluded.error WHERE excluded.until>=llm_state.until""",
@@ -223,8 +229,8 @@ def usage(db):
     successes = sum(r['count'] for r in attempts if r['status'] == 'succeeded')
     return {
         'day': today, 'local_daily_budget': limit('MAX_REQUESTS_PER_DAY'),
-        'used': sum(r['count'] for r in attempts), 'successes': successes,
-        'failures': sum(r['count'] for r in attempts if r['status'] == 'failed'),
+        'used': sum(r['count'] for r in attempts if r['status'] != 'rejected'), 'successes': successes,
+        'failures': sum(r['count'] for r in attempts if r['status'] in ('failed', 'rejected')),
         'chat_requests': sum(r['count'] for r in attempts if r['kind'] == 'chat'),
         'chat_interactions': events.get('interaction', 0),
         'summary_requests': sum(r['count'] for r in attempts if r['kind'] == 'summary'),

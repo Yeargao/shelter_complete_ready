@@ -55,7 +55,7 @@ export default function ResourcePage() {
  const visiblePool=pool.filter(t=>(poolTab!=='derived'||t.is_derived)
   &&(!eligibleOnly||focusedWorker?.skills.includes(t.skill)));
  const choose=(t:WeeklyTask)=>{setSelected(t);setDestination({staff_id:t.staff_id??sid??0,day:t.day??(day<taipeiToday()?taipeiToday():day),start_time:t.start_time??'09:00',locked:t.staff_id===null||Boolean(t.locked)});};
- const drop=(id:string,staff_id:number|null,date?:string,start_time?:string)=>{
+ const drop=(id:string,staff_id:number,date?:string,start_time?:string)=>{
   if(id&&!move.isPending)move.mutate({id,body:{staff_id,day:date,start_time,locked:true}});
  };
  const beginDrag=(event:React.DragEvent,task:WeeklyTask)=>{
@@ -93,7 +93,7 @@ export default function ResourcePage() {
   <h1>資源配置</h1>
   {[week.error,create.error,saveShift.error,resolve.error,saveStaff.error].filter(Boolean).map((error,i)=><ErrorView key={i} error={error}/>)}
   <div className="weekly-board">
-   <aside className="panel weekly-board-panel weekly-pool-panel" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();e.stopPropagation();const id=e.dataTransfer.getData('text/plain');if(id&&id===dragTaskId.current&&dragged?.staff_id)drop(id,null);endDrag();}}>
+   <aside className="panel weekly-board-panel weekly-pool-panel" onDragOver={e=>{if(dragged?.staff_id){e.preventDefault();e.dataTransfer.dropEffect='none';}}} onDrop={e=>{e.preventDefault();e.stopPropagation();if(dragged?.staff_id)setDropIssue('已指派任務只能透過七天最佳化派工重新移回任務池');endDrag();}}>
     <h2>待指派任務池</h2>
     <details><summary>建立任務</summary><form className="space-y-2" onSubmit={e=>{
      e.preventDefault();const f=new FormData(e.currentTarget);
@@ -163,7 +163,7 @@ export default function ResourcePage() {
      <input aria-label="開始時間" type="time" step={900} value={destination.start_time} required onChange={e=>setDestination({...destination,start_time:e.target.value})}/>
      <label className="weekly-checkbox"><input type="checkbox" checked={destination.locked} onChange={e=>setDestination({...destination,locked:e.target.checked})}/>鎖定</label>
      <button disabled={move.isPending}>儲存指派</button>
-     {selected.staff_id&&<button type="button" className="secondary" onClick={()=>drop(selected.task_id,null)}>移回任務池</button>}
+     {selected.staff_id&&<small className="muted">如需移回任務池，請使用七天最佳化派工。</small>}
      {!selected.locked&&<button type="button" className="secondary" disabled={event.isPending} onClick={()=>event.mutate({id:selected.task_id,date:destination.day})}>延遲至所選日期</button>}
      {selected.staff_id&&selected.day===taipeiToday()&&<button type="button" className="secondary"
       onClick={()=>event.mutate({id:selected.task_id})}>標記執行中</button>}

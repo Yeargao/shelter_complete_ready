@@ -153,34 +153,25 @@ def mount(legacy):
         return workers, shifts
 
 
-    def release_lunch_tasks(db, days):
-        start, end = legacy.SHELTER_LUNCH
-        changed = db.execute("""UPDATE weekly_tasks SET day=NULL,staff_id=NULL,start=NULL,locked=0,
-            reason='原指派與固定午休重疊，已移回任務池'
-            WHERE state='pending' AND day BETWEEN ? AND ? AND start<? AND start+quarters>?
-            AND animal_id IN (SELECT id FROM animals WHERE is_active=1)""",
-            (max(days[0],today().isoformat()),days[-1],end,start)).rowcount
-        if changed:
-            db.execute("INSERT INTO weekly_events(event) VALUES ('lunch_requeue')")
-
-
-    def populate(db, days):
+    def populate(db, days, *, reschedule_overdue=False):
         present = today().isoformat()
         if days[-1] < present:
             return
-        db.execute("""INSERT OR IGNORE INTO weekly_tasks
-            (task_id,animal_id,label,skill,priority,quarters,earliest,due,note)
-            SELECT 'carry:'||t.task_id,t.animal_id,t.label,t.skill,t.priority,t.quarters,?,t.due,t.note
-            FROM weekly_tasks t JOIN animals a ON a.id=t.animal_id
-            WHERE a.is_active=1 AND t.label='健康問題追蹤' AND t.state='pending' AND t.day<?
-              AND t.task_id=(SELECT latest.task_id FROM weekly_tasks latest
-                WHERE latest.animal_id=t.animal_id AND latest.label=t.label AND latest.state='pending' AND latest.day<?
-                ORDER BY latest.day DESC,latest.task_id LIMIT 1)
-              AND NOT EXISTS (SELECT 1 FROM weekly_tasks carry WHERE carry.task_id='carry:'||t.task_id)
-              AND NOT EXISTS (SELECT 1 FROM weekly_tasks live
-                WHERE live.animal_id=t.animal_id AND live.label=t.label AND live.state IN ('pending','in_progress')
-                  AND (live.day IS NULL OR live.day>=?))
-            """, (present,present,present,present))
+        # Only an explicit optimization request may requeue overdue assigned work.
+        if reschedule_overdue:
+            db.execute("""INSERT OR IGNORE INTO weekly_tasks
+                (task_id,animal_id,label,skill,priority,quarters,earliest,due,note)
+                SELECT 'carry:'||t.task_id,t.animal_id,t.label,t.skill,t.priority,t.quarters,?,t.due,t.note
+                FROM weekly_tasks t JOIN animals a ON a.id=t.animal_id
+                WHERE a.is_active=1 AND t.label='健康問題追蹤' AND t.state='pending' AND t.day<?
+                  AND t.task_id=(SELECT latest.task_id FROM weekly_tasks latest
+                    WHERE latest.animal_id=t.animal_id AND latest.label=t.label AND latest.state='pending' AND latest.day<?
+                    ORDER BY latest.day DESC,latest.task_id LIMIT 1)
+                  AND NOT EXISTS (SELECT 1 FROM weekly_tasks carry WHERE carry.task_id='carry:'||t.task_id)
+                  AND NOT EXISTS (SELECT 1 FROM weekly_tasks live
+                    WHERE live.animal_id=t.animal_id AND live.label=t.label AND live.state IN ('pending','in_progress')
+                      AND (live.day IS NULL OR live.day>=?))
+                """, (present,present,present,present))
         active = rows(db, 'SELECT * FROM animals WHERE is_active=1')
         for animal in active:
             if animal['health_status'] not in ('sick','injured','serious'):
@@ -208,7 +199,7 @@ def mount(legacy):
             pending = db.execute("""SELECT task_id,day FROM weekly_tasks WHERE animal_id=? AND label=?
                           AND state IN ('pending','in_progress') ORDER BY day IS NULL DESC, day DESC""",
                           (task['animal_id'], task['label'])).fetchone()
-            if pending and (task['label'] not in health_labels or not pending['day'] or pending['day']>=present):
+            if pending and (not reschedule_overdue or task['label'] not in health_labels or not pending['day'] or pending['day']>=present):
                 continue
             earliest = max(present,intakes[task['animal_id']])
             if task['label'] == '疫苗施打' and task['due_date']:
@@ -753,7 +744,7 @@ def mount(legacy):
         with legacy.lock, legacy.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             migrate(db)
-            populate(db, days)
+            populate(db, days, reschedule_overdue=True)
             workers, shifts = shifts_for(db, days)
             tasks = tasks_for(db, days)
             version = revision(db)
@@ -826,8 +817,7 @@ def mount(legacy):
             if task['state'] != 'pending' or (task['day'] and task['day'] < today().isoformat()):
                 raise HTTPException(409, '僅可移動尚未執行的任務')
             if body.staff_id is None:
-                db.execute('UPDATE weekly_tasks SET staff_id=NULL,day=NULL,start=NULL,locked=0,reason=NULL WHERE task_id=?', (task_id,))
-                return {'ok': True}
+                raise HTTPException(409, '已指派任務只能透過七天最佳化派工重新移回任務池')
             if body.day is None or body.start_time is None or body.day < today():
                 raise HTTPException(422, '請指定今天或未來的日期及開始時間')
             days = week_days(body.day)

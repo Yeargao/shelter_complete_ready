@@ -152,15 +152,26 @@ class WeeklyTests(unittest.TestCase):
         reported = next(t for t in self.week(self.staff)['tasks'] if t['task_id']==task)
         self.assertEqual(reported['report']['note'],'')
 
-    def test_existing_locked_lunch_task_returns_to_pool(self):
+    def test_existing_locked_lunch_task_stays_assigned_until_optimization(self):
         task = self.add('基礎驅蟲')
         with self.main.connect() as db:
             db.execute('UPDATE weekly_tasks SET day=?,staff_id=1,start=45,locked=1 WHERE task_id=?',
                        (MONDAY,task))
         restored = next(t for t in self.week()['tasks'] if t['task_id']==task)
-        self.assertIsNone(restored['staff_id'])
-        self.assertFalse(restored['locked'])
-        self.assertIn('午休',restored['reason'])
+        self.assertEqual(restored['staff_id'],1)
+        self.assertEqual(restored['start_time'],'11:15')
+        self.assertTrue(restored['locked'])
+        self.place(task,None,expected=409)
+        for calendar in (self.week(),self.week(self.staff)):
+            current = next(t for t in calendar['tasks'] if t['task_id']==task)
+            self.assertEqual(current['staff_id'],1)
+            self.assertEqual(current['start_time'],'11:15')
+        plan = self.request('POST',PREVIEW).json()
+        self.assertEqual(next(t for t in self.week()['tasks'] if t['task_id']==task)['staff_id'],1)
+        self.assertTrue(any(c['task_id']==task for c in plan['changes']))
+        self.request('POST','/api/schedule/apply/'+plan['plan_id'])
+        updated = next(t for t in self.week()['tasks'] if t['task_id']==task)
+        self.assertTrue(updated['staff_id'] is None or updated['start_time']!='11:15')
 
     def test_optimizer_fills_more_minutes_when_tasks_compete(self):
         self.shift(staff=2,attending=True,hours=1)
@@ -186,11 +197,16 @@ class WeeklyTests(unittest.TestCase):
                      {'result':'injured','note':'Continued observation'},self.other)
         self.assertTrue(any(t['label']=='健康問題追蹤' and t['display_priority']==0 for t in self.week()['tasks']))
 
-    def test_overdue_health_followup_returns_to_pool_once(self):
+    def test_overdue_health_followup_returns_to_pool_only_after_preview(self):
         self.week()
         with self.main.connect() as db:
             db.execute("""INSERT INTO weekly_tasks(task_id,animal_id,label,skill,priority,quarters,earliest,day,staff_id,start)
                 VALUES ('followup:past',1,'健康問題追蹤','health:veterinary',0,4,'2026-11-22','2026-11-22',2,40)""")
+        for week in (self.week(),self.week()):
+            self.assertFalse(any(t['task_id']=='carry:followup:past' for t in week['tasks']))
+        with self.main.connect() as db:
+            self.assertEqual(db.execute("SELECT staff_id FROM weekly_tasks WHERE task_id='followup:past'").fetchone()[0],2)
+        self.request('POST',PREVIEW)
         for week in (self.week(),self.week()):
             carried = [t for t in week['tasks'] if t['label']=='健康問題追蹤']
             self.assertEqual([t['task_id'] for t in carried],['carry:followup:past'])

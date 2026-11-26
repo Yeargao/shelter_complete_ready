@@ -1,7 +1,7 @@
-/* Keep staff 04’s personal calendar viewport at the same standard 42rem as staff 02. */
-[data-personal-calendar-user="4"] .weekly-scroll{height:42rem;max-height:42rem}
-[data-personal-calendar-user="4"] .weekly-times>div,
-[data-personal-calendar-user="4"] .weekly-slots>div:not(.weekly-event){min-height:var(--slot-height);flex-shrink:0}
+/* Staff 04 and 02 use the same viewport and the same JS time scale. */
+:is([data-personal-calendar-user="2"],[data-personal-calendar-user="4"]) .weekly-scroll{height:42rem;min-height:42rem;max-height:42rem;flex:none}
+:is([data-personal-calendar-user="2"],[data-personal-calendar-user="4"]) .weekly-times>div,
+:is([data-personal-calendar-user="2"],[data-personal-calendar-user="4"]) .weekly-slots>div:not(.weekly-event){min-height:var(--slot-height);flex-shrink:0;box-sizing:border-box}
 
 /* V7: the expanded task's action row is always one horizontal line. */
 .staff-report-actions{display:flex;flex-flow:row nowrap;align-items:center;gap:6px;width:100%;min-width:0;overflow-x:auto;scrollbar-width:thin}
