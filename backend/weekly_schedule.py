@@ -619,7 +619,6 @@ def mount(legacy):
             migrate(db)
             current = today().isoformat()
             days = week_days(today(), rolling=True)
-            release_lunch_tasks(db, days)
             populate(db, days)
             profile = db.execute('SELECT * FROM profiles WHERE id=1').fetchone()
             if not profile:
@@ -648,7 +647,6 @@ def mount(legacy):
             db.execute('BEGIN IMMEDIATE')
             migrate(db)
             sid = staff_identity(db, request)
-            release_lunch_tasks(db, days)
             if sid is None:
                 populate(db, days)
             workers, shifts = shifts_for(db, days)
