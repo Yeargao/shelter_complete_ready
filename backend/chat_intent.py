@@ -77,11 +77,11 @@ def dates(text, today, previous=None):
     period = 'morning' if has(text, '上午', '早上', '早班') else 'afternoon' if has(text, '下午', '午後', '晚班') else 'all_day'
     if has(text, '上下午', '上午下午', '上午和下午', '上午跟下午', '上午與下午', '上午及下午', '早晚') or (has(text, '上午', '早上') and has(text, '下午', '午後')):
         period = 'all_day'
-    if has(text, '到晚上', '晚上', '凌晨', '夜間'):
+    if has(text, '到晚上', '晚上', '凌晨', '夜間') or re.search(r'\d{1,2}:\d{2}|\d{1,2}\s*點',text):
         raise ValueError('目前只支援上午、下午或全天，請指定日間時段。')
     iso = re.findall(r'\d{4}[-/]\d{1,2}[-/]\d{1,2}', text)
-    short = [] if iso else re.findall(r'(?<!\d)(\d{1,2})[月/](\d{1,2})(?:日|號)?(?!\d)', text)
-    chinese = [] if iso or short else re.findall(r'(\d{4})年(\d{1,2})月(\d{1,2})[日號]?', text)
+    chinese = [] if iso else re.findall(r'(\d{4})年(\d{1,2})月(\d{1,2})[日號]?', text)
+    short = [] if iso or chinese else re.findall(r'(?<!\d)(\d{1,2})[月/](\d{1,2})(?:日|號)?(?!\d)', text)
     explicit = True
     try:
         if iso:
@@ -116,9 +116,20 @@ def dates(text, today, previous=None):
                 end = start + timedelta(days=6)
             else:
                 offsets = [('大後天',3),('大前天',-3),('後天',2),('前天',-2),('明天',1),('明日',1),('昨天',-1),('昨日',-1),('今天',0),('今日',0)]
-                found = next((n for word,n in offsets if word in text), None)
-                if found is not None:
-                    start = end = today + timedelta(days=found)
+                # Longest tokens first: 大後天 must not also match 後天.
+                relative_text = text.replace('大後天','大後').replace('大前天','大前')
+                adjusted = [('大後',3),('大前',-3),*offsets[2:]]
+                hits = [n for word,n in adjusted if word in relative_text]
+                if hits:
+                    if len(set(hits))>1 and not has(text,'到','至','~','～'):
+                        raise ValueError()
+                    if len(set(hits))>1:
+                        # Preserve the user's order; reversed ranges fail validation.
+                        ordered=sorted([(relative_text.index(word),n) for word,n in adjusted if word in relative_text])
+                        start=today+timedelta(days=ordered[0][1])
+                        end=today+timedelta(days=ordered[-1][1])
+                    else:
+                        start=end=today+timedelta(days=hits[0])
                 elif re.search(r'\d{1,4}年|\d{1,2}月|\d{1,2}[日號]|下個月|上個月|月底|月初|明年|去年|本月|這個月|下個星期|[0-9一二三四五六七八九十]+天[後前]', text):
                     raise ValueError()
                 else:
@@ -132,12 +143,15 @@ def dates(text, today, previous=None):
         period = previous.get('period','all_day')
     return {'start':start.isoformat(), 'end':end.isoformat(), 'period':period}, explicit
 
+def blocked(text):
+    return has(text,'刪除','刪掉','新增','幫我指派','幫我分配','幫我安排','改成','取消任務','執行SQL','忽略之前','忽略以上') or bool(re.search(r'\b(?:DELETE\s+FROM|UPDATE\s+\w+\s+SET|DROP\s+TABLE|INSERT\s+INTO)\b',text,re.I))
+
 def local_intent(text, *, animal=False, staff=False, task=False):
     """High precision local routing; unknown queries may use the model."""
     q = normalize(text)
     sort = 'most' if has(q,'最忙','最多','最大','最高','最有空','最閒','最少工作','比較有空','比較閒','誰有空') else 'least' if has(q,'最少','最低','最不忙') else 'none'
     count = has(q,'幾項','多少項','幾個任務','幾件','多少件','幾個工作')
-    if has(q,'刪除','刪掉','新增','幫我指派','幫我分配','幫我安排','改成','取消任務','執行SQL','DELETE FROM','UPDATE ','DROP TABLE','忽略之前','忽略以上'):
+    if blocked(q):
         intent = 'unknown'
     elif has(q,'請假','缺席','不能來','不來上班','不能上班'):
         intent = 'leave_impact'
@@ -161,15 +175,15 @@ def local_intent(text, *, animal=False, staff=False, task=False):
         intent = 'next_task'
     elif has(q,'緊急','優先','最急','比較急','重要任務'):
         intent = 'urgent_tasks'
-    elif animal and not has(q,'任務','班表','排程','派工','指派','工作'):
+    elif animal and has(q,'健康','近況','身體','怎麼樣','如何','狀況','整理','總結','注意','疫苗','打針','預防針','打過針','驅蟲','除蟲') and not has(q,'任務','班表','排程','派工','指派','工作'):
         intent = 'deworming' if has(q,'驅蟲','除蟲') else 'vaccination' if has(q,'疫苗','打針','預防針','打過針') else 'animal_health'
     elif has(q,'疫苗','打針','預防針','打過針') and not has(q,'任務','工作','排程','班表'):
         intent = 'vaccination'
     elif has(q,'驅蟲','除蟲') and not has(q,'任務','工作','排程','班表'):
         intent = 'deworming'
-    elif has(q,'健康','近況','身體狀況','牠','這隻','該動物') and not has(q,'任務','工作','排程','班表','異常'):
+    elif has(q,'健康','近況','身體狀況') and not has(q,'任務','工作','排程','班表','異常','哪些','幾隻','多少隻','身體不好','生病','受傷'):
         intent = 'animal_health'
-    elif has(q,'異常','生病','受傷','身體不好') and not has(q,'任務','工作'):
+    elif has(q,'異常','生病','受傷','身體不好','健康不好','健康有問題') and not has(q,'任務','工作'):
         intent = 'open_issues'
     elif has(q,'班表','排程','行程') or (staff and has(q,'任務','工作','做什麼','要做')):
         intent = 'staff_schedule'
@@ -187,7 +201,7 @@ def validate_tool(value):
     return value
 
 def followup(text):
-    return bool(re.search(r'^(?:那|所以|另外|還有|他|她|牠|它|這隻|這個|該|明天呢|後天呢|昨天呢|下午呢|上午呢)', normalize(text))) or bool(re.fullmatch(r'(?:今天|明天|後天|昨天|上午|下午|早上|本週|下週|上週)(?:的)?[呢嗎?？。]*', normalize(text)))
+    return bool(re.search(r'^(?:那|所以|另外|還有|他|她|牠|它|這隻|這個|該|明天呢|後天呢|昨天呢|下午|上午|早上)', normalize(text))) or bool(re.fullmatch(r'(?:今天|明天|後天|昨天|上午|下午|早上|本週|下週|上週)(?:的)?[呢嗎?？。]*', normalize(text)))
 
 def encode_context(secret, authorization, state):
     raw = json.dumps(state, separators=(',', ':'), ensure_ascii=True).encode()
