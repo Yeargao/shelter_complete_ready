@@ -53,3 +53,7 @@ button.weekly-task:hover,.weekly-event:hover,.weekly-event[aria-pressed="true"]{
  .weekly-column{min-width:94px}
 }
 @media(max-width:850px){.weekly-board{grid-template-columns:minmax(0,1fr)}.weekly-pool{max-height:18rem}}
+
+/* Keep lunch geometry identical across views; personal slots are double height. */
+.weekly-times>div[data-lunch],.weekly-slots>div[data-lunch]{height:var(--lunch-height,88px)}
+.weekly-event--personal{white-space:normal;overflow-wrap:anywhere;word-break:break-word;text-overflow:clip;line-height:1.35;overflow-y:auto;align-content:start}

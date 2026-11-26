@@ -291,6 +291,10 @@ def mount(legacy):
         fixed_errors = []
         busy, day_used, date_used = defaultdict(set), defaultdict(int), defaultdict(int)
         completed_daily = defaultdict(int)
+        half_load = defaultdict(list)
+        rest_intervals = defaultdict(list)
+        rest_penalties = []
+        window_events = defaultdict(list)
         for task in tasks:
             if task['state'] == 'cancelled':
                 continue
@@ -309,6 +313,13 @@ def mount(legacy):
                     fixed_errors.append(tid)
                 intervals[key].append(model.new_fixed_size_interval_var(start, length, f'fixed_{tid}'))
                 daily[key].append(length)
+                half_load[key, 0 if start < 46 else 1].append(length)
+                for lo, hi in windows(shift):
+                    if lo <= start and start + length <= hi:
+                        wk = (sid, day, lo, hi)
+                        window_events[wk].append((1, start, length))
+                        rest_intervals[wk].append(model.new_fixed_size_interval_var(start, length, f'rest_fixed_{tid}'))
+                        break
                 busy[key].update(range(start,start+length))
                 day_used[key] += length
                 date_used[day] += length
@@ -327,6 +338,15 @@ def mount(legacy):
                     start = model.new_int_var(lo, hi-length, f'start_{tid}_{sid}_{day}_{lo}')
                     intervals[sid, day].append(model.new_optional_fixed_size_interval_var(start, length, use, f'work_{tid}_{sid}_{day}_{lo}'))
                     daily[sid, day].append(length * use)
+                    half_load[(sid, day), 0 if lo < 46 else 1].append(length * use)
+                    wk = (sid, day, lo, hi)
+                    window_events[wk].append((use, start, length))
+                    buffered = model.new_bool_var(f'buffer_{tid}_{sid}_{day}_{lo}')
+                    plain = model.new_bool_var(f'plain_{tid}_{sid}_{day}_{lo}')
+                    model.add(buffered + plain == use)
+                    rest_intervals[wk].append(model.new_optional_fixed_size_interval_var(start, length + 1, buffered, f'buffered_{tid}_{sid}_{day}_{lo}'))
+                    rest_intervals[wk].append(model.new_optional_fixed_size_interval_var(start, length, plain, f'plain_interval_{tid}_{sid}_{day}_{lo}'))
+                    rest_penalties.append(plain)
                     assigned_quarters.append(length * use)
                     choices[tid].append((use, sid, day, start, lo, hi))
                     if task['priority'] == 0:
@@ -363,6 +383,48 @@ def mount(legacy):
             model.add_max_equality(busiest,day_loads)
             model.add_min_equality(quietest,day_loads)
             balance += (bound * len(day_loads)**2 + 1) * (busiest-quietest)
+        # Soft objectives: preserve assignment coverage and existing hard constraints.
+        half_deviations = []
+        for (sid, day), shift in shifts.items():
+            if day < today().isoformat():
+                continue
+            available = windows(shift)
+            if not any(lo < 46 for lo, hi in available) or not any(lo >= 46 for lo, hi in available):
+                continue
+            delta = model.new_int_var(0, bound, f'half_delta_{sid}_{day}')
+            model.add_abs_equality(delta, sum(half_load[(sid, day), 0]) - sum(half_load[(sid, day), 1]))
+            half_deviations.append(delta)
+        gap_deviations = []
+        for wk, events in window_events.items():
+            sid, day, lo, hi = wk
+            model.add_no_overlap(rest_intervals[wk])
+            starts, ends, uses, lengths = [], [], [], []
+            for i, (use, start, length) in enumerate(events):
+                a = model.new_int_var(lo, hi, f'gap_start_{wk}_{i}')
+                b = model.new_int_var(lo, hi, f'gap_end_{wk}_{i}')
+                if isinstance(use, int):
+                    model.add(a == start)
+                    model.add(b == start + length)
+                else:
+                    model.add(a == start).only_enforce_if(use)
+                    model.add(b == start + length).only_enforce_if(use)
+                    model.add(a == hi).only_enforce_if(use.Not())
+                    model.add(b == lo).only_enforce_if(use.Not())
+                starts.append(a)
+                ends.append(b)
+                uses.append(use)
+                lengths.append(length * use)
+            first = model.new_int_var(lo, hi, f'gap_first_{wk}')
+            last = model.new_int_var(lo, hi, f'gap_last_{wk}')
+            model.add_min_equality(first, starts)
+            model.add_max_equality(last, ends)
+            span = model.new_int_var(0, hi-lo, f'gap_span_{wk}')
+            model.add_max_equality(span, [last-first, 0])
+            count_minus_one = model.new_int_var(0, len(events), f'gap_count_{wk}')
+            model.add_max_equality(count_minus_one, [sum(uses)-1, 0])
+            deviation = model.new_int_var(0, hi-lo+len(events), f'gap_deviation_{wk}')
+            model.add_abs_equality(deviation, span-sum(lengths)-count_minus_one)
+            gap_deviations.append(deviation)
         # Warm-start using a feasible, priority-ordered schedule. The returned plan
         # still comes from CP-SAT and is never persisted when the solver finds no solution.
         for task in tasks:
@@ -400,7 +462,7 @@ def mount(legacy):
         best = {}
         status_name = None
         proved_optimal = True
-        objectives = [-sum(assigned_quarters), -sum(urgent), -sum(high), sum(late), balance, -sum(retained)]
+        objectives = [-sum(assigned_quarters), -sum(urgent), -sum(high), sum(late), balance, sum(half_deviations), sum(rest_penalties), sum(gap_deviations), -sum(retained)]
         objectives = [item for item in objectives if not isinstance(item,int)] or [model.new_constant(0)]
         for objective in objectives:
             model.minimize(objective)

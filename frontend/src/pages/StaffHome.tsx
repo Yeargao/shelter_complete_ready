@@ -153,8 +153,7 @@ export default function StaffHome({userId}:{userId:number}) {
     <TaskCard key={selected.task_id} task={selected}/>
    </section>}
    {worker&&<ScheduleCalendar columns={days.map(date=>({day:date,sid:worker.id,title:date.slice(5)}))}
-    shifts={query.data?.shifts??[]} tasks={tasks} onTask={task=>setSelectedId(task.task_id)} selectedId={selectedId}
-    renderInline={weekly?undefined:task=><TaskCard task={task}/>}/>}
+    shifts={query.data?.shifts??[]} tasks={tasks} onTask={task=>setSelectedId(task.task_id)} selectedId={selectedId}/>}
    {worker&&!tasks.some(task=>task.day&&days.includes(task.day)&&task.state!=='cancelled')&&<p className="muted">這段期間沒有指派任務</p>}
   </section>
  </section>;
