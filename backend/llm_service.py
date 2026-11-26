@@ -7,9 +7,6 @@ import os
 import time
 from zoneinfo import ZoneInfo
 
-import httpx
-from google import genai
-from google.genai import errors as genai_errors, types
 
 DEFAULT_MODEL = 'gemini-3.1-flash-lite'
 APPROVED_MODELS = (DEFAULT_MODEL, 'gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-3.5-flash-lite')
@@ -133,10 +130,13 @@ def retry_after(value):
 
 
 def http_client():
+    import httpx
     return httpx.Client(timeout=20, follow_redirects=False)
 
 
 def gemini_call(instruction, content, schema, maximum, model=None):
+    from google import genai
+    from google.genai import types
     with http_client() as transport, genai.Client(
         api_key=os.getenv('GEMINI_API_KEY', '').strip(),
         vertexai=False,
@@ -193,6 +193,9 @@ def _generate(connect, kind, instruction, data, schema, validate, model=None):
     error = settings_error()
     if error:
         return None, error
+    # Import transport dependencies only for actual AI calls, not login or usage queries.
+    import httpx
+    from google.genai import errors as genai_errors
     content = canonical(data)
     maximum = max(1, limit('MAX_OUTPUT_TOKENS', 512))
     estimated = len(canonical([instruction, content, schema]).encode('utf-8')) + 256
