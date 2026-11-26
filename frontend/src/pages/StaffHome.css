@@ -28,3 +28,12 @@
  .staff-care-card{grid-template-columns:minmax(0,1fr);gap:8px;padding:8px}
  .staff-care-controls button{min-height:38px;padding:6px 9px}
 }
+
+/* Restore the original report controls inside the timed staff day card. */
+.weekly-event--staff-inline{white-space:normal;overflow:auto;padding:0;overscroll-behavior:contain}
+.weekly-event--staff-inline .staff-care-card{border:0;background:transparent;min-height:0;padding:5px 7px;gap:8px;grid-template-columns:minmax(105px,1fr) minmax(0,2fr);align-items:start}
+.weekly-event--staff-inline .staff-care-identity{overflow-wrap:anywhere;line-height:1.25;font-size:12px}
+.weekly-event--staff-inline .staff-care-identity strong{font-size:12px}
+.weekly-event--staff-inline .staff-care-identity .attention-badge{padding:1px 3px;font-size:10px}
+.weekly-event--staff-inline .staff-care-controls button{padding:4px 7px;min-height:26px;font-size:11px}
+@media(max-width:480px){.weekly-event--staff-inline .staff-care-card{grid-template-columns:1fr}}

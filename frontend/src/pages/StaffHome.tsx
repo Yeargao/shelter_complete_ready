@@ -68,8 +68,8 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
  const cancelReport=()=>{setChoice('');setNote('');setDose('');setFiles([]);setUpload(undefined);report.reset();};
  return <article className="staff-care-card weekly-task" data-priority={displayPriority} data-done={t.state==='done'}>
   <div className="staff-care-identity">
-   <strong><span className="weekly-dot" aria-hidden="true"/>{t.start_time}–{t.end_time}　{displayTaskLabel(t.label)}</strong><div>{t.animal_name} #{t.animal_id}</div>
-  {displayPriority<=1&&<span className="attention-badge alert-high">{displayPriority===0?'緊急':'高優先級'}</span>}
+   <strong><span className="weekly-dot" aria-hidden="true"/>{t.start_time}–{t.end_time}</strong><div>{t.animal_name} #{t.animal_id}</div>
+   <div>{displayTaskLabel(t.label)} {displayPriority<=1&&<span className="attention-badge alert-high">{displayPriority===0?'緊急':'高優先級'}</span>}</div>
   </div>
   <div className="staff-care-controls">
   {care&&<p>{care.animal_summary} <small>（{care.mode==='llm'?'Gemini AI':care.mode==='cache'?'AI 快取摘要':'規則式摘要'}{
@@ -153,8 +153,7 @@ export default function StaffHome({userId}:{userId:number}) {
     <TaskCard key={selected.task_id} task={selected}/>
    </section>}
    {worker&&<ScheduleCalendar columns={days.map(date=>({day:date,sid:worker.id,title:date.slice(5)}))}
-    shifts={query.data?.shifts??[]} tasks={tasks} onTask={task=>setSelectedId(task.task_id)} selectedId={selectedId}
-    renderInline={weekly?undefined:task=><TaskCard task={task}/>}/>}
+    shifts={query.data?.shifts??[]} tasks={tasks} onTask={task=>setSelectedId(task.task_id)} selectedId={selectedId} renderInline={weekly?undefined:task=><TaskCard task={task}/>}/>}
    {worker&&!tasks.some(task=>task.day&&days.includes(task.day)&&task.state!=='cancelled')&&<p className="muted">這段期間沒有指派任務</p>}
   </section>
  </section>;

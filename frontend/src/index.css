@@ -46,3 +46,8 @@ button:focus-visible,a:focus-visible,summary:focus-visible,textarea:focus-visibl
  .sidebar .sidebar-footer button{font-size:0;padding:8px;min-width:44px}
  .sidebar .sidebar-footer button::before{content:'登出';font-size:12px}
 }
+
+/* Only the main column scrolls; navigation stays in the viewport. */
+.app-shell{height:100dvh;min-height:0;overflow:hidden;align-items:flex-start}
+.sidebar{height:100dvh;position:relative;top:0;overflow-y:auto;overflow-x:hidden;flex-shrink:0}
+.main-column{height:100dvh;overflow-y:auto;overflow-x:hidden}
