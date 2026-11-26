@@ -32,7 +32,7 @@ button.weekly-task:hover,.weekly-event:hover,.weekly-event[aria-pressed="true"]{
 .weekly-calendar header small{font-size:.66rem}
 .weekly-times{min-width:72px;font-size:.75rem;color:#475569}
 .weekly-slots{position:relative}
-.weekly-times>div,.weekly-slots>div{height:var(--slot-height);border:1px solid #edf1f5}
+.weekly-times>div,.weekly-slots>div:not(.weekly-event){height:var(--slot-height);border:1px solid #edf1f5}
 .weekly-slots>.hour-line,.weekly-times>.hour-line{border-top-color:#a8b8c7}
 .weekly-times>div[data-lunch],.weekly-slots>div[data-lunch]{height:calc(var(--slot-height)*2)}
 .weekly-event{position:absolute;left:2px;right:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:13px;padding:4px 6px}
@@ -64,10 +64,10 @@ button.weekly-task:hover,.weekly-event:hover,.weekly-event[aria-pressed="true"]{
 .weekly-event-time{font-size:11px;font-variant-numeric:tabular-nums}
 
 /* Manager calendar typography follows the actual task duration. */
-.weekly-event--three-lines[data-manager-minutes="30"]{font-size:18px}
-.weekly-event--three-lines[data-manager-minutes="30"] .weekly-event-time{font-size:16.5px}
-.weekly-event--three-lines[data-manager-minutes="60"]{font-size:24px}
-.weekly-event--three-lines[data-manager-minutes="60"] .weekly-event-time{font-size:22px}
+
+
+
+
 .weekly-slots>.weekly-event[data-personal="true"]{border-left:4px solid var(--task-color)!important}
 .weekly-event--three-lines[data-personal-minutes="30"]{font-size:18px}
 .weekly-event--three-lines[data-personal-minutes="30"] .weekly-event-time{font-size:16.5px}
