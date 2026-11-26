@@ -12,7 +12,6 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
-from ortools.sat.python import cp_model
 from pydantic import BaseModel, Field
 import llm_service
 
@@ -276,6 +275,7 @@ def mount(legacy):
 
 
     def solve(tasks, workers, shifts, days):
+        from ortools.sat.python import cp_model
         model = cp_model.CpModel()
         intervals, daily = defaultdict(list), defaultdict(list)
         choices = defaultdict(list)
