@@ -166,8 +166,8 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
             if date_text:
                 affected = [t for t in affected if t['day'] == day]
             return task_answer(affected, '該員工目前排定、請假時需核對的任務', workers)
-        if '為什麼' in question or '原因' in question:
-            named = next((t for t in active if len(t['task_id']) > 4 and t['task_id'] in question), None)
+        if any(word in question for word in ('為什麼', '為何', '原因', '怎麼會')):
+            named = next((t for t in tasks if len(t['task_id']) > 4 and t['task_id'] in question), None)
             if named is None:
                 names = {t['animal_name'] for t in tasks if t['animal_name'] and t['animal_name'] in question}
                 labels = {t['label'] for t in tasks if t['label'] and t['label'] in question}
@@ -187,7 +187,7 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
                         lines.append('僅顯示前 12 項，可加入動物名稱或任務名稱縮小範圍。')
                     return lines, sources
                 else:
-                    return ['找不到符合的可查看任務，請提供動物名稱、任務名稱或日期。'], []
+                    return task_answer(candidates, '未找到指定任務；以下是可查看的任務，可依名稱或 ID 再查詢', workers)
             applied = db.execute('SELECT body FROM weekly_applied WHERE week=?', (days[0],)).fetchone()
             proposal = json.loads(applied['body']) if applied else None
             recorded = proposal and next((change for change in proposal['changes']
@@ -250,6 +250,8 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
             animal = animal_scope(db, sid, question, aid)
             if any(word in question for word in ('劑量', '診斷', '開藥', '用藥', '給藥')):
                 result = (['我可以查詢照護及醫療紀錄。診斷與用藥請由獸醫確認。'], [])
+            elif any(word in question for word in ('為什麼', '為何', '原因', '怎麼會')) and any(word in question for word in ('任務', '派工', '排程', '指派')):
+                result = schedule_answer(db, question, sid)
             elif animal and not any(word in question for word in ('派工', '工時', '班表', '排程', '指派')) and not (any(word in question for word in ('為什麼', '原因')) and '任務' in question):
                 token = sign(request, animal['id'])
                 lines, sources, model_data = animal_details(db, animal, question, sid)
