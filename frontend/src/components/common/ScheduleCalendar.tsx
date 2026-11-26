@@ -27,9 +27,9 @@ export default function ScheduleCalendar({columns, shifts, tasks, onTask, drag, 
  const first=Math.min(36,...activeShifts.map(s=>timeGrid(s.shift_start)),...placed.map(t=>timeGrid(t.start_time)));
  const last=Math.max(68,...activeShifts.map(s=>timeGrid(s.shift_end)),...placed.map(t=>t.end_time?timeGrid(t.end_time):timeGrid(t.start_time)+t.hours*4));
  const ticks=Array.from({length:last-first},(_,i)=>first+i);
- const rowHeight=drag?88:66;
+ const rowHeight=(drag?88:66)*0.75;
  // Both personal views use the same lunch height and the same coordinate function.
- const lunchHeight=drag?88:66;
+ const lunchHeight=rowHeight;
  const gridTicks=ticks.filter(tick=>tick<=lunchBreak[0]||tick>=lunchBreak[1]);
  const lunchTicks=lunchBreak[1]-lunchBreak[0];
  const gridOffset=(tick:number)=>(tick-first-Math.max(0,Math.min(lunchTicks,tick-lunchBreak[0]))*(1-lunchHeight/(rowHeight*lunchTicks)))*rowHeight;
