@@ -60,7 +60,7 @@ export type Plan = {plan_id:string|null;solver_status:string;changes:{task_id:st
 export type AuditFinding={animal_id:number;name:string;kind:string;detail:string;source:string};
 export type PhotoMatch={animal_id:number;name:string;is_active:number;source:string;task_id:string|null;photo_id:string|null;score:number};
 export const api = {
-  auditData:()=>request<{findings:AuditFinding[];model_groups:number;warning:string|null;note:string}>('/api/ai-tools/quality'),
+  auditData:(scope:'all'|'health'|'resources'='all',animalId?:number)=>request<{findings:AuditFinding[];model_groups:number;warning:string|null}>('/api/ai-tools/quality?'+new URLSearchParams({scope,...(animalId===undefined?{}:{animal_id:String(animalId)})})),
   comparePhotos:(photo:string)=>request<{mode:string;warning:string|null;results:PhotoMatch[];processed:number;skipped:number;remote_skipped:number;limit:number}>('/api/ai-tools/photos',{method:'POST',body:JSON.stringify({photo})}),
   withdrawReport:(id:string)=>request<{ok:boolean}>(`/api/schedule/tasks/${encodeURIComponent(id)}/withdraw-report`,{method:'POST'}),
   chat:(question:string,context:string|null,signal:AbortSignal)=>request<ChatAnswer>('/api/chat',

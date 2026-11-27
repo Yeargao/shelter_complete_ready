@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useStored} from './smartState';
 import {useQuery} from '@tanstack/react-query';
 import {api} from '../../services/api';
 import {ErrorView, Loading} from './States';
@@ -14,10 +14,10 @@ const statusLabels:Record<string,string> = {
 };
 
 export default function LlmUsage() {
- const [open,setOpen]=useState(false);
+ const [open,setOpen]=useStored('llm-usage-open',false);
  const usage=useQuery({queryKey:['llm-usage'],queryFn:api.llmUsage,enabled:open,refetchInterval:30000});
  const data=usage.data;
- return <details className="panel llm-usage space-y-3" onToggle={e=>setOpen(e.currentTarget.open)}>
+ return <details className="panel llm-usage space-y-3" open={open} onToggle={e=>{if(e.currentTarget.open!==open)setOpen(e.currentTarget.open)}}>
   <summary>AI 使用量</summary>
   {usage.isLoading&&<Loading/>}
   {usage.error&&<ErrorView error={usage.error}/>}
@@ -34,10 +34,9 @@ export default function LlmUsage() {
     <div className="llm-status"><dt>最近一次錯誤</dt><dd>{data.last_error?statusLabels[data.last_error]??'外部 API 回應異常':'無紀錄'}</dd></div>
     <div><dt>成功／失敗／使用本地回答</dt><dd>{data.successes} / {data.failures} / {data.rule_answers}</dd></div>
    </dl>
-   {data.local_daily_budget===0&&<p>本地每日預算為 0。請在後端依 AI Studio 免費層額度設定 LLM_MAX_REQUESTS_PER_DAY、LLM_MAX_REQUESTS_PER_MINUTE 和 LLM_MAX_INPUT_TOKENS_PER_MINUTE。</p>}
    {(data.cooling||['disabled','missing_key','data_not_approved','invalid_model','local_budget_disabled'].includes(data.connection))&&
     <p>{aiGuidance(data.cooling&&data.last_error?data.last_error:data.connection)}</p>}
   </>}
-  <p>以上為本地預算及紀錄，失敗請求不等於 Google 成功用量；設定遭拒的請求不計入本地每日預算。Google 官方額度請查看 <a href="https://aistudio.google.com/rate-limit" target="_blank" rel="noreferrer">Google AI Studio Rate Limits</a>。</p>
+  <small>本地紀錄 · <a href="https://aistudio.google.com/rate-limit" target="_blank" rel="noreferrer">Google API 額度</a></small>
  </details>;
 }

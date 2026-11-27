@@ -1,3 +1,4 @@
+import {RecommendationPanel,QualityPanel,PhotoComparison} from '../components/common/SmartPanels';
 import {useState} from 'react';
 import {Link,useParams} from 'react-router-dom';
 import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
@@ -21,9 +22,10 @@ export default function AnimalDetail(){
  <div className="flex justify-between items-center"><Link to="/animals">← 返回動物列表</Link>{manager&&<button onClick={()=>setEditing(!editing)}>{editing?'關閉編輯':'修改資料'}</button>}</div>
  <div className="panel space-y-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="eyebrow">ANIMAL PROFILE · #{a.id}</div><h1>{a.species==='dog'?'🐕':a.species==='cat'?'🐈':'🐾'} {a.name}</h1><p className="muted">{a.breed||'品種未填'} · {a.sex==='male'?'雄性':a.sex==='female'?'雌性':'性別未知'} · {a.age_months??'—'} 個月</p></div><span className="status !text-lg !px-5 !py-3 !font-bold !rounded-xl shadow-sm" style={a.health_status==='serious'?{color:'#b91c1c',background:'#fee2e2'}:a.health_status!=='healthy'?{color:'#92400e',background:'#fef3c7'}:{}}>{healthLabel(a.health_status)}</span></div>
  <div className="grid md:grid-cols-3 gap-3">{[['入所日期',a.intake_date],['已停留',`${a.stay_days??'—'} 天`],['動物編號',`#${a.id}`],['疫苗',tri(a.vaccinated)],['驅蟲',tri(a.dewormed)],['絕育',tri(a.sterilized)]].map(([k,v])=><div className="rounded-xl bg-slate-50 p-4" key={k}><div className="muted text-sm">{k}</div><strong>{v}</strong></div>)}</div>
- {a.data_notes?.map(t=><p className="muted" key={t}>{t}</p>)}</div>
- {manager&&editing&&<AnimalForm initial={input} onSubmit={async v=>{await save.mutateAsync(v)}}/>}{save.error&&<ErrorView error={save.error}/>}
- <div className="panel space-y-3"><h2>需要注意的事項</h2>{tasks.length? <div className="grid md:grid-cols-2 gap-2">{tasks.map(t=><div className="rounded-xl border border-amber-200 bg-amber-50 p-3" key={t}>{t}</div>)}</div>:<p className="muted">目前沒有依登錄資料產生的待辦事項。</p>}<p className="muted">依登錄健康狀態、未完成行政事項整理。</p></div>
+ </div>
+ {manager&&editing&&<AnimalForm initial={input} photoCacheId={'detail:'+id} animalId={id} onSubmit={async v=>{await save.mutateAsync(v)}}/>}{save.error&&<ErrorView error={save.error}/>}
+ <div className="panel space-y-3"><h2>需要注意的事項</h2>{tasks.length? <div className="grid md:grid-cols-2 gap-2">{tasks.map(t=><div className="rounded-xl border border-amber-200 bg-amber-50 p-3" key={t}>{t}</div>)}</div>:<p className="muted">目前沒有依登錄資料產生的待辦事項。</p>}</div>
  {manager&&<div className="panel space-y-3"><h2>健康行政核對</h2><div className="grid md:grid-cols-2 gap-2">{(healthTasks.data||[]).filter(t=>t.animal_id===id).map(t=><div key={t.id} className="rounded-xl bg-slate-50 p-3">{t.label} · {t.state==='done'?'已完成':'待處理'}</div>)}</div>{!healthTasks.data?.some(t=>t.animal_id===id)&&<p className="muted">目前沒有待核對工作。</p>}</div>}
+ {manager&&<><RecommendationPanel key={'r'+id} animalId={id}/><QualityPanel key={'q'+id} animalId={id}/>{!editing&&<PhotoComparison key={'p'+id} cacheId={'detail:'+id} currentPhoto={a.photo_url} animalId={id}/>}</>}
  </section>;
 }

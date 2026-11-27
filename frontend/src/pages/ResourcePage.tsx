@@ -1,3 +1,5 @@
+import {WorkflowPanel,QualityPanel,HandoverPanel} from '../components/common/SmartPanels';
+import {useStored,smartRequest,type Check} from '../components/common/smartState';
 
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -15,13 +17,16 @@ const skills = [
 
 export default function ResourcePage() {
  const qc = useQueryClient();
- const [day,setDay]=useState(taipeiToday);
+ const [day,setDay]=useStored('resource-day',taipeiToday());
  const [view,setView]=useState<'day'|'week'>('week');
  const [worker,setWorker]=useState<number>();
  const [search,setSearch]=useState('');
  const [poolTab,setPoolTab]=useState<'pending'|'derived'|'done'>('pending');
  const [eligibleOnly,setEligibleOnly]=useState(false);
- const [plan,setPlan]=useState<Plan>();
+ const [plans,setPlans]=useStored<Record<string,Plan>>('resource-plans',{});
+ const [savedPlans,setSavedPlans]=useStored<Record<string,boolean>>('resource-saved-plans',{});
+ const plan=plans[day];
+ const setPlan=(value:Plan|undefined)=>setPlans(p=>{const next={...p};if(value)next[day]=value;else delete next[day];return next});
  const [selected,setSelected]=useState<WeeklyTask>();
  const [destination,setDestination]=useState({staff_id:0,day:'',start_time:'09:00',locked:true});
  const [shift,setShift]=useState<WeeklyShift>();
@@ -34,11 +39,11 @@ export default function ResourcePage() {
  const detailRef=useRef<HTMLElement>(null);
  useEffect(()=>{if(selected)detailRef.current?.focus();},[selected]);
  const week=useQuery({queryKey:['schedule-week',day],queryFn:()=>api.week(day),refetchInterval:dragged?false:15000,refetchOnWindowFocus:!dragged});
- const refresh=async()=>{setPlan(undefined);await qc.invalidateQueries({queryKey:['schedule-week']});await qc.invalidateQueries({queryKey:['resource-overview']});};
+ const refresh=async()=>{await qc.invalidateQueries({queryKey:['schedule-week']});await qc.invalidateQueries({queryKey:['resource-overview']});};
  const preview=useMutation({mutationFn:()=>api.previewWeek(day),onSuccess:setPlan});
- const apply=useMutation({mutationFn:api.applyWeek,onSuccess:refresh});
+ const apply=useMutation({mutationFn:api.applyWeek,onSuccess:async(_,id)=>{setSavedPlans(p=>({...p,[id]:true}));await refresh();}});
  const move=useMutation({mutationFn:({id,body}:{id:string;body:Parameters<typeof api.place>[1]})=>api.place(id,body),onSuccess:async()=>{setNotice('已儲存指派');setSelected(undefined);await refresh();}});
- const create=useMutation({mutationFn:api.createWeeklyTask,onSuccess:async()=>{setPoolTab('pending');await refresh();}});
+ const create=useMutation({mutationFn:async(body:Parameters<typeof api.createWeeklyTask>[0])=>{const check=await smartRequest<Check>('/check',body);if(!check.ok)throw Error(check.issues.join('；'));return api.createWeeklyTask(body)},onSuccess:async()=>{setPoolTab('pending');await refresh();}});
  const resolve=useMutation({mutationFn:api.resolveIssue,onSuccess:async()=>{setSelected(undefined);await refresh();}});
  const event=useMutation({mutationFn:({id,date}:{id:string;date?:string})=>api.taskEvent(id,date?{event:'delay',earliest:date}:{event:'start'}),onSuccess:async()=>{setSelected(undefined);await refresh();}});
  const saveShift=useMutation({mutationFn:api.saveShift,onSuccess:refresh});
@@ -50,7 +55,7 @@ export default function ResourcePage() {
  const ranges=week.data?.shifts??[];
  const historical=days.length>0&&days[days.length-1]<taipeiToday();
  const pool=tasks.filter(t=>!t.staff_id&&t.state==='pending'&&t.is_active&&[t.label,t.animal_name,t.animal_id].join(' ').toLowerCase().includes(search.replace('傷病治療','優先確認健康狀況').toLowerCase()));
- const go=(date:string)=>{setDay(date);setPlan(undefined);setShift(undefined);setSelected(undefined);setNotice('');setDropIssue('');};
+ const go=(date:string)=>{setDay(date);setShift(undefined);setSelected(undefined);setNotice('');setDropIssue('');};
  const focusedWorker=workers.find(w=>w.id===sid);
  const completedPool=tasks.filter(t=>t.state==='done'&&[t.label,displayTaskLabel(t.label),t.animal_name,t.animal_id].join(' ').toLowerCase().includes(search.toLowerCase()));
  const visiblePool=(poolTab==='done'?completedPool:pool.filter(t=>poolTab==='derived'?t.is_derived:!t.is_derived))
@@ -149,7 +154,7 @@ export default function ResourcePage() {
     {plan&&<section className="weekly-plan space-y-2"><h3>調整方案 · CP-SAT {plan.solver_status}</h3>
      <ul>{plan.changes.map(c=><li key={c.task_id}>{c.animal_name} · {displayTaskLabel(c.label)}　{placement(c.before)} → {placement(c.after)} {c.adjustment_reason}</li>)}</ul>
      {!plan.changes.length&&<p>沒有排程變動</p>}
-     <button disabled={apply.isPending||!plan.plan_id} onClick={()=>{if(plan.plan_id)apply.mutate(plan.plan_id);}}>確認儲存</button>{' '}
+     <button disabled={apply.isPending||!plan.plan_id||!!savedPlans[plan.plan_id]} onClick={()=>{if(plan.plan_id)apply.mutate(plan.plan_id);}}>{plan.plan_id&&savedPlans[plan.plan_id]?'已儲存':'確認儲存'}</button>{' '}
      <button className="secondary" onClick={()=>setPlan(undefined)}>取消</button>
     </section>}
     {selected&&<section ref={detailRef} tabIndex={-1} aria-label="任務詳細資料" className="weekly-task-detail">
@@ -202,10 +207,13 @@ export default function ResourcePage() {
     <strong>{shift.name} {shift.day}</strong>
     <label className="weekly-checkbox"><input type="checkbox" checked={Boolean(shift.attending)} onChange={e=>setShift({...shift,attending:e.target.checked})}/>出勤</label>
     {([['shift_start','上班'],['shift_end','下班'],['break_start','額外休息開始'],['break_end','額外休息結束']] as const).map(([key,label])=><label key={key}>{label}<input type="time" step={900} value={shift[key]??''} onChange={e=>setShift({...shift,[key]:e.target.value||null})}/></label>)}
-    <p className="muted">固定休息 11:30–13:30</p>
+    <small>固定休息 11:30–13:30</small>
     {([['available_hours','每日可用工時'],['scheduled_hours','已占用工時']] as const).map(([key,label])=><label key={key}>{label}<input type="number" min={0} max={24} step={.25} value={shift[key]} onChange={e=>setShift({...shift,[key]:Number(e.target.value)})}/></label>)}
     <button disabled={saveShift.isPending||day<taipeiToday()}>儲存班表</button>
    </form>}
   </details>
+  <WorkflowPanel/>
+  <QualityPanel scope="resources"/>
+  <HandoverPanel day={day}/>
  </section>;
 }

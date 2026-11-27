@@ -87,7 +87,7 @@ def audit(db):
 
 def note_conflicts(connect, rows):
     if not rows or not notes_approved():
-        return [],'未啟用經授權的 LLM 文字核對；已完成本機資料規則與統計核對。'
+        return [],None
     data=[{'index':i,'health':r['health_status'],'note':r['text'][:300]} for i,r in enumerate(rows)]
     schema={'type':'object','properties':{'indices':{'type':'array','items':{'type':'integer'}}},'required':['indices'],'additionalProperties':False}
     def validate(value):
@@ -144,16 +144,24 @@ def mount(legacy):
         if request.state.user_id!=1:
             raise HTTPException(403,'此工具僅管理者可使用')
     @router.get('/quality')
-    def quality(request:Request):
+    def quality(request:Request,scope:str='all',animal_id:int|None=None):
         manager(request)
+        if scope not in ('all','health','resources'):
+            raise HTTPException(422,'無效核對範圍')
+        from smart_tools import audit as consistency_audit
         with legacy.connect() as db:
             findings,groups=audit(db)
+            for item in consistency_audit(db):
+                if item['kind'] in ('已離所仍有未完成任務','員工當日未出勤仍有未完成指派'):
+                    findings.append({'animal_id':item['animal_id'],'name':item['name'],'kind':'排程待核對','detail':item['kind'],'source':'weekly_tasks:'+item['source']})
             records=collect_notes(db,open_only=True)
             health={r['id']:r['health_status'] for r in db.execute('SELECT id,health_status FROM animals WHERE is_active=1')}
-            candidates=[{**r,'health_status':health[r['animal_id']]} for r in records if health.get(r['animal_id'])=='healthy'][:20]
-        extra,warning=note_conflicts(legacy.connect,candidates)
-        return {'findings':findings+extra,'model_groups':groups,'warning':warning,
-                'note':'所有結果均為人工核對候選，不自動修改資料。'}
+            candidates=[{**r,'health_status':health[r['animal_id']]} for r in records if health.get(r['animal_id'])=='healthy' and (animal_id is None or r['animal_id']==animal_id)][:20]
+        extra,warning=note_conflicts(legacy.connect,candidates) if scope!='resources' else ([],None)
+        def keep(r):
+            resource=r['kind'] in ('排程待核對','資源待核對','統計異常候選')
+            return (animal_id is None or r['animal_id']==animal_id) and (scope=='all' or resource==(scope=='resources'))
+        return {'findings':[r for r in findings+extra if keep(r)],'model_groups':groups,'warning':warning}
 
     @router.post('/photos')
     def photos(body:PhotoInput,request:Request):
@@ -167,7 +175,7 @@ def mount(legacy):
         remote_count=sum(not a['photo_url'].startswith('data:image/') for a in animals)
         path=os.getenv('SHELTER_CLIP_MODEL_DIR','').strip()
         mode='visual_signature'
-        warning='使用本機感知雜湊與色彩特徵，非 CLIP；僅為相似照片候選。'
+        warning=None
         signature=image_signature(query)
         vector=None
         if path:

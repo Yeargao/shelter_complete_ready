@@ -1,6 +1,4 @@
 
-.ai-page{min-width:0}
-.ai-tabs{display:flex;gap:8px;flex-wrap:wrap}
 .ai-section{display:grid;gap:14px}
 .ai-section>h2,.ai-result h3{margin:0}
 .ai-form{display:flex;flex-wrap:wrap;align-items:end;gap:12px}
@@ -19,3 +17,5 @@
 .ai-thumb{width:120px;height:90px;object-fit:cover;border-radius:8px}
 .ai-preview{width:min(180px,100%);max-height:180px;object-fit:contain;border-radius:8px}
 @media(max-width:680px){.ai-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.ai-form{display:grid;grid-template-columns:minmax(0,1fr)}.ai-form>label:first-child{min-width:0}.ai-results{max-height:none}.ai-section button{min-height:44px}.ai-section{padding:14px}}
+
+.smart-history{margin-top:8px}.smart-inline{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.smart-chart p{margin:4px 0}.smart-section{min-width:0}.smart-section>summary{font-weight:700;cursor:pointer}.smart-section[open]>summary{margin-bottom:12px}.smart-section .ai-results{max-height:32rem}.smart-section .ai-form{align-items:end}

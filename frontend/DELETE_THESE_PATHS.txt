@@ -1,4 +1,0 @@
-選擇性刪除：
-backend/deephit/     (DeepHit 程式與權重；使用者明確要求移除長期滯留功能)
-注意：ZIP 覆蓋無法自動刪除舊資料夾；請先備份後自行刪除。
-長期滯留任務 SQLite 舊紀錄請用 backend/cleanup_long_stay.py --apply 清理。

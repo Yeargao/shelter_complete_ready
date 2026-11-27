@@ -73,7 +73,7 @@ async def auth_guard(request:Request,call_next):
   return JSONResponse(status_code=403,content={'detail':'請在個人工作台查看與回報任務'})
  task_action=path.removeprefix('/api/schedule/tasks/').split('/') if path.startswith('/api/schedule/tasks/') else []
  own_task_action=request.method=='POST' and len(task_action)==2 and task_action[1] in {'report','summary','withdraw-report'}
- if uid!=1 and request.method in ('POST','PATCH','DELETE','PUT') and path not in ('/api/stage2/answer','/api/chat') and not own_task_action:
+ if uid!=1 and request.method in ('POST','PATCH','DELETE','PUT') and path not in ('/api/stage2/answer','/api/chat','/api/smart/handover') and not own_task_action:
   return JSONResponse(status_code=403,content={'detail':'此操作僅管理者可執行'})
  request.state.user_id=uid
  return await call_next(request)
@@ -282,13 +282,15 @@ def readmit_animal(id:int,payload:AnimalReadmitInput):
 def animal(id:int):return get_animal(id)
 @app.post('/api/animals')
 def create_animal(a:AnimalInput):
- d=a.model_dump(mode='json');keys=list(d)
+ if not a.name.strip() or a.intake_date>datetime.now(ZoneInfo('Asia/Taipei')).date():raise HTTPException(422,'名稱或入所日期無效')
+ d=a.model_dump(mode='json');d['name']=a.name.strip();keys=list(d)
  with lock,connect() as c:
   cur=c.execute('INSERT INTO animals ('+','.join(keys)+') VALUES ('+','.join('?' for _ in keys)+')',tuple(d.values()));id=cur.lastrowid
  return get_animal(id)
 @app.patch('/api/animals/{id}')
 def update_animal(id:int,a:AnimalInput):
- get_animal(id);d=a.model_dump(mode='json')
+ if not a.name.strip() or a.intake_date>datetime.now(ZoneInfo('Asia/Taipei')).date():raise HTTPException(422,'名稱或入所日期無效')
+ get_animal(id);d=a.model_dump(mode='json');d['name']=a.name.strip()
  with lock,connect() as c:c.execute('UPDATE animals SET '+','.join(k+'=?' for k in d)+' WHERE id=?',(*d.values(),id))
  return get_animal(id)
 @app.post('/api/animals/{id}/exit')

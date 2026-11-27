@@ -44,3 +44,9 @@ Thumbs.db
 
 backend/uploads/
 !.env.example
+
+# Local database / migration backups; keep the canonical showcase.sqlite3.
+backend/reset_backups/
+*.bak
+*.user_backup
+backend/*.before_*.sqlite3

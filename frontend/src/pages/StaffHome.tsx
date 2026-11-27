@@ -1,3 +1,5 @@
+import {StaffHandover} from '../components/common/SmartPanels';
+import {useStored} from '../components/common/smartState';
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -6,7 +8,7 @@ import { api, type WeeklyTask } from '../services/api';
 import { ErrorView } from '../components/common/States';
 import { addDays, taipeiToday } from '../components/common/scheduleDates';
 import ScheduleCalendar from '../components/common/ScheduleCalendar';
-import {aiGuidance} from '../components/common/aiStatus';
+
 import {displayTaskLabel} from '../components/common/taskPresentation';
 import TaskPhotos from '../components/common/TaskPhotos';
 import './StaffHome.css';
@@ -45,8 +47,10 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
  const [note,setNote]=useState('');
  const [files,setFiles]=useState<File[]>([]);
  const [upload,setUpload]=useState<number>();
- const summary=useMutation({mutationFn:()=>api.taskSummary(t.task_id)});
- const care=summary.data??t.summary;
+ const [summaryOpen,setSummaryOpen]=useStored('care-open:'+t.task_id,false);
+ const [cachedSummary,setCachedSummary]=useStored<Awaited<ReturnType<typeof api.taskSummary>>|null>('care-result:'+t.task_id,null);
+ const summary=useMutation({mutationFn:()=>api.taskSummary(t.task_id),onSuccess:setCachedSummary});
+ const care=cachedSummary??t.summary;
  const follow=t.label==='健康問題追蹤';
  const direct=directChoices[t.label];
  const needsNote=(result:string)=>['reported','sick','injured'].includes(result);
@@ -54,7 +58,7 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
  const displayPriority=t.display_priority??t.priority;
  const refresh=async()=>{await qc.invalidateQueries({queryKey:['schedule-week']});await qc.invalidateQueries({queryKey:['resource-overview']});};
  const withdraw=useMutation({mutationFn:()=>api.withdrawReport(t.task_id),onSuccess:async()=>{
-  setReportOpen(false);setChoice('');setNote('');setFiles([]);summary.reset();await refresh();
+  setReportOpen(false);setChoice('');setNote('');setFiles([]);await refresh();
  }});
  const canWithdraw=t.is_active&&t.report?.reported_at.slice(0,10)===taipeiToday()&&!t.issue?.resolved_at;
  const report=useMutation({
@@ -77,12 +81,10 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
    <div>{displayTaskLabel(t.label)}</div>
   </div>
   <div className="staff-care-controls staff-care-info">
-  {care&&<p>{care.animal_summary} <small>（{care.mode==='llm'?'Gemini AI':care.mode==='cache'?'AI 快取摘要':'規則式摘要'}{
-    care.fallback_reason==='in_progress'?' · AI 摘要處理中':care.fallback_reason?' · 目前 AI 無法使用':''
-  }）</small></p>}
-  {care?.fallback_reason&&<p className="muted">{aiGuidance(care.fallback_reason)}</p>}
-  <details onToggle={e=>{
-   if(e.currentTarget.open&&!summary.isPending)summary.mutate();
+  {care&&<p>{care.animal_summary}</p>}
+  <details open={summaryOpen} onToggle={e=>{
+   const open=e.currentTarget.open;
+   if(open!==summaryOpen){setSummaryOpen(open);if(open&&!cachedSummary&&!summary.isPending)summary.mutate()}
   }}>
    <summary>動物資料及照護重點</summary>
    {t.photo_url?<img className="rounded-lg max-w-xs w-full" src={t.photo_url} alt={t.animal_name}/>:<p className="muted">🐾 尚無動物照片</p>}
@@ -90,7 +92,7 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
    {care&&<ul>{[...care.known_issues,...care.observations,...care.unconfirmed].filter(x=>x!==t.note&&x!==`本次任務：${t.label}`).map((x,i)=><li key={i}>{x}</li>)}</ul>}
    {summary.isPending&&<p role="status">正在查詢照護摘要…</p>}
    {summary.error&&<ErrorView error={summary.error}/>}
-   {summary.data&&<button type="button" className="secondary" disabled={summary.isPending}
+   {summaryOpen&&<button type="button" className="secondary" disabled={summary.isPending}
     onClick={()=>summary.mutate()}>重新查詢摘要</button>}
   </details>
   {withdraw.isSuccess&&!t.report&&<p role="status">已收回，任務恢復待辦。</p>}
@@ -164,6 +166,7 @@ export default function StaffHome({userId}:{userId:number}) {
  const go=(date:string)=>{setDay(date);setSelectedId(undefined);};
  return <section className="space-y-4">
   <h1>照護人員工作台</h1>
+  <StaffHandover staffId={worker?.id} day={day} tasks={tasks}/>
   <section className="panel weekly-board-panel space-y-3" data-personal-calendar-user={userId}>
    <h2>個人日曆</h2>
    <div className="weekly-toolbar">

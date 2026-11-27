@@ -13,7 +13,7 @@ METRICS = {'stock':'飼料庫存低於（公斤）','stay':'在所天數超過�
 REPORTS = {'health':'在所動物健康分布','species':'在所動物物種分布','tasks':'任務狀態','staff':'員工任務完成率','intake':'入離所事件統計'}
 EVENTS = {'intake':'動物入所','sick':'生病','injured':'受傷','serious':'嚴重健康異常'}
 LABELS = ('健康狀態待確認','優先確認健康狀況','確認疫苗紀錄','確認驅蟲紀錄','健康問題追蹤')
-ROUTES = {'animals':'/animals','new':'/animals/new','health':'/health','resources':'/resources','home':'/','tools':'/ai-tools'}
+ROUTES = {'animals':'/animals','new':'/animals/new','health':'/health','resources':'/resources','home':'/','tools':'/'}
 
 def now():
     return datetime.now(TZ)
@@ -121,22 +121,24 @@ def report(db, kind, start, end):
     if kind in ('health','species'):
         field={'health':'health_status','species':'species'}[kind]
         result=rows(db,f"SELECT coalesce({field},'unknown') label,count(*) value FROM animals WHERE is_active=1 GROUP BY {field} ORDER BY value DESC")
-        note='目前在所動物快照，不受日期範圍限制。'
+        note='目前在所動物快照。'
     elif kind=='tasks':
         result=rows(db,"SELECT state label,count(*) value FROM weekly_tasks WHERE day BETWEEN ? AND ? GROUP BY state ORDER BY value DESC",args)
-        note='依排定日期統計；未排定任務不列入。'
+        note='依排定日期統計。'
     elif kind=='staff':
         result=rows(db,"""SELECT s.name||' #'||s.id label, count(t.task_id) total,
             sum(CASE WHEN t.state='done' THEN 1 ELSE 0 END) completed,
             round(100.0*sum(CASE WHEN t.state='done' THEN 1 ELSE 0 END)/count(t.task_id),1) value
             FROM staff s JOIN weekly_tasks t ON t.staff_id=s.id WHERE s.profile_id=1
             AND t.day BETWEEN ? AND ? AND t.state!='cancelled' GROUP BY s.id ORDER BY value DESC""",args)
-        note='完成率＝已完成／期間內已排定且未取消任務；未來任務也會影響分母。'
+        note='完成率＝已完成／期間已排定且未取消任務（含未來日期）。'
     else:
         result=rows(db,"""SELECT event label,count(*) value FROM (
             SELECT '入所' event FROM animal_stay_history WHERE intake_date BETWEEN ? AND ?
-            UNION ALL SELECT '離所' FROM animal_stay_history WHERE exit_date BETWEEN ? AND ?) GROUP BY event""",args+args)
-        note='依本機入離所歷史紀錄計數，不代表外部訓練資料。'
+            UNION ALL SELECT '離所' FROM animal_stay_history WHERE exit_date BETWEEN ? AND ?
+            UNION ALL SELECT '入所' FROM animals WHERE intake_date BETWEEN ? AND ?
+            UNION ALL SELECT '離所' FROM animals WHERE exit_date BETWEEN ? AND ?) GROUP BY event""",args*4)
+        note='依入離所紀錄計數。'
     return {'title':REPORTS[kind],'rows':result,'note':note,'start':start,'end':end,'unit':'%' if kind=='staff' else '筆'}
 
 def audit(db):
@@ -192,6 +194,15 @@ def mount(legacy,populate,week_days,catalog,quarters):
         text=body.text.strip()
         if re.search(r'刪除|刪掉|修改資料庫|忽略|DROP\s|DELETE\s',text,re.I):
             raise HTTPException(422,'不支援此指令；請使用原本有權限的操作介面')
+        if '工作流程' in text or '自動化流程' in text:
+            event_matches=[]
+            for key, words in {'intake':('入所',),'sick':('生病',),'injured':('受傷',),'serious':('嚴重健康異常','嚴重狀況')}.items():
+                if any(w in text for w in words):
+                    event_matches.append(key)
+            selected=[l for l in LABELS if l in text and l in catalog]
+            if len(event_matches)!=1 or not selected:
+                return {'type':'clarify','message':'請指定一種觸發事件和任務，例如：建立工作流程，動物入所後確認疫苗紀錄及確認驅蟲紀錄。'}
+            return {'type':'workflow','event':event_matches[0],'labels':selected}
         if re.search(r'(新增|建立|安排|加一個|加一項).*任務',text):
             from chat_intent import dates,decode_context
             with legacy.connect() as db:
@@ -229,7 +240,8 @@ def mount(legacy,populate,week_days,catalog,quarters):
         n=re.search(r'(?<!\d)(\d+(?:\.\d+)?)',text)
         if '提醒' in text or '通知' in text:
             metric='stock' if '飼料' in text else 'stay' if '在所' in text and '健康' in text else 'overdue' if '逾期' in text and '緊急' in text else 'load' if '工時' in text or '工作量' in text else 'vaccine' if '疫苗' in text and '到期' in text else None
-            if metric and (n or metric=='overdue') and (metric=='overdue' or len(re.findall(r'\d+(?:\.\d+)?',text))==1):
+            supported=metric=='overdue' or (metric=='stock' and any(w in text for w in ('低於','少於','不足')) and any(w in text for w in ('公斤','kg','KG'))) or (metric=='stay' and any(w in text for w in ('超過','大於')) and '天' in text) or (metric=='load' and any(w in text for w in ('達','超過','高於')) and ('%' in text or '％' in text)) or (metric=='vaccine' and '天' in text)
+            if supported and metric and (n or metric=='overdue') and (metric=='overdue' or len(re.findall(r'\d+(?:\.\d+)?',text))==1):
                 return {'type':'rule','metric':metric,'threshold':float(n[1]) if n and metric!='overdue' else 0}
             return {'type':'clarify','message':'請明確指定條件與數值（例如：飼料低於 30 公斤提醒我）。'}
         if any(w in text for w in ('統計','報表','分布','完成率','比較')):
@@ -289,7 +301,7 @@ def mount(legacy,populate,week_days,catalog,quarters):
         with legacy.lock,legacy.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             inbox=scan(db)
-            return {'rules':rows(db,'SELECT * FROM smart_rules ORDER BY rowid DESC'),'workflows':rows(db,'SELECT * FROM smart_workflows ORDER BY rowid DESC'),'inbox':inbox}
+            return {'rules':rows(db,'SELECT * FROM smart_rules ORDER BY rowid DESC'),'workflows':rows(db,'SELECT * FROM smart_workflows ORDER BY rowid DESC'),'inbox':inbox,'history':rows(db,"SELECT * FROM smart_inbox WHERE state IN ('ack','applied') ORDER BY created DESC,id LIMIT 100")}
     @router.post('/rules')
     def rule(body:Rule,request:Request):
         manager(request)
@@ -361,7 +373,7 @@ def mount(legacy,populate,week_days,catalog,quarters):
                 db.execute('INSERT INTO weekly_events(animal_id,event) VALUES (?,?)',(aid,'urgent_task' if urgent else 'task_created'))
                 created.append(tid)
             db.execute("UPDATE smart_inbox SET state='applied' WHERE id=?",(item,))
-        return {'created':created,'message':f'已新增 {len(created)} 筆任務；既有或不再符合條件的任務已跳過，可到資源配置預覽排程。'}
+        return {'created':created,'message':f'已新增 {len(created)} 筆任務'}
     @router.get('/report')
     def make_report(kind:str,start:date,end:date,request:Request):
         manager(request)
@@ -391,12 +403,15 @@ def mount(legacy,populate,week_days,catalog,quarters):
                 staff=[r for r in rows(db,'SELECT id,skills FROM staff WHERE profile_id=1') if skill in json.loads(r['skills'])]
                 if not staff:
                     issues.append('無符合技能的員工')
-            return {'ok':not issues,'issues':issues,'note':'此為建任務前檢查；實際指派仍由既有排程器驗證工時、時段及技能。'}
+            return {'ok':not issues,'issues':issues,'note':''}
     @router.post('/handover')
     def handover(body:Handover,request:Request):
-        manager(request)
         day=body.day.isoformat()
         with legacy.connect() as db:
+            if request.state.user_id!=1:
+                account=db.execute('SELECT a.staff_id FROM weekly_staff_accounts a JOIN staff s ON s.id=a.staff_id WHERE a.user_id=? AND s.profile_id=1',(request.state.user_id,)).fetchone()
+                if not account or account['staff_id']!=body.staff_id:
+                    raise HTTPException(403,'只能查看自己的交接')
             staff=db.execute('SELECT name FROM staff WHERE id=? AND profile_id=1',(body.staff_id,)).fetchone()
             if not staff:
                 raise HTTPException(404,'找不到員工')

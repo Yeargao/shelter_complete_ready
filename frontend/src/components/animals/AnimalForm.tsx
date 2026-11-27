@@ -1,3 +1,5 @@
+import {PhotoComparison} from '../common/SmartPanels';
+import {taipeiToday} from '../common/scheduleDates';
 import { useState } from "react";
 import type { AnimalInput } from "../../types";
 
@@ -15,7 +17,7 @@ const defaults: AnimalInput = {
   photo_url: null,
 };
 
-export default function AnimalForm({ initial, onSubmit }: { initial?: AnimalInput; onSubmit: (animal: AnimalInput) => Promise<void> }) {
+export default function AnimalForm({ initial, onSubmit, photoCacheId, animalId }: { initial?: AnimalInput; onSubmit: (animal: AnimalInput) => Promise<void>; photoCacheId?:string; animalId?:number }) {
   const [values, setValues] = useState<AnimalInput>(initial || defaults);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -27,7 +29,9 @@ export default function AnimalForm({ initial, onSubmit }: { initial?: AnimalInpu
       setBusy(true);
       setError("");
       try {
-        await onSubmit(values);
+        if(!values.name.trim())throw Error('請填寫動物名稱');
+        if(values.intake_date>taipeiToday())throw Error('入所日期不能晚於今日');
+        await onSubmit({...values,name:values.name.trim()});
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       } finally {
@@ -49,8 +53,9 @@ export default function AnimalForm({ initial, onSubmit }: { initial?: AnimalInpu
           </select>
         </label>
       ))}
-      <label>入所日期<input required type="date" value={values.intake_date} onChange={(event) => update("intake_date", event.target.value)} /></label>
+      <label>入所日期<input required type="date" max={taipeiToday()} value={values.intake_date} onChange={(event) => update("intake_date", event.target.value)} /></label>
       <label>照片 URL（選填）<input value={values.photo_url || ""} onChange={(event) => update("photo_url", event.target.value || null)} /></label>
+      {photoCacheId&&<PhotoComparison cacheId={photoCacheId} currentPhoto={values.photo_url} animalId={animalId} embedded/>}
       <div className="md:col-span-2">
         {error && <p role="alert" className="text-red-700">{error}</p>}
         <button disabled={busy}>{busy ? "儲存中…" : "儲存動物"}</button>
