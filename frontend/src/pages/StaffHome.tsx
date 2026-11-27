@@ -150,6 +150,8 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
 export default function StaffHome({userId}:{userId:number}) {
  const [day,setDay]=useState(taipeiToday);
  const [weekly,setWeekly]=useState(false);
+ const [mobile,setMobile]=useState(()=>window.matchMedia('(max-width: 680px)').matches);
+ useEffect(()=>{const media=window.matchMedia('(max-width: 680px)');const update=()=>{setMobile(media.matches);setSelectedId(undefined)};media.addEventListener('change',update);return()=>media.removeEventListener('change',update)},[]);
  const [selectedId,setSelectedId]=useState<string>();
  const detail=useRef<HTMLElement>(null);
  useEffect(()=>{if(selectedId)detail.current?.focus();},[selectedId]);
@@ -180,7 +182,8 @@ export default function StaffHome({userId}:{userId:number}) {
      <button type="button" className="secondary" onClick={()=>setSelectedId(undefined)}>關閉</button></div>
     <TaskCard key={selected.task_id} task={selected}/>
    </section>}
-   {worker&&<ScheduleCalendar columns={days.map(date=>({day:date,sid:worker.id,title:date.slice(5)}))}
+   {worker&&mobile&&<div className="mobile-task-list">{days.map(d=><section key={d}><h3>{d}</h3>{tasks.filter(t=>t.day===d&&t.state!=='cancelled').sort((a,b)=>(a.start_time??'').localeCompare(b.start_time??'')).map(t=><TaskCard key={t.task_id} task={t}/>)}{!tasks.some(t=>t.day===d&&t.state!=='cancelled')&&<p className="muted">本日無任務</p>}</section>)}</div>}
+   {worker&&!mobile&&<ScheduleCalendar columns={days.map(date=>({day:date,sid:worker.id,title:date.slice(5)}))}
     shifts={query.data?.shifts??[]} tasks={tasks} onTask={task=>setSelectedId(task.task_id)} selectedId={selectedId} renderInline={weekly?undefined:task=><TaskCard task={task}/>}/>}
    {worker&&!tasks.some(task=>task.day&&days.includes(task.day)&&task.state!=='cancelled')&&<p className="muted">這段期間沒有指派任務</p>}
   </section>

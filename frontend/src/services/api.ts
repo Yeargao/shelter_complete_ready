@@ -57,7 +57,16 @@ export type WeeklyShift = Staff & {day:string;assignable_hours?:number;daily_cap
 export type Week = {days:string[]; event_id:number; workers:Staff[]; shifts:WeeklyShift[]; tasks:WeeklyTask[];
  schedule_status:string|null;overdue:Pick<WeeklyTask,'task_id'|'label'|'due'|'day'|'animal_name'>[]};
 export type Plan = {plan_id:string|null;solver_status:string;changes:{task_id:string;animal_name:string;label:string;before:Placement;after:Placement;reason:string|null;adjustment_reason:string}[]};
+export type ScheduleStrategy = 'balanced'|'urgent'|'retain';
+export type ComparisonPlan = Plan & {strategy:ScheduleStrategy;revision:string;metrics:{total:number;assigned:number;urgent_total:number;urgent_on_time:number;late:number;original:number;retained:number;changed:number;utilization_spread:number|null}};
+export type NoteMatch={task_id:string;animal_id:number;name:string;label:string;reported_at:string|null;text:string;open_issue:boolean;score:number};
+export type AuditFinding={animal_id:number;name:string;kind:string;detail:string;source:string};
+export type PhotoMatch={animal_id:number;name:string;is_active:number;source:string;task_id:string|null;photo_id:string|null;score:number};
 export const api = {
+  searchNotes:(query:string,open_only:boolean)=>request<{mode:string;warning:string|null;results:NoteMatch[];searched:number;limit:number}>('/api/ai-tools/search',{method:'POST',body:JSON.stringify({query,open_only})}),
+  auditData:()=>request<{findings:AuditFinding[];model_groups:number;warning:string|null;note:string}>('/api/ai-tools/quality'),
+  comparePhotos:(photo:string)=>request<{mode:string;warning:string|null;results:PhotoMatch[];processed:number;skipped:number;remote_skipped:number;limit:number}>('/api/ai-tools/photos',{method:'POST',body:JSON.stringify({photo})}),
+  previewStrategy:(week:string,strategy:ScheduleStrategy)=>request<ComparisonPlan>(`/api/schedule/preview?week=${encodeURIComponent(week)}&rolling=true&strategy=${strategy}`,{method:'POST'}),
   withdrawReport:(id:string)=>request<{ok:boolean}>(`/api/schedule/tasks/${encodeURIComponent(id)}/withdraw-report`,{method:'POST'}),
   chat:(question:string,context:string|null,signal:AbortSignal)=>request<ChatAnswer>('/api/chat',
     {method:'POST',body:JSON.stringify({question,context}),signal}),

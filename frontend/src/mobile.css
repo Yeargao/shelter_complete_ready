@@ -1,0 +1,42 @@
+
+/* Touch-first layout, intentionally limited to small viewports. */
+@media(max-width:680px){
+ .app-shell,.app-shell.app-shell--nav-collapsed{flex-direction:column;align-items:stretch;height:100dvh;min-height:0}
+ .app-shell .sidebar,.app-shell.app-shell--nav-collapsed .sidebar{width:100%;height:auto;max-height:none;padding:8px 10px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 8px;overflow:visible;transition:none}
+ .app-shell .sidebar-collapse-toggle,.app-shell .sidebar-label,.app-shell .sidebar-footer>div{display:none}
+ .app-shell .sidebar .brand,.app-shell.app-shell--nav-collapsed .sidebar .brand{margin:0;justify-content:flex-start;gap:8px;min-width:0}
+ .app-shell .sidebar .brand>div:last-child,.app-shell.app-shell--nav-collapsed .sidebar .brand>div:last-child{display:block;min-width:0}
+ .app-shell .sidebar .brand strong{font-size:16px}.app-shell .sidebar .brand small{font-size:10px}
+ .app-shell .sidebar .brand-icon{width:32px;height:32px;font-size:20px;flex:none}
+ .app-shell .sidebar nav{grid-row:2;grid-column:1/-1;display:flex;overflow-x:auto;gap:5px;padding-bottom:2px;scrollbar-width:thin}
+ .app-shell .sidebar nav .nav-item,.app-shell.app-shell--nav-collapsed .sidebar nav .nav-item{flex:0 0 auto;font-size:12px;min-height:44px;padding:7px 10px;justify-content:flex-start;gap:5px;white-space:nowrap}
+ .app-shell .sidebar nav .nav-item span{font-size:17px;width:auto}
+ .app-shell .sidebar .sidebar-footer,.app-shell.app-shell--nav-collapsed .sidebar .sidebar-footer{grid-column:2;grid-row:1;border:0;margin:0;padding:0;display:flex;align-items:center}
+ .app-shell .sidebar .sidebar-footer button{min-width:48px;min-height:44px;font-size:0;padding:6px 9px!important}
+ .app-shell .sidebar .sidebar-footer button::before{content:'登出';font-size:12px}
+ .app-shell .main-column{flex:1 1 0;min-height:0;height:auto;width:100%;overflow:auto}
+ .app-shell .topbar{height:auto;min-height:40px;padding:8px 12px;font-size:11px}
+ .app-shell .content{padding:14px 12px calc(88px + env(safe-area-inset-bottom));width:100%;max-width:none}
+ .app-shell h1{font-size:22px}.app-shell .panel{padding:14px;min-width:0}.app-shell .hero{padding:20px}
+ .app-shell .metric strong{font-size:26px}.app-shell .metric{padding:13px}
+ .app-shell button,.app-shell .action-link{min-height:44px}
+ .app-shell input:not([type=checkbox]):not([type=radio]),.app-shell textarea,.app-shell select{font-size:16px;max-width:100%;min-width:0}
+ .app-shell .weekly-toolbar{gap:6px}.app-shell .weekly-toolbar input,.app-shell .weekly-toolbar select{flex:1 1 130px;min-height:44px}
+ .app-shell .resource-board,.app-shell.app-shell--nav-collapsed .resource-board{display:flex;flex-direction:column;min-width:0}
+ .app-shell .weekly-board{grid-template-columns:minmax(0,1fr)}
+ .app-shell .weekly-scroll{max-width:100%;overflow:auto}
+ .app-shell .weekly-pool-tabs{flex-wrap:wrap}.app-shell .weekly-pool-tabs>button{flex:1 1 90px}
+ .app-shell .mobile-task-list{display:grid;gap:14px}
+ .app-shell .mobile-task-list>section{display:grid;gap:8px}
+ .app-shell .mobile-task-list .staff-care-card.weekly-task{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;min-height:0;padding:12px;font-size:15px}
+ .app-shell .mobile-task-list .staff-care-card .staff-care-identity,.app-shell .mobile-task-list .staff-care-card .staff-care-identity strong{font-size:16px}
+ .app-shell .mobile-task-list .staff-care-card .staff-care-action-column{justify-items:stretch}
+ .app-shell .mobile-task-list .staff-care-card .staff-report-actions{width:100%;justify-content:flex-start;display:flex;flex-wrap:wrap}
+ .app-shell .mobile-task-list .staff-care-card .staff-report-actions>button{flex:1 1 auto;min-height:44px;font-size:14px;padding:8px!important}
+ .app-shell .mobile-task-list .staff-care-card .staff-care-info{font-size:14px}
+ .app-shell .chat-launcher{right:12px;bottom:calc(12px + env(safe-area-inset-bottom))}
+ .app-shell .chat-dialog{inset:0;width:100%;height:100dvh;border:0;border-radius:0}
+ .app-shell .chat-panel{height:100dvh;max-height:none;padding-bottom:env(safe-area-inset-bottom)}
+ .app-shell .chat-panel input{font-size:16px}
+}
+@media(max-width:380px){.app-shell .overview-grid,.app-shell .llm-usage-grid{grid-template-columns:minmax(0,1fr)}}

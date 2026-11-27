@@ -1,0 +1,4 @@
+# Optional CPU inference dependencies; install only when deploying local pretrained models.
+sentence-transformers>=3,<6
+transformers>=4.45,<5
+torch>=2.2,<3

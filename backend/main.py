@@ -73,7 +73,7 @@ async def auth_guard(request:Request,call_next):
   return JSONResponse(status_code=403,content={'detail':'請在個人工作台查看與回報任務'})
  task_action=path.removeprefix('/api/schedule/tasks/').split('/') if path.startswith('/api/schedule/tasks/') else []
  own_task_action=request.method=='POST' and len(task_action)==2 and task_action[1] in {'report','summary','withdraw-report'}
- if uid!=1 and request.method in ('POST','PATCH','DELETE','PUT') and path not in ('/api/stage2/answer','/api/chat') and not own_task_action:
+ if uid!=1 and request.method in ('POST','PATCH','DELETE','PUT') and path not in ('/api/stage2/answer','/api/chat','/api/ai-tools/search') and not own_task_action:
   return JSONResponse(status_code=403,content={'detail':'此操作僅管理者可執行'})
  request.state.user_id=uid
  return await call_next(request)
@@ -1202,6 +1202,8 @@ def stage2_answer(body:Stage2Question):
 
 from weekly_schedule import mount as mount_weekly_schedule
 app.include_router(mount_weekly_schedule(sys.modules[__name__]))
+from ai_tools import mount as mount_ai_tools
+app.include_router(mount_ai_tools(sys.modules[__name__]))
 
 @app.post('/api/resources/optimize', deprecated=True)
 def optimize_week_alias(week:date|None=None):
