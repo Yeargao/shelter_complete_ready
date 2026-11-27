@@ -300,7 +300,7 @@ def mount(legacy):
             task['is_active'] or task['state'] == 'done' or day < today().isoformat())
 
 
-    def solve(tasks, workers, shifts, days, strategy='balanced'):
+    def solve(tasks, workers, shifts, days):
         from ortools.sat.python import cp_model
         model = cp_model.CpModel()
         intervals, daily = defaultdict(list), defaultdict(list)
@@ -514,10 +514,6 @@ def mount(legacy):
         # optimizing individual balance and the 15-minute rest target.
         primary = [-sum(assigned_quarters), -sum(urgent), -sum(high), sum(late),
                    worst_daily_half, sum(daily_half_deviations)]
-        if strategy == 'urgent':
-            primary = [primary[1], primary[2], primary[0], *primary[3:]]
-        elif strategy == 'retain':
-            primary = [*primary[:4], -sum(retained), primary[4]]
         # Lexicographic objective: every incumbent already considers daily AM/PM balance.
         # Each component ranges over at most bound quarters (or task count).
         radix = max(2, bound + 1, len(tasks) + 1)
@@ -528,8 +524,6 @@ def mount(legacy):
             primary = [sum(term * radix**(5-i) for i, term in enumerate(primary))]
         objectives = primary + [worst_half, sum(half_deviations),
                                 sum(rest_penalties), sum(gap_deviations), balance, -sum(retained)]
-        if strategy == 'retain':
-            objectives.insert(len(primary), sum(daily_half_deviations))
         objectives = [item for item in objectives if not isinstance(item,int)] or [model.new_constant(0)]
         deadline = time.monotonic() + max(0.01, float(os.environ.get(
             'SHELTER_SOLVER_TOTAL_SECONDS', str(phase_seconds * (len(objectives) + (5 if combined else 0))))))
@@ -570,19 +564,13 @@ def mount(legacy):
                             by_day[day] += task['quarters'] * (1 if start < 46 else -1)
                     differences = [abs(by_day[day]) for day in working_days]
                     selected = [task for task in tasks if task['task_id'] in plan]
-                    score = (-sum(lengths[t] for t in plan),
+                    return (-sum(lengths[t] for t in plan),
                             -sum(t['priority'] == 0 for t in selected),
                             -sum(t['priority'] == 1 for t in selected),
                             sum(bool(t['due'] and plan[t['task_id']][1] > t['due']) for t in selected),
                             max(differences, default=0), sum(differences))
-                    if strategy == 'urgent':
-                        return (score[1], score[2], score[0], *score[3:])
-                    if strategy == 'retain':
-                        kept = sum(plan[t['task_id']] == placement(t) for t in selected)
-                        return (*score[:4], -kept, score[4])
-                    return score
                 if (primary_score(candidate) > primary_score(best) if combined else
-                        primary_score(candidate)[0] > primary_score(best)[0]):
+                        sum(lengths[t] for t in candidate) < sum(lengths[t] for t in best)):
                     status_name = 'FEASIBLE'
                     break
             best = candidate
@@ -778,36 +766,8 @@ def mount(legacy):
         return {'ok': True}
 
 
-    def comparison_metrics(tasks, changes, workers, shifts, days):
-        placements = {c['task_id']: c['after'] for c in changes}
-        pending = [t for t in tasks if t['is_active'] and t['state'] in ('pending','in_progress')
-                   and (not t['day'] or t['day'] >= today().isoformat())]
-        def target(t):
-            return placements.get(t['task_id'],placement(t))
-        def assigned(t):
-            p = target(t)
-            return p[0] is not None and p[1] in days and p[2] is not None
-        urgent = [t for t in pending if t['priority']==0]
-        placed = [t for t in pending if assigned(t)]
-        original = [t for t in pending if t['staff_id'] is not None and t['start'] is not None]
-        staff_load = defaultdict(int)
-        for t in tasks:
-            if t['state'] != 'cancelled' and assigned(t) and target(t)[1] >= today().isoformat():
-                staff_load[target(t)[0]] += t['quarters']
-        capacities = {sid:sum(daily_limit(shifts[sid,day]) for day in days
-                              if day>=today().isoformat() and (sid,day) in shifts) for sid in workers}
-        rates = [100*staff_load[sid]/cap for sid,cap in capacities.items() if cap>0]
-        return {'total':len(pending),'assigned':len(placed),'urgent_total':len(urgent),
-                'urgent_on_time':sum(assigned(t) and (not t['due'] or target(t)[1]<=t['due']) for t in urgent),
-                'late':sum(bool(t['due'] and target(t)[1]>t['due']) for t in placed),
-                'original':len(original),'retained':sum(target(t)==placement(t) for t in original),
-                'changed':sum(target(t)!=placement(t) for t in pending),
-                'utilization_spread':round(max(rates)-min(rates),1) if len(rates)>1 else None}
-
     @router.post('/preview')
-    def preview(week: date, rolling: bool = False, strategy: str = 'balanced'):
-        if strategy not in ('balanced','urgent','retain'):
-            raise HTTPException(422, '未知的排程策略')
+    def preview(week: date, rolling: bool = False):
         days = week_days(week, rolling)
         if days[-1] < today().isoformat():
             raise HTTPException(409, '歷史週只供查閱')
@@ -825,7 +785,7 @@ def mount(legacy):
                      and t['day'] and t['day'] >= today().isoformat() and t['start'] is not None
                      and t['start'] < lunch_end and t['start'] + t['quarters'] > lunch_start}
         solver_tasks = [dict(t, locked=0) if t['task_id'] in lunch_ids else t for t in tasks]
-        changes, status = solve(solver_tasks, workers, shifts, days, strategy)
+        changes, status = solve(solver_tasks, workers, shifts, days)
         for change in changes:
             if change['task_id'] in lunch_ids:
                 change['unlock_lunch'] = True
@@ -834,8 +794,7 @@ def mount(legacy):
             db.execute('INSERT INTO weekly_plans VALUES (?,?,?,?)',
                        (plan_id, days[0], version, json.dumps({'changes': changes, 'status': status})))
         return {'plan_id': plan_id if status in ('OPTIMAL', 'FEASIBLE') else None,
-                'changes': changes, 'solver_status': status, 'strategy': strategy, 'revision': version,
-                'metrics': comparison_metrics(tasks, changes, workers, shifts, days)}
+                'changes': changes, 'solver_status': status}
 
 
     @router.post('/apply/{plan_id}')

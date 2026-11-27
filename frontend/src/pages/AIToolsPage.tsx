@@ -1,43 +1,13 @@
-import {useEffect,useRef,useState,type FormEvent} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {Link,useSearchParams} from 'react-router-dom';
-import {useQueryClient} from '@tanstack/react-query';
-import {api,type ComparisonPlan,type ScheduleStrategy,type PhotoMatch} from '../services/api';
-import {taipeiToday} from '../components/common/scheduleDates';
+import {api,type PhotoMatch} from '../services/api';
 import './AIToolsPage.css';
 
-const tabs=[['search','語意搜尋'],['quality','資料品質'],['schedule','排程比較'],['photos','照片比對']] as const;
-const strategies:{id:ScheduleStrategy;title:string;description:string}[]=[
- {id:'balanced',title:'工作量平衡',description:'維持原有排程目標，優先覆蓋任務，再平衡上午下午及日間工時。'},
- {id:'urgent',title:'緊急任務優先',description:'先最大化緊急與高優先任務指派，再考慮總覆蓋工時。'},
- {id:'retain',title:'最少異動',description:'維持任務覆蓋、優先級及期限後，優先保留原本指派。'},
-];
+const tabs=[['quality','資料品質'],['photos','照片比對']] as const;
 const message=(e:unknown)=>e instanceof Error?e.message:String(e);
-const methods:Record<string,string>={local_embedding:'本機 Embedding',gemini_embedding:'Gemini Embedding',local_lexical:'本機文字／同義詞比對',clip_embedding:'CLIP 影像 Embedding',visual_signature:'感知雜湊與色彩特徵'};
+const methods:Record<string,string>={clip_embedding:'CLIP 影像 Embedding',visual_signature:'感知雜湊與色彩特徵'};
 function Warning({text}:{text:string|null|undefined}){return text?<p className="ai-warning" role="status">{text}</p>:null;}
 function ErrorText({text}:{text:string}){return text?<p className="ai-error" role="alert">{text}</p>:null;}
-
-function Search(){
- const [query,setQuery]=useState(''),[open,setOpen]=useState(false);
- const [result,setResult]=useState<Awaited<ReturnType<typeof api.searchNotes>>>(),[busy,setBusy]=useState(false),[error,setError]=useState('');
- async function run(e:FormEvent){e.preventDefault();if(!query.trim()||busy)return;setBusy(true);setError('');setResult(undefined);
-  try{setResult(await api.searchNotes(query.trim(),open));}catch(err){setError(message(err));}finally{setBusy(false);}
- }
- return <section className="panel ai-section">
-  <h2>照護紀錄語意搜尋</h2><p className="muted">搜尋現有照護回報及異常備註。結果附原始紀錄，不產生新的健康事實。</p>
-  <form onSubmit={run} className="ai-form">
-   <label>搜尋描述<input required maxLength={300} value={query} onChange={e=>setQuery(e.target.value)} placeholder="例如：行動不便、食慾不佳"/></label>
-   <label className="ai-check"><input type="checkbox" checked={open} onChange={e=>setOpen(e.target.checked)}/>僅未結案異常</label>
-   <button disabled={busy||!query.trim()}>{busy?'搜尋中…':'搜尋紀錄'}</button>
-  </form><ErrorText text={error}/>
-  {result&&<><p className="ai-method">方式：{methods[result.mode]??result.mode} · 已比對 {result.searched} 筆（最近最多 {result.limit} 筆）</p><Warning text={result.warning}/>
-   {result.results.length===0?<p>沒有找到符合條件的紀錄。</p>:<div className="ai-results">{result.results.map(r=><article key={r.task_id} className="ai-result">
-    <div className="ai-result-heading"><Link to={'/animals/'+r.animal_id}>#{r.animal_id} {r.name}</Link><span className="status">{r.open_issue?'待處理異常':'照護紀錄'}</span></div>
-    <p>{r.text}</p><small className="muted">{r.label} · {r.reported_at?.slice(0,10)??'日期未記錄'} · 相似分數 {r.score.toFixed(3)}</small>
-    <small className="muted">來源：{r.task_id}</small>
-   </article>)}</div>}
-  </>}
- </section>;
-}
 
 function Quality(){
  const [result,setResult]=useState<Awaited<ReturnType<typeof api.auditData>>>(),[busy,setBusy]=useState(false),[error,setError]=useState('');
@@ -54,53 +24,6 @@ function Quality(){
     <p>{r.detail}</p><small className="muted">來源：{r.source}</small>
    </article>)}</div>}
   </>}
- </section>;
-}
-
-function Schedule({initialDay}:{initialDay:string}){
- const qc=useQueryClient();
- const [day,setDay]=useState(initialDay),[plans,setPlans]=useState<ComparisonPlan[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
- const [current,setCurrent]=useState(''),[selected,setSelected]=useState<ScheduleStrategy>();
- const [confirmed,setConfirmed]=useState(false);
- const comparable=plans.length>0&&plans.every(p=>p.revision===plans[0].revision);
- async function compare(){
-  if(busy||day<taipeiToday())return;
-  setBusy(true);setPlans([]);setError('');setNotice('');setSelected(undefined);setConfirmed(false);
-  try{for(const strategy of strategies){setCurrent(strategy.title);const next=await api.previewStrategy(day,strategy.id);setPlans(old=>[...old,next]);}}
-  catch(err){setError(message(err));}finally{setCurrent('');setBusy(false);}
- }
- async function apply(){
-  const p=plans.find(item=>item.strategy===selected);
-  if(!p?.plan_id||!confirmed||!comparable||plans.length!==strategies.length||busy)return;
-  setBusy(true);setError('');setNotice('');
-  try{await api.applyWeek(p.plan_id);setPlans([]);setSelected(undefined);setConfirmed(false);setNotice('已套用選擇的排程方案。');
-   await Promise.all([qc.invalidateQueries({queryKey:['schedule-week']}),qc.invalidateQueries({queryKey:['resource-overview']})]);
-  }catch(err){setError(message(err));setConfirmed(false);}finally{setBusy(false);}
- }
- const chosen=plans.find(p=>p.strategy===selected);
- return <section className="panel ai-section">
-  <h2>七天排程方案比較</h2><p className="muted">使用現有 CP-SAT 求解器與三種目標。相同資料下比較真實求解結果；預覽不套用指派，固定任務及技能、工時等限制仍生效。</p>
-  <div className="ai-form"><label>起始日期<input type="date" value={day} min={taipeiToday()} disabled={busy} onChange={e=>{setDay(e.target.value);setPlans([]);setSelected(undefined);setConfirmed(false);setNotice('');setError('');}}/></label>
-   <button disabled={busy||!day||day<taipeiToday()} onClick={()=>void compare()}>{busy?'處理中…':'產生三種方案'}</button><Link to="/resources">返回資源配置</Link></div>
-  {current&&<p role="status">正在求解：{current}（已完成 {plans.length}/3）</p>}<ErrorText text={error}/>{notice&&<p role="status">{notice}</p>}
-  {plans.length>0&&<><div className="ai-plan-grid">{strategies.map(strategy=>{
-    const p=plans.find(item=>item.strategy===strategy.id);const m=p?.metrics;
-    return <article className="ai-result" key={strategy.id}><h3>{strategy.title}</h3><p className="muted">{strategy.description}</p>
-     {p&&m?<><p className="status">{p.solver_status==='OPTIMAL'?'已證明最佳解':'可行解（未證明最佳）'}</p>
-      <dl className="ai-metrics"><dt>已安排任務</dt><dd>{m.assigned}/{m.total}</dd><dt>緊急任務期限內安排</dt><dd>{m.urgent_on_time}/{m.urgent_total}</dd>
-       <dt>逾期指派</dt><dd>{m.late}</dd><dt>原指派保留</dt><dd>{m.retained}/{m.original}</dd>
-       <dt>異動任務數</dt><dd>{m.changed}</dd><dt>員工工時利用率差距</dt><dd>{m.utilization_spread===null?'不適用':m.utilization_spread+' 個百分點'}</dd></dl>
-      <button type="button" className={selected===strategy.id?'':'secondary'} aria-pressed={selected===strategy.id} disabled={busy||!p.plan_id||!comparable||plans.length!==strategies.length} onClick={()=>{setSelected(strategy.id);setConfirmed(false)}}>選擇此方案</button>
-     </>:<p className="muted">尚未完成求解</p>}</article>;
-   })}</div>
-   {!comparable&&<Warning text="求解期間資料已變動，三個方案不可直接比較。請重新產生。"/>}
-   <p className="muted">工時利用率差距為有可用工時員工中最高與最低利用率之差；任務安排不等於實際完成。各目標可能得到相同方案。</p>
-  </>}
-  {chosen&&comparable&&<div className="ai-result"><h3>方案異動明細</h3>
-   <div className="ai-change-list">{chosen.changes.length?chosen.changes.map(c=><p key={c.task_id}>{c.animal_name} · {c.label}：{c.adjustment_reason}</p>):<p>沒有指派異動。</p>}</div>
-   <label className="ai-check"><input type="checkbox" checked={confirmed} disabled={busy} onChange={e=>setConfirmed(e.target.checked)}/>我已核對方案，確認套用</label>
-   <button disabled={!confirmed||busy||!chosen.plan_id||plans.length!==strategies.length} onClick={()=>void apply()}>確認套用此方案</button>
-  </div>}
  </section>;
 }
 
@@ -152,14 +75,11 @@ function Photos(){
  </section>;
 }
 
-export default function AIToolsPage({manager}:{manager:boolean}){
+export default function AIToolsPage(){
  const [params,setParams]=useSearchParams();
- const visible=manager?tabs:tabs.slice(0,1);
- const tab=visible.find(t=>t[0]===params.get('tab'))?.[0]??'search';
- const initialDay=params.get('day')||taipeiToday();
+ const tab=tabs.find(t=>t[0]===params.get('tab'))?.[0]??'quality';
  return <section className="ai-page space-y-4"><header><h1>AI 智慧工具</h1><p className="muted">使用現有收容所資料；AI 只提供候選與決策支援。</p></header>
-  {manager&&<nav className="ai-tabs" aria-label="AI 功能">{visible.map(([id,label])=><button key={id} type="button" className={tab===id?'':'secondary'} aria-pressed={tab===id} onClick={()=>setParams({tab:id,...(id==='schedule'?{day:initialDay}:{})})}>{label}</button>)}</nav>}
-  {tab==='search'&&<Search/>}{manager&&tab==='quality'&&<Quality/>}{manager&&tab==='schedule'&&<Schedule initialDay={initialDay}/>}
-  {manager&&tab==='photos'&&<Photos/>}
+  <nav className="ai-tabs" aria-label="AI 功能">{tabs.map(([id,label])=><button key={id} type="button" className={tab===id?'':'secondary'} aria-pressed={tab===id} onClick={()=>setParams({tab:id})}>{label}</button>)}</nav>
+  {tab==='quality'&&<Quality/>}{tab==='photos'&&<Photos/>}
  </section>;
 }

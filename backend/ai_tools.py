@@ -1,100 +1,24 @@
 """Optional AI tools; no dependency on the shelter's forecasting models."""
-from collections import Counter, defaultdict
+from collections import defaultdict
 from functools import lru_cache
 import math
 import os
-import re
 from datetime import date
 from io import BytesIO
-from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 import llm_service as llm
 
-GROUPS = ('行動不便 跛行 腳痛 腳部受傷 走路困難 腿無力', '食慾不振 食慾下降 不吃東西 進食減少 吃很少',
-          '精神不佳 活動力下降 嗜睡 沒精神 一直躺', '傷口 受傷 腫脹 流血 外傷',
-          '疫苗 預防針 接種 施打', '驅蟲 寄生蟲 除蟲')
 MAX_NOTES = 80
 MAX_PHOTOS = 80
 
-def text_features(text):
-    text = re.sub(r'\s+', '', text.casefold())
-    features = Counter(text[i:i+n] for n in (1, 2, 3) for i in range(len(text)-n+1))
-    for i, group in enumerate(GROUPS):
-        if any(word in text for word in group.split()):
-            features['concept:'+str(i)] += 6
-    return features
-
 def cosine(a, b):
-    if isinstance(a, dict):
-        dot = sum(v*b.get(k, 0) for k,v in a.items())
-        norm = math.sqrt(sum(v*v for v in a.values())*sum(v*v for v in b.values()))
-    else:
-        dot = sum(x*y for x,y in zip(a,b))
-        norm = math.sqrt(sum(x*x for x in a)*sum(y*y for y in b))
+    dot = sum(x*y for x,y in zip(a,b))
+    norm = math.sqrt(sum(x*x for x in a)*sum(y*y for y in b))
     return max(-1., min(1., dot/norm)) if norm else 0.
-
-@lru_cache(maxsize=1)
-def text_model(path):
-    from sentence_transformers import SentenceTransformer
-    return SentenceTransformer(path, device='cpu', local_files_only=True)
 
 def notes_approved():
     return os.getenv('SHELTER_AI_NOTES_APPROVED','0').lower() in ('1','true','yes') and not llm.settings_error()
-
-def cloud_embeddings(connect, query, docs):
-    """One quota-accounted batch; raw notes leave the server only with explicit opt-in."""
-    import httpx
-    model = os.getenv('SHELTER_EMBEDDING_MODEL','gemini-embedding-001').removeprefix('models/')
-    if not re.fullmatch(r'[a-zA-Z0-9_-]+', model):
-        raise ValueError('invalid embedding model')
-    texts = [query,*docs]
-    requests = [{'model':'models/'+model,'content':{'parts':[{'text':t}]},
-                 'taskType':'RETRIEVAL_QUERY' if i == 0 else 'RETRIEVAL_DOCUMENT'}
-                for i,t in enumerate(texts)]
-    attempt,error = llm.reserve(connect,'semantic_search',sum(len(t.encode('utf-8')) for t in texts)+256,model)
-    if error:
-        raise ValueError(error)
-    ok = False
-    try:
-        with llm.http_client() as client:
-            response = client.post('https://generativelanguage.googleapis.com/v1beta/models/'+model+':batchEmbedContents',
-                headers={'x-goog-api-key':os.environ['GEMINI_API_KEY'].strip()},json={'requests':requests})
-            response.raise_for_status()
-            vectors = [e['values'] for e in response.json()['embeddings']]
-            if len(vectors)!=len(texts) or not vectors[0] or any(len(v)!=len(vectors[0]) or
-                    not all(isinstance(x,(int,float)) and math.isfinite(x) for x in v) for v in vectors):
-                raise ValueError('invalid embeddings')
-            ok = True
-            return vectors
-    finally:
-        with connect() as db:
-            db.execute('UPDATE llm_attempts SET status=? WHERE id=?',('succeeded' if ok else 'failed',attempt))
-
-def rank_notes(connect, query, records):
-    docs = [r['text'][:400] for r in records]
-    path = os.getenv('SHELTER_TEXT_MODEL_DIR','').strip()
-    mode, warning = 'local_lexical', '未啟用語意模型，使用字元與同義詞比對；非向量語意模型。'
-    vectors = None
-    if docs and path:
-        try:
-            vectors = text_model(path).encode([query,*docs],normalize_embeddings=True).tolist()
-            mode, warning = 'local_embedding', None
-        except Exception:
-            warning = '本機語意模型無法使用，已降級為文字比對。'
-    if docs and vectors is None and notes_approved():
-        try:
-            vectors = cloud_embeddings(connect,query,docs)
-            mode, warning = 'gemini_embedding', None
-        except Exception:
-            warning = 'Gemini 向量服務或配額無法使用，已降級為文字比對。'
-    if vectors is None:
-        vectors = [text_features(query),*[text_features(d) for d in docs]]
-    ranked = sorted(({**r,'score':round(cosine(vectors[0],v),4)} for r,v in zip(records,vectors[1:])),
-                    key=lambda r:r['score'],reverse=True)
-    cutoff = .30 if mode.endswith('embedding') else .06
-    return {'mode':mode,'warning':warning,'results':[r for r in ranked if r['score']>=cutoff][:15],
-            'searched':len(records),'limit':MAX_NOTES}
 
 def collect_notes(db, sid=None, open_only=False):
     args = [] if sid is None else [sid]
@@ -211,10 +135,6 @@ def clip_vector(path,raw):
             value=value.pooler_output
         return value[0].detach().cpu().tolist()
 
-class SearchInput(BaseModel):
-    query:str=Field(min_length=1,max_length=300)
-    open_only:bool=False
-
 class PhotoInput(BaseModel):
     photo:str=Field(min_length=1,max_length=7000000)
 
@@ -223,21 +143,6 @@ def mount(legacy):
     def manager(request):
         if request.state.user_id!=1:
             raise HTTPException(403,'此工具僅管理者可使用')
-    @router.post('/search')
-    def search(body:SearchInput,request:Request):
-        query=body.query.strip()
-        if not query:
-            raise HTTPException(422,'請輸入搜尋內容')
-        with legacy.connect() as db:
-            sid=None
-            if request.state.user_id!=1:
-                row=db.execute('SELECT staff_id FROM weekly_staff_accounts WHERE user_id=?',(request.state.user_id,)).fetchone()
-                if not row:
-                    raise HTTPException(403,'帳號未連結員工')
-                sid=row['staff_id']
-            records=collect_notes(db,sid,body.open_only)
-        return rank_notes(legacy.connect,query,records)
-
     @router.get('/quality')
     def quality(request:Request):
         manager(request)

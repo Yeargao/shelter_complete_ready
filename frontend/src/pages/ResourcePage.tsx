@@ -1,5 +1,4 @@
 
-import {Link} from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Placement, type Plan, type Staff, type WeeklyShift, type WeeklyTask } from '../services/api';
@@ -133,7 +132,7 @@ export default function ResourcePage() {
      <input aria-label="排程日期" type="date" disabled={navigating} value={day} onChange={e=>{if(e.target.value)go(e.target.value);}}/>
      <select aria-label="日曆檢視" value={view} onChange={e=>setView(e.target.value==='day'?'day':'week')}><option value="day">日檢視</option><option value="week">週檢視</option></select>
      <select aria-label="員工" value={sid??''} onChange={e=>setWorker(Number(e.target.value))}>{workers.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</select>
-     <button disabled={navigating||historical||week.isPending} onClick={()=>preview.mutate()}>七天最佳化派工</button><Link className="action-link" to={`/ai-tools?tab=schedule&day=${day}`}>比較排程方案</Link>
+     <button disabled={navigating||historical||week.isPending} onClick={()=>preview.mutate()}>七天最佳化派工</button>
     </div>
     {week.isLoading&&<p role="status">正在載入排程…</p>}
     {preview.isPending&&<p role="status">正在計算七天排程…</p>}

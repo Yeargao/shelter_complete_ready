@@ -1,23 +1,13 @@
-import os
 import sqlite3
 import sys
 import unittest
-from contextlib import contextmanager
 from io import BytesIO
 from pathlib import Path
-from unittest.mock import patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'backend'))
 import ai_tools
 
 class AIToolsTests(unittest.TestCase):
-    def test_synonym_fallback(self):
-        records=[{'text':'狗狗走路困難，跛行'},{'text':'疫苗施打完成'}]
-        with patch.dict(os.environ,{'SHELTER_TEXT_MODEL_DIR':'','SHELTER_AI_NOTES_APPROVED':'0'}):
-            result=ai_tools.rank_notes(None,'行動不便',records)
-        self.assertEqual(result['mode'],'local_lexical')
-        self.assertEqual(result['results'][0]['text'],records[0]['text'])
-
     def test_scope_and_open_issues(self):
         db=sqlite3.connect(':memory:')
         db.row_factory=sqlite3.Row
