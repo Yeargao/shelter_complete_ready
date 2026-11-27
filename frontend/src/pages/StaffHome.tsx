@@ -71,25 +71,16 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
  const openReport=()=>{setChoice(follow?'reported':'');setReportOpen(true);};
  const canReport=Boolean(t.day&&t.day<=taipeiToday()&&t.is_active&&['pending','in_progress'].includes(t.state));
  return <><article className="staff-care-card weekly-task" data-priority={displayPriority} data-done={t.state==='done'}>
+  <div className="staff-care-copy">
   <div className="staff-care-identity">
    <strong><span className="weekly-dot" aria-hidden="true"/>{t.start_time}–{t.end_time}</strong><div>{t.animal_name} #{t.animal_id}</div>
    <div>{displayTaskLabel(t.label)}</div>
   </div>
-  <div className="staff-care-controls">
+  <div className="staff-care-controls staff-care-info">
   {care&&<p>{care.animal_summary} <small>（{care.mode==='llm'?'Gemini AI':care.mode==='cache'?'AI 快取摘要':'規則式摘要'}{
     care.fallback_reason==='in_progress'?' · AI 摘要處理中':care.fallback_reason?' · 目前 AI 無法使用':''
   }）</small></p>}
   {care?.fallback_reason&&<p className="muted">{aiGuidance(care.fallback_reason)}</p>}
-  {t.report?(direct?
-   (canWithdraw&&<div className="staff-report-actions"><button type="button" className="secondary" disabled={withdraw.isPending}
-    onClick={()=>withdraw.mutate()}>收回回報</button></div>):
-   <div className="staff-report-actions"><button type="button" className="secondary" onClick={openReport}>查看回報</button></div>):
-   canReport?(direct?<div className="staff-report-actions">{direct.map(([value,label])=>
-    <button type="button" key={value} className="secondary" disabled={report.isPending} onClick={()=>report.mutate(value)}>{label}</button>)}</div>:
-    <div className="staff-report-actions"><button type="button" className="secondary" onClick={openReport}>{follow?'填寫追蹤回報':'填寫回報'}</button></div>):null}
-  {direct&&report.error&&<ErrorView error={report.error}/>}
-  {direct&&withdraw.error&&<ErrorView error={withdraw.error}/>}
-  {direct&&report.isPending&&<p role="status">正在儲存回報…</p>}
   <details onToggle={e=>{
    if(e.currentTarget.open&&!summary.isPending)summary.mutate();
   }}>
@@ -103,6 +94,19 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
     onClick={()=>summary.mutate()}>重新查詢摘要</button>}
   </details>
   {withdraw.isSuccess&&!t.report&&<p role="status">已收回，任務恢復待辦。</p>}
+  </div>
+  </div>
+  <div className="staff-care-controls staff-care-action-column">
+  {t.report?(direct?
+   (canWithdraw&&<div className="staff-report-actions"><button type="button" className="secondary" disabled={withdraw.isPending}
+    onClick={()=>withdraw.mutate()}>收回回報</button></div>):
+   <div className="staff-report-actions"><button type="button" className="secondary" onClick={openReport}>查看回報</button></div>):
+   canReport?(direct?<div className="staff-report-actions">{direct.map(([value,label])=>
+    <button type="button" key={value} className="secondary" disabled={report.isPending} onClick={()=>report.mutate(value)}>{label}</button>)}</div>:
+    <div className="staff-report-actions"><button type="button" className="secondary" onClick={openReport}>{follow?'填寫追蹤回報':'填寫回報'}</button></div>):null}
+  {direct&&report.error&&<ErrorView error={report.error}/>}
+  {direct&&withdraw.error&&<ErrorView error={withdraw.error}/>}
+  {direct&&report.isPending&&<p role="status">正在儲存回報…</p>}
   </div>
  </article>
  {!direct&&reportOpen&&(t.report||canReport)&&createPortal(
