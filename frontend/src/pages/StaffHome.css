@@ -53,10 +53,26 @@
 .weekly-event--staff-inline[data-personal-minutes="60"] .staff-care-controls button{font-size:22px}
 .weekly-event--staff-inline[data-personal-minutes="60"] .attention-badge{font-size:20px}
 
-/* Staff task cards only: keep all text on the left and compact report actions on the right. */
-.staff-care-card.weekly-task{display:grid;grid-template-columns:minmax(0,1fr) fit-content(42%);align-items:start;min-width:0}
-.staff-care-card>.staff-care-copy{min-width:0;overflow-wrap:anywhere}
-.staff-care-card .staff-care-info{min-width:0;max-width:100%;justify-items:start}
+/* Staff task cards only: identity on the left, care summary in the middle, report actions on the right. */
+.staff-care-card.weekly-task{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.8fr) fit-content(30%);align-items:start;min-width:0;font-size:16px}
+.staff-care-card>.staff-care-copy{display:contents}
+.staff-care-card .staff-care-identity{min-width:0;overflow-wrap:anywhere;font-size:16px;line-height:1.25}
+.staff-care-card .staff-care-identity strong{font-size:inherit}
+.staff-care-card .staff-care-info{min-width:0;max-width:100%;justify-items:start;overflow-wrap:anywhere;line-height:1.25}
+.staff-care-card .staff-care-info>p,.staff-care-card .staff-care-info>details{margin:0}
 .staff-care-card>.staff-care-action-column{min-width:0;max-width:100%;justify-items:end;align-content:start}
 .staff-care-card .staff-care-action-column>.staff-report-actions{width:auto;max-width:100%;min-width:0;justify-content:flex-end;flex-wrap:wrap;overflow:visible}
 .staff-care-card .staff-care-action-column .staff-report-actions>button{flex:0 1 auto;width:auto;min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;padding-inline:8px!important}
+.weekly-event--staff-inline .staff-care-card .staff-care-identity,.weekly-event--staff-inline .staff-care-card .staff-care-identity strong{font-size:15px}
+.weekly-event--staff-inline[data-personal-minutes="30"] .staff-care-card.weekly-task{font-size:21px}
+.weekly-event--staff-inline[data-personal-minutes="30"] .staff-care-card .staff-care-identity,.weekly-event--staff-inline[data-personal-minutes="30"] .staff-care-card .staff-care-identity strong{font-size:21px}
+.weekly-event--staff-inline[data-personal-minutes="60"] .staff-care-card.weekly-task{font-size:28px}
+.weekly-event--staff-inline[data-personal-minutes="60"] .staff-care-card .staff-care-identity,.weekly-event--staff-inline[data-personal-minutes="60"] .staff-care-card .staff-care-identity strong{font-size:27px}
+/* Keep the same three columns on narrow screens without enlarging the calendar slots. */
+@media(max-width:680px){
+ .staff-care-card.weekly-task{grid-template-columns:minmax(0,1fr) minmax(0,1.35fr) fit-content(32%);gap:6px;font-size:14px}
+ .staff-care-card .staff-care-identity,.weekly-event--staff-inline .staff-care-card .staff-care-identity,.weekly-event--staff-inline .staff-care-card .staff-care-identity strong{font-size:13px}
+ .weekly-event--staff-inline[data-personal-minutes="30"] .staff-care-card.weekly-task,.weekly-event--staff-inline[data-personal-minutes="60"] .staff-care-card.weekly-task{font-size:16px}
+ .weekly-event--staff-inline[data-personal-minutes="30"] .staff-care-card .staff-care-identity,.weekly-event--staff-inline[data-personal-minutes="30"] .staff-care-card .staff-care-identity strong,.weekly-event--staff-inline[data-personal-minutes="60"] .staff-care-card .staff-care-identity,.weekly-event--staff-inline[data-personal-minutes="60"] .staff-care-card .staff-care-identity strong{font-size:15px}
+ .staff-care-card .staff-care-action-column .staff-report-actions>button{font-size:12px;padding-inline:4px!important}
+}
