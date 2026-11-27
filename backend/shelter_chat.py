@@ -279,8 +279,7 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
             redacted=redacted.replace(item['task_id'],'某任務')
         return {'animal_id':aid,'staff_id':staff_id,'task_id':tids[0]['task_id'] if tids else None},None,redacted
 
-    @router.post('/chat')
-    def ask(body: Question, request: Request):
+    def ask_single(body: Question, request: Request):
         question = ci.normalize(body.question)
         if not question:
             raise HTTPException(422,'請輸入問題')
@@ -430,5 +429,37 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
                 'intent_source':plan['routed_by'] if plan else 'local',
                 'query':{key:plan[key] for key in ('start','end','period','sort')} if plan else None,
                 'queried_at':datetime.now(TAIPEI).isoformat()}
+
+    @router.post('/chat')
+    def ask(body: Question, request: Request):
+        question=ci.normalize(body.question)
+        # Read-only route remains read-only, including compound inputs.
+        if ci.blocked(question):
+            return ask_single(body,request)
+        # A narrow local multi-intent grammar preserves phrases such as 上午和下午.
+        pieces=re.split(r'[；;\n]+|(?:、|以及|和|與|及|並且|，另|，再)(?=(?:查詢|查|查看|看|今天|明天|健康|疫苗|驅蟲|員工|任務|班表|哪些|誰|還有))',question)
+        parts=[p.strip() for p in pieces if p.strip()]
+        if len(parts)<2:
+            return ask_single(body,request)
+        if len(parts)>6:
+            raise HTTPException(422,'一次最多六項查詢')
+        if any(ci.local_intent(p)['intent']=='unknown' for p in parts):
+            return ask_single(body,request)
+        answers=[]
+        ctx=body.context
+        for i,part in enumerate(parts):
+            # Inherit a shared subject only for fragments without an explicit name/ID;
+            # the existing entity resolver revalidates it and enforces scope.
+            if i:
+                part='另外'+part
+            answer=ask_single(Question(question=part,context=ctx),request)
+            answers.append(answer)
+            ctx=answer['context']
+        return {**answers[-1],
+                'answer':'\n\n'.join(f'{i+1}. {a["answer"]}' for i,a in enumerate(answers)),
+                'sources':list(dict.fromkeys(s for a in answers for s in a['sources'])),
+                'source':'gemini' if any(a['source']=='gemini' for a in answers) else 'db' if any(a['source']=='db' for a in answers) else 'rules',
+                'fallback_reason':next((a['fallback_reason'] for a in answers if a['fallback_reason']),None),
+                'intent':'multi','intent_source':'local_multi','context':ctx}
 
     return router

@@ -41,7 +41,7 @@ export default function ShelterChat({manager}:{manager:boolean}) {
   setInput('');
   setError('');
   setPending(true);
-  setTurns(previous=>[...previous.slice(-9),{question}]);
+  setTurns(previous=>[...previous,{question}]);
   try {
    const answer=await api.chat(question,context,controller.signal);
    if(active.current!==controller)return;
@@ -58,7 +58,7 @@ export default function ShelterChat({manager}:{manager:boolean}) {
   <button ref={launcher} type="button" className="chat-launcher" onClick={()=>dialog.current?.showModal()}>
    <MessageCircle aria-hidden="true" size={20}/> 收容所助理
   </button>
-  <dialog ref={dialog} aria-labelledby="shelter-chat-title" className="chat-dialog" onClose={()=>{stop();launcher.current?.focus();}}>
+  <dialog ref={dialog} aria-labelledby="shelter-chat-title" className="chat-dialog" onClose={()=>{launcher.current?.focus();}}>
    <div className="chat-panel">
     <header><div className="chat-heading"><MessageCircle size={21} aria-hidden="true"/><h2 id="shelter-chat-title">收容所助理</h2></div>
      <button type="button" className="secondary" onClick={()=>dialog.current?.close()} aria-label="關閉聊天"><X size={20}/></button>
@@ -80,7 +80,7 @@ export default function ShelterChat({manager}:{manager:boolean}) {
      {pending&&<p role="status">正在查詢…</p>}
      {error&&<p role="alert" className="text-red-700">{error}</p>}
     </div>
-    <details className="chat-prompts" open={!turns.length || undefined}><summary>常用問題</summary>
+    <details className="chat-prompts"><summary>常用問題</summary>
      <div>{(manager?managerQuestions:staffQuestions).map(question=><button type="button" key={question}
       className="secondary" disabled={pending} onClick={()=>void send(question)}>{question}</button>)}</div>
     </details>

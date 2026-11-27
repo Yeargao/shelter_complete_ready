@@ -1117,4 +1117,6 @@ def mount(legacy):
         migrate(db, import_legacy=False)
     from shelter_chat import mount as mount_chat
     legacy.app.include_router(mount_chat(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tasks_for))
+    from smart_tools import mount as mount_smart
+    legacy.app.include_router(mount_smart(legacy, populate, week_days, schedule_catalog, quarters))
     return router

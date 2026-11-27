@@ -2,17 +2,18 @@ import {useEffect,useRef,useState} from 'react';
 import {Link,useSearchParams} from 'react-router-dom';
 import {api,type PhotoMatch} from '../services/api';
 import './AIToolsPage.css';
+import SmartTools,{useStored} from './SmartTools';
 
-const tabs=[['quality','資料品質'],['photos','照片比對']] as const;
+const tabs=[['quality','資料品質'],['photos','照片比對'],['smart','智慧工作流程']] as const;
 const message=(e:unknown)=>e instanceof Error?e.message:String(e);
 const methods:Record<string,string>={clip_embedding:'CLIP 影像 Embedding',visual_signature:'感知雜湊與色彩特徵'};
 function Warning({text}:{text:string|null|undefined}){return text?<p className="ai-warning" role="status">{text}</p>:null;}
 function ErrorText({text}:{text:string}){return text?<p className="ai-error" role="alert">{text}</p>:null;}
 
 function Quality(){
- const [result,setResult]=useState<Awaited<ReturnType<typeof api.auditData>>>(),[busy,setBusy]=useState(false),[error,setError]=useState('');
- const [kind,setKind]=useState('');
- async function run(){setBusy(true);setResult(undefined);setError('');setKind('');try{setResult(await api.auditData());}catch(err){setError(message(err));}finally{setBusy(false);}}
+ const [result,setResult]=useStored<Awaited<ReturnType<typeof api.auditData>>|null>('quality-result',null),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ const [kind,setKind]=useStored('quality-filter','');
+ async function run(){setBusy(true);setError('');try{setResult(await api.auditData());}catch(err){setError(message(err));}finally{setBusy(false);}}
  const findings=result?.findings.filter(r=>!kind||r.kind===kind)??[];
  return <section className="panel ai-section">
   <h2>AI 資料品質核對</h2><p className="muted">檢查健康狀況、疫苗、驅蟲、日期及資源設定。模型異常是核對候選，不是錯誤定論。</p>
@@ -52,19 +53,19 @@ function encodePhoto(file:File):Promise<string>{
 }
 function Photos(){
  const [file,setFile]=useState<File>(),[preview,setPreview]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
- const [result,setResult]=useState<Awaited<ReturnType<typeof api.comparePhotos>>>();
+ const [result,setResult]=useStored<Awaited<ReturnType<typeof api.comparePhotos>>|null>('photos-result',null);
  const input=useRef<HTMLInputElement>(null);
  useEffect(()=>{if(!file){setPreview('');return}const url=URL.createObjectURL(file);setPreview(url);return()=>URL.revokeObjectURL(url)},[file]);
- async function run(){if(!file||busy)return;setBusy(true);setError('');setResult(undefined);
+ async function run(){if(!file||busy)return;setBusy(true);setError('');
   try{if(file.size>15*1024*1024)throw Error('原始圖片最多 15 MB');setResult(await api.comparePhotos(await encodePhoto(file)));}
   catch(e){setError(message(e));}finally{setBusy(false)}
  }
  return <section className="panel ai-section"><h2>動物照片比對</h2><p className="muted">上傳或拍攝動物照片，與系統內可讀取的既有動物及照護照片比對。相似分數不是同一動物的機率，請人工核對編號、晶片與紀錄。</p>
-  <div className="ai-form"><label>選擇照片<input ref={input} type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={e=>{setFile(e.target.files?.[0]);setResult(undefined);setError('')}}/></label>
-   <label>手機拍照<input type="file" accept="image/*" capture="environment" disabled={busy} onChange={e=>{setFile(e.target.files?.[0]);setResult(undefined);setError('')}}/></label>
+  <div className="ai-form"><label>選擇照片<input ref={input} type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={e=>{setFile(e.target.files?.[0]);setResult(null);setError('')}}/></label>
+   <label>手機拍照<input type="file" accept="image/*" capture="environment" disabled={busy} onChange={e=>{setFile(e.target.files?.[0]);setResult(null);setError('')}}/></label>
    {preview&&<img src={preview} className="ai-preview" alt="待比對照片"/>}
    <button disabled={!file||busy} onClick={()=>void run()}>{busy?'比對中…':'比對既有照片'}</button>
-   <button className="secondary" disabled={busy||!file} onClick={()=>{setFile(undefined);setResult(undefined);setError('');if(input.current)input.current.value=''}}>清除</button>
+   <button className="secondary" disabled={busy||!file} onClick={()=>{setFile(undefined);setResult(null);setError('');if(input.current)input.current.value=''}}>清除</button>
   </div><ErrorText text={error}/>
   {result&&<><p className="ai-method">方式：{methods[result.mode]??result.mode} · 成功比對 {result.processed} 張 · 無法讀取 {result.skipped} 張 · 未抓取外部 URL {result.remote_skipped} 張（最多處理 {result.limit} 張）</p><Warning text={result.warning}/>
    {result.results.length===0?<p>沒有可讀取的既有照片，因此無法比對。此結果不表示沒有重複動物。</p>:<div className="ai-results">{result.results.map(r=><article className="ai-result" key={r.animal_id}>
@@ -80,6 +81,6 @@ export default function AIToolsPage(){
  const tab=tabs.find(t=>t[0]===params.get('tab'))?.[0]??'quality';
  return <section className="ai-page space-y-4"><header><h1>AI 智慧工具</h1><p className="muted">使用現有收容所資料；AI 只提供候選與決策支援。</p></header>
   <nav className="ai-tabs" aria-label="AI 功能">{tabs.map(([id,label])=><button key={id} type="button" className={tab===id?'':'secondary'} aria-pressed={tab===id} onClick={()=>setParams({tab:id})}>{label}</button>)}</nav>
-  {tab==='quality'&&<Quality/>}{tab==='photos'&&<Photos/>}
+  <div hidden={tab!=='quality'}><Quality/></div><div hidden={tab!=='photos'}><Photos/></div><div hidden={tab!=='smart'}><SmartTools/></div>
  </section>;
 }
