@@ -1,5 +1,6 @@
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type WeeklyTask } from '../services/api';
 import { ErrorView } from '../components/common/States';
@@ -63,13 +64,13 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
    return api.reportWeekly(t.task_id,{result:value,note,administered_date:dose||null,
     photos:await Promise.all(photos.map(encodePhoto))},photos.length?setUpload:undefined);
   },
-  onSuccess:refresh
+  onSuccess:async()=>{setChoice('');setNote('');setDose('');setFiles([]);setUpload(undefined);await refresh();}
  });
  const cancelReport=()=>{setChoice('');setNote('');setDose('');setFiles([]);setUpload(undefined);report.reset();};
  return <article className="staff-care-card weekly-task" data-priority={displayPriority} data-done={t.state==='done'}>
   <div className="staff-care-identity">
    <strong><span className="weekly-dot" aria-hidden="true"/>{t.start_time}–{t.end_time}</strong><div>{t.animal_name} #{t.animal_id}</div>
-   <div>{displayTaskLabel(t.label)} {displayPriority<=1&&displayTaskLabel(t.label)!=='健康狀態待確認'&&<span className="attention-badge alert-high">{displayPriority===0?'緊急':'高優先級'}</span>}</div>
+   <div>{displayTaskLabel(t.label)}</div>
   </div>
   <div className="staff-care-controls">
   {care&&<p>{care.animal_summary} <small>（{care.mode==='llm'?'Gemini AI':care.mode==='cache'?'AI 快取摘要':'規則式摘要'}{
@@ -81,11 +82,14 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
     title="收回任務完成回報，已記錄的醫療紀錄仍會保留" onClick={()=>withdraw.mutate()}>收回完成回報</button>}
    {withdraw.error&&<ErrorView error={withdraw.error}/>}</div>:
    t.day&&t.day<=taipeiToday()&&t.is_active&&['pending','in_progress'].includes(t.state)?<>
-    {!follow&&<div className="flex flex-wrap gap-2">{(choices[t.label]??[['done','完成任務']]).map(([value,label])=><button key={value} disabled={report.isPending}
+    {!follow&&<div className="staff-report-actions">{(choices[t.label]??[['done','完成任務']]).map(([value,label])=><button key={value} disabled={report.isPending}
      className={choice===value?'':'secondary'} onClick={()=>{setChoice(value);if(!needsDate(value)&&!needsNote(value))report.mutate(value);}}>{label}</button>)}
      <button type="button" className="secondary" disabled={report.isPending} onClick={()=>setChoice('reported')}>回報異常</button></div>}
     {follow&&!choice&&<button type="button" className="secondary" onClick={()=>setChoice('reported')}>填寫追蹤回報</button>}
-    {(needsDate(result)||needsNote(result))&&<form className="space-y-2" onSubmit={e=>{e.preventDefault();report.mutate(result);}}>
+    {(needsDate(result)||needsNote(result))&&createPortal(<div role="presentation" style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,.48)',display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+     <form role="dialog" aria-modal="true" aria-label="任務回報" className="panel space-y-3" style={{width:'min(100%,480px)',maxHeight:'90vh',overflowY:'auto'}} onSubmit={e=>{e.preventDefault();report.mutate(result);}}>
+     <h2>任務回報：{t.animal_name} #{t.animal_id}</h2>
+     <p>{displayTaskLabel(t.label)} · {choices[t.label]?.find(([value])=>value===result)?.[1]??'情況回報'}</p>
      {needsDate(result)&&<label>實際施打日期<input required type="date" max={taipeiToday()} value={dose} onChange={e=>setDose(e.target.value)}/></label>}
      <label>情況說明（選填）<textarea value={note} onChange={e=>setNote(e.target.value)}/></label>
      {needsNote(result)&&<>
@@ -96,7 +100,9 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
      </>}
      <button disabled={report.isPending}>送出回報</button>
      <button type="button" className="secondary ml-2" disabled={report.isPending} onClick={cancelReport}>取消回報</button>
-    </form>}
+     {report.error&&<ErrorView error={report.error}/>}
+     {report.isPending&&<p role="status">{files.length?upload===undefined?'正在準備照片…':upload<100?`照片上傳 ${upload}%`:'照片已上傳，正在儲存回報…':'正在儲存回報…'}</p>}
+    </form></div>,document.body)}
    </>:null}
   <details onToggle={e=>{
    if(e.currentTarget.open&&!summary.isPending)summary.mutate();
@@ -110,8 +116,8 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
    {summary.data&&<button type="button" className="secondary" disabled={summary.isPending}
     onClick={()=>summary.mutate()}>重新查詢摘要</button>}
   </details>
-  {report.error&&<ErrorView error={report.error}/>}
-  {report.isPending&&<p role="status">{files.length
+  {report.error&&!(needsDate(result)||needsNote(result))&&<ErrorView error={report.error}/>}
+  {report.isPending&&!(needsDate(result)||needsNote(result))&&<p role="status">{files.length
    ?upload===undefined?'正在準備照片…':upload<100?`照片上傳 ${upload}%`:'照片已上傳，正在儲存回報…'
    :'正在儲存回報…'}</p>}
   {withdraw.isSuccess&&!t.report&&<p role="status">已收回，任務恢復待辦。</p>}

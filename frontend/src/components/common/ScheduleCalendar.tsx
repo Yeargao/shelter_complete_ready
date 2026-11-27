@@ -15,7 +15,7 @@ type DragControls = {
  hover:(reason:string)=>void;
 };
 
-export const priorityName = ['緊急','高','中','一般','例行'];
+export const priorityName = ['優先處理','待確認','一般處理','一般','例行'];
 
 export default function ScheduleCalendar({columns, shifts, tasks, onTask, drag, selectedId, renderInline}:{
  columns:ScheduleColumn[]; shifts:WeeklyShift[]; tasks:WeeklyTask[];
@@ -68,10 +68,9 @@ export default function ScheduleCalendar({columns, shifts, tasks, onTask, drag, 
        const start=timeGrid(task.start_time);
        const priority=task.display_priority??task.priority;
        const label=displayTaskLabel(task.label);
-       const showPriority=label!=='健康狀態待確認';
        const minutes=(taskEnd(task)-start)*15;
        const lane=lanes.get(task.task_id)??{index:0,count:1};
-       const title=`${task.start_time}–${task.end_time} · ${task.animal_name} · ${label} · ${task.state==='done'?'已完成':!showPriority?'':priorityName[priority]}${task.locked?' · 已鎖定':''}`;
+       const title=`${task.start_time}–${task.end_time} · ${task.animal_name} · ${label}${task.state==='done'?' · 已完成':''}${task.locked?' · 已鎖定':''}`;
        const movable=Boolean(drag?.canMove(task));
        if(renderInline)return <div key={task.task_id} className="weekly-event weekly-event--staff-inline" data-personal="true" data-personal-minutes={minutes} data-priority={priority} data-done={task.state==='done'}
         style={{top:gridOffset(start)+1,height:Math.max(2,gridOffset(taskEnd(task))-gridOffset(start)-2),
@@ -86,7 +85,7 @@ export default function ScheduleCalendar({columns, shifts, tasks, onTask, drag, 
          left:`calc(${lane.index*100/lane.count}% + 2px)`,right:`calc(${(lane.count-lane.index-1)*100/lane.count}% + 2px)`}}>
         <span className="weekly-event-time"><span className="weekly-dot" aria-hidden="true"/>{task.start_time}–{task.end_time}</span>
         <span className="weekly-event-animal">{task.animal_name}</span>
-        <span className="weekly-event-label">{priority<=1&&task.state!=='done'&&showPriority?`${priorityName[priority]} · `:''}{label}</span>
+        <span className="weekly-event-label">{label}</span>
        </button>;
       })}
      </div>

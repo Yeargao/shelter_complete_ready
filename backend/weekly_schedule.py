@@ -40,6 +40,8 @@ def mount(legacy):
             id INTEGER PRIMARY KEY, task_id TEXT NOT NULL, staff_id INTEGER NOT NULL,
             withdrawn_at TEXT NOT NULL, payload TEXT NOT NULL)""")
         db.execute('CREATE TABLE IF NOT EXISTS weekly_new_tasks (task_id TEXT PRIMARY KEY)')
+        db.execute("""CREATE TABLE IF NOT EXISTS weekly_health_report_baseline (
+            task_id TEXT PRIMARY KEY, old_status TEXT, event_id INTEGER NOT NULL)""")
         db.execute("""CREATE TABLE IF NOT EXISTS weekly_plans (
             plan_id TEXT PRIMARY KEY, week TEXT NOT NULL, revision TEXT NOT NULL, body TEXT NOT NULL)""")
         db.execute("""CREATE TABLE IF NOT EXISTS weekly_applied (
@@ -671,9 +673,13 @@ def mount(legacy):
                 item = {**as_task(task), 'report': reports.get(tid), 'is_new': tid in new_tasks or generated,
                         'is_derived': generated or (task['animal_id'],task['label']) in derived,
                         'photos': photos[tid], 'issue': issues.get(tid)}
-                parent = reports.get(origin.removeprefix('followup:')) if origin.startswith('followup:') else None
-                if item['label']=='基礎驅蟲' or item['is_derived']:
-                    item['display_priority'] = 0 if parent and parent['result'] in ('sick','injured') and item['label']!='基礎驅蟲' else 3
+                # Display colours only; solver priorities remain unchanged.
+                colours = {'優先確認健康狀況':0, '健康狀態待確認':1,
+                           '健康問題追蹤':5, '疫苗施打':5, '疫苗紀錄待確認':3, '基礎驅蟲':3}
+                if item['label'] in colours:
+                    item['display_priority'] = colours[item['label']]
+                elif item['is_derived']:
+                    item['display_priority'] = 3
                 result.append(item)
             if sid is not None:
                 for item in result:
@@ -935,7 +941,12 @@ def mount(legacy):
                         VALUES (?,?,?)""", (animal_id, dose.isoformat(), legacy.month_after(dose,12).isoformat()))
                 db.execute("UPDATE animals SET vaccinated='yes' WHERE id=?", (animal_id,))
             if result in ('healthy','sick','injured'):
+                old_status = db.execute('SELECT health_status FROM animals WHERE id=?', (animal_id,)).fetchone()[0]
                 db.execute('UPDATE animals SET health_status=? WHERE id=?', (result, animal_id))
+                if label == '健康狀態待確認' and old_status != result:
+                    event_id = db.execute('SELECT MAX(id) FROM weekly_events WHERE animal_id=?', (animal_id,)).fetchone()[0]
+                    db.execute('INSERT OR REPLACE INTO weekly_health_report_baseline VALUES (?,?,?)',
+                               (task_id,old_status,event_id))
             if body.photos:
                 from care_photos import save, validate
                 images = [validate(encoded) for encoded in body.photos]
@@ -988,16 +999,36 @@ def mount(legacy):
             if not record['is_active'] or record['reported_at'][:10] != today().isoformat():
                 raise HTTPException(409, '僅可收回今日在所動物的回報')
             issue = db.execute('SELECT * FROM weekly_issues WHERE task_id=?', (task_id,)).fetchone()
-            followup = db.execute('SELECT * FROM weekly_tasks WHERE task_id=?', (f'followup:{task_id}',)).fetchone()
-            if (issue and issue['resolved_at']) or (followup and (followup['staff_id'] is not None or followup['state'] != 'pending' or followup['locked'])):
+            followup_id = f'followup:{task_id}'
+            followups = []
+            for candidate in rows(db, 'SELECT * FROM weekly_tasks WHERE animal_id=?', (record['animal_id'],)):
+                origin = candidate['task_id']
+                while origin.startswith('carry:'):
+                    origin = origin.removeprefix('carry:')
+                if origin == followup_id:
+                    followups.append(candidate)
+            followup = next((f for f in followups if f['task_id']==followup_id), None)
+            if (issue and issue['resolved_at']) or any(f['staff_id'] is not None or f['state'] != 'pending' or f['locked'] for f in followups):
                 raise HTTPException(409, '這筆回報已有處理或派工紀錄，請由管理者確認')
             photos = rows(db, 'SELECT * FROM task_photos WHERE task_id=?', (task_id,))
             archived = {'report':dict(record), 'issue':dict(issue) if issue else None,
-                        'followup':dict(followup) if followup else None, 'photos':photos}
+                        'followup':dict(followup) if followup else None, 'followups':followups, 'photos':photos}
             db.execute("""INSERT INTO weekly_report_withdrawals(task_id,staff_id,withdrawn_at,payload)
                 VALUES (?,?,?,?)""", (task_id,sid,datetime.now(TAIPEI).isoformat(),json.dumps(archived,ensure_ascii=False)))
-            if followup:
-                db.execute('DELETE FROM weekly_tasks WHERE task_id=?', (followup['task_id'],))
+            for child in followups:
+                for table in ('weekly_new_tasks','care_summary_cache','weekly_tasks'):
+                    db.execute(f'DELETE FROM {table} WHERE task_id=?', (child['task_id'],))
+            # Undo only the withdrawn health assessment, not independently recorded medical history.
+            baseline = db.execute('SELECT * FROM weekly_health_report_baseline WHERE task_id=?', (task_id,)).fetchone()
+            if baseline:
+                latest = db.execute("""SELECT MAX(id) FROM weekly_events WHERE animal_id=?
+                    AND event IN ('sick','injured','serious','health_update','intake','exit')""", (record['animal_id'],)).fetchone()[0]
+                if latest == baseline['event_id']:
+                    db.execute('UPDATE animals SET health_status=? WHERE id=? AND health_status=?',
+                               (baseline['old_status'],record['animal_id'],record['result']))
+                    db.execute("""DELETE FROM weekly_tasks WHERE task_id=? AND state='pending'
+                        AND staff_id IS NULL AND locked=0""", (f"health-event:{baseline['event_id']}",))
+                db.execute('DELETE FROM weekly_health_report_baseline WHERE task_id=?', (task_id,))
             db.execute('DELETE FROM task_photos WHERE task_id=?', (task_id,))
             db.execute('DELETE FROM weekly_issues WHERE task_id=?', (task_id,))
             db.execute('DELETE FROM weekly_reports WHERE task_id=?', (task_id,))

@@ -195,7 +195,22 @@ class WeeklyTests(unittest.TestCase):
         self.place(treatment['task_id'],2,start='10:00')
         self.request('POST',f"/api/schedule/tasks/{treatment['task_id']}/report",
                      {'result':'injured','note':'Continued observation'},self.other)
-        self.assertTrue(any(t['label']=='健康問題追蹤' and t['display_priority']==0 for t in self.week()['tasks']))
+        self.assertTrue(any(t['label']=='健康問題追蹤' and t['display_priority']==5 for t in self.week()['tasks']))
+
+    def test_withdraw_health_check_removes_followup_and_carry(self):
+        check = self.add('健康狀態待確認')
+        self.place(check,1,start='10:00')
+        self.request('POST',f'/api/schedule/tasks/{check}/report',{'result':'injured'},self.staff)
+        self.week()
+        child = f'followup:{check}'
+        with self.main.connect() as db:
+            db.execute("""INSERT INTO weekly_tasks(task_id,animal_id,label,skill,priority,quarters,earliest,due)
+                SELECT 'carry:'||task_id,animal_id,label,skill,priority,quarters,earliest,due
+                FROM weekly_tasks WHERE task_id=?""", (child,))
+        self.request('POST',f'/api/schedule/tasks/{check}/withdraw-report',headers=self.staff)
+        for week in (self.week(),self.week()):
+            self.assertFalse(any(t['label']=='優先確認健康狀況' for t in week['tasks']))
+            self.assertEqual(next(t for t in week['tasks'] if t['task_id']==check)['state'],'pending')
 
     def test_overdue_health_followup_returns_to_pool_only_after_preview(self):
         self.week()
