@@ -101,7 +101,7 @@ export default function ResourcePage() {
      create.mutate({...Object.fromEntries(f),animal_id:Number(f.get('animal_id')),priority:Number(f.get('priority'))});
     }}>
      <label>動物編號<input name="animal_id" type="number" min="1" required/></label>
-     <label>任務<select name="label">{healthTaskLabels.map(l=><option key={l} value={l}>{displayTaskLabel(l)}</option>)}</select></label>
+     <label>任務<select name="label">{healthTaskLabels.filter(l=>!['疫苗紀錄待確認','補做驅蟲'].includes(l)).map(l=><option key={l} value={l}>{displayTaskLabel(l)}</option>)}</select></label>
      <label>最早日期<input name="earliest" type="date" min={taipeiToday()} defaultValue={taipeiToday()} required/></label>
      <label>期限<input name="due" type="date" min={taipeiToday()} defaultValue={taipeiToday()} required/></label>
      <label>優先級<select name="priority" defaultValue="3">{priorityName.map((label,i)=><option key={label} value={i}>{label}</option>)}</select></label>

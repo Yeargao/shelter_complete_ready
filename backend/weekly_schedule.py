@@ -19,6 +19,9 @@ def mount(legacy):
     router = APIRouter(prefix='/api/schedule')
     TAIPEI = ZoneInfo('Asia/Taipei')
     INACTIVE = {'done', 'cancelled'}
+    # Retired only from the weekly resource scheduling workflow; keep legacy clinical history.
+    retired_labels = {'疫苗紀錄待確認','補做驅蟲'}
+    schedule_catalog = {label: spec for label, spec in legacy.TASK_CATALOG.items() if label not in retired_labels}
 
 
     def migrate(db, import_legacy=True):
@@ -158,6 +161,17 @@ def mount(legacy):
         present = today().isoformat()
         if days[-1] < present:
             return
+        # Preserve existing vaccine-check assignments by using the remaining check label.
+        # Do not create duplicates when a replacement check already exists.
+        db.execute("""UPDATE weekly_tasks AS old SET label='確認疫苗紀錄'
+            WHERE old.label='疫苗紀錄待確認' AND old.state IN ('pending','in_progress')
+            AND NOT EXISTS (SELECT 1 FROM weekly_tasks current WHERE current.animal_id=old.animal_id
+                AND current.label='確認疫苗紀錄' AND current.state IN ('pending','in_progress','done'))
+            AND old.task_id=(SELECT preferred.task_id FROM weekly_tasks preferred
+                WHERE preferred.animal_id=old.animal_id AND preferred.label='疫苗紀錄待確認'
+                AND preferred.state IN ('pending','in_progress')
+                ORDER BY (preferred.state='in_progress') DESC,(preferred.staff_id IS NOT NULL) DESC,
+                    preferred.day DESC,preferred.task_id LIMIT 1)""")
         # Only an explicit optimization request may requeue overdue assigned work.
         if reschedule_overdue:
             db.execute("""INSERT OR IGNORE INTO weekly_tasks
@@ -197,6 +211,16 @@ def mount(legacy):
         intakes = {a['id']:a['intake_date'] or present for a in active}
         health_labels = {'優先確認健康狀況','健康狀態待確認','健康問題追蹤'}
         for task in legacy.build_tasks(active, overrides):
+            if task['label'] == '疫苗紀錄待確認':
+                label = '確認疫苗紀錄'
+                _, skill, hours, _ = schedule_catalog[label]
+                # A completed check is sufficient even when the historical injection date is unknown.
+                if db.execute("""SELECT 1 FROM weekly_tasks WHERE animal_id=?
+                    AND label IN ('確認疫苗紀錄','疫苗紀錄待確認') AND state='done'""", (task['animal_id'],)).fetchone():
+                    continue
+                task = {**task, 'label':label, 'id':f"{task['animal_id']}:{label}", 'skill':skill, 'hours':hours}
+            if task['label'] not in schedule_catalog:
+                continue
             pending = db.execute("""SELECT task_id,day FROM weekly_tasks WHERE animal_id=? AND label=?
                           AND state IN ('pending','in_progress') ORDER BY day IS NULL DESC, day DESC""",
                           (task['animal_id'], task['label'])).fetchone()
@@ -214,13 +238,13 @@ def mount(legacy):
 
 
     def tasks_for(db, days):
-        placeholders = ','.join('?' for _ in legacy.TASK_CATALOG)
+        placeholders = ','.join('?' for _ in schedule_catalog)
         tasks = rows(db, f"""SELECT t.*, a.name AS animal_name, a.is_active, a.species, a.breed,
                                   a.age_months, a.health_status, a.photo_url, a.intake_date
             FROM weekly_tasks t JOIN animals a ON a.id=t.animal_id
             WHERE t.label IN ({placeholders}) AND (t.day BETWEEN ? AND ? OR
                 (t.day IS NULL AND t.earliest<=?)) ORDER BY t.priority,t.task_id""",
-            (*legacy.TASK_CATALOG, days[0], days[-1], days[-1]))
+            (*schedule_catalog, days[0], days[-1], days[-1]))
         for task in tasks:
             if task['label'] == '基礎驅蟲':
                 task['priority'] = 3
@@ -650,12 +674,12 @@ def mount(legacy):
                 workers = {key: value for key, value in workers.items() if key == sid}
             available = shift_availability(workers, shifts, tasks, days)
             event_id, schedule_status = event_state(db, days[0]) if sid is None else (0, None)
-            placeholders = ','.join('?' for _ in legacy.TASK_CATALOG)
+            placeholders = ','.join('?' for _ in schedule_catalog)
             overdue = rows(db, f"""SELECT t.task_id,t.label,t.due,t.day,a.name AS animal_name
                 FROM weekly_tasks t JOIN animals a ON a.id=t.animal_id
                 WHERE t.label IN ({placeholders}) AND t.state IN ('pending','in_progress') AND COALESCE(t.due,t.day)<?
                 AND (? IS NULL OR t.staff_id=?) ORDER BY COALESCE(t.due,t.day),t.task_id LIMIT 100""",
-                (*legacy.TASK_CATALOG,today().isoformat(),sid,sid)) if days[-1] >= today().isoformat() else []
+                (*schedule_catalog,today().isoformat(),sid,sid)) if days[-1] >= today().isoformat() else []
             photos = defaultdict(list)
             for image in rows(db, 'SELECT task_id,photo_id FROM task_photos'):
                 photos[image['task_id']].append(image['photo_id'])
@@ -675,7 +699,7 @@ def mount(legacy):
                         'photos': photos[tid], 'issue': issues.get(tid)}
                 # Display colours only; solver priorities remain unchanged.
                 colours = {'優先確認健康狀況':0, '健康狀態待確認':1,
-                           '健康問題追蹤':5, '疫苗施打':3, '疫苗紀錄待確認':3, '基礎驅蟲':3}
+                           '健康問題追蹤':5, '疫苗施打':3, '確認疫苗紀錄':3, '基礎驅蟲':3}
                 if item['label'] in colours:
                     item['display_priority'] = colours[item['label']]
                 elif item['is_derived']:
@@ -816,7 +840,7 @@ def mount(legacy):
                 JOIN animals a ON a.id=t.animal_id WHERE task_id=?""", (task_id,)).fetchone()
             if not task:
                 raise HTTPException(404, '找不到任務')
-            if task['label'] not in legacy.TASK_CATALOG:
+            if task['label'] not in schedule_catalog:
                 raise HTTPException(422, '此任務類型未列入健康行政核對')
             if not task['is_active']:
                 raise HTTPException(422, '動物已離所')
@@ -861,7 +885,7 @@ def mount(legacy):
 
     @router.post('/tasks')
     def create_task(body: NewTask):
-        catalog = legacy.TASK_CATALOG
+        catalog = schedule_catalog
         if body.label not in catalog or body.earliest < today() or body.due < body.earliest:
             raise HTTPException(422, '任務類型或允許日期無效')
         _, skill, hours, _ = catalog[body.label]
@@ -918,6 +942,8 @@ def mount(legacy):
                 or task['state'] not in ('pending','in_progress')):
                 raise HTTPException(409, '此任務目前不可回報')
             label, result, animal_id = task['label'], body.result, task['animal_id']
+            if label not in schedule_catalog:
+                raise HTTPException(422, '此任務類型已停用')
             choices = {
                 '確認驅蟲紀錄': ('yes','no'), '基礎驅蟲': ('done','failed'), '補做驅蟲': ('done','failed'),
                 '健康狀態待確認': ('healthy','sick','injured'), '優先確認健康狀況': ('healthy','sick','injured'),
@@ -931,14 +957,17 @@ def mount(legacy):
                     (animal_id,intake_date,completed_date) VALUES (?,?,?)""",
                     (animal_id, task['intake_date'], today().isoformat()))
                 db.execute("UPDATE animals SET dewormed='yes' WHERE id=?", (animal_id,))
-            if label in ('確認疫苗紀錄','疫苗紀錄待確認','疫苗施打') and result in ('yes','done'):
-                dose = body.administered_date
-                if dose is None or dose > today():
-                    raise HTTPException(422, '請提供實際施打日期')
-                if not db.execute("""SELECT 1 FROM vaccination_records
-                    WHERE animal_id=? AND vaccine_type='general' AND administered_date=?""", (animal_id, dose.isoformat())).fetchone():
-                    db.execute("""INSERT INTO vaccination_records (animal_id,administered_date,next_due_date)
-                        VALUES (?,?,?)""", (animal_id, dose.isoformat(), legacy.month_after(dose,12).isoformat()))
+            if (label == '確認疫苗紀錄' and result == 'yes') or (label == '疫苗施打' and result == 'done'):
+                # Confirming a prior injection need not invent an unknown historical date.
+                # Completing an administration task records today's dose unless an explicit date is supplied.
+                dose = body.administered_date or (today() if label == '疫苗施打' else None)
+                if dose is not None:
+                    if dose > today():
+                        raise HTTPException(422, '實際施打日期不可晚於今日')
+                    if not db.execute("""SELECT 1 FROM vaccination_records
+                        WHERE animal_id=? AND vaccine_type='general' AND administered_date=?""", (animal_id, dose.isoformat())).fetchone():
+                        db.execute("""INSERT INTO vaccination_records (animal_id,administered_date,next_due_date)
+                            VALUES (?,?,?)""", (animal_id, dose.isoformat(), legacy.month_after(dose,12).isoformat()))
                 db.execute("UPDATE animals SET vaccinated='yes' WHERE id=?", (animal_id,))
             if result in ('healthy','sick','injured'):
                 old_status = db.execute('SELECT health_status FROM animals WHERE id=?', (animal_id,)).fetchone()[0]

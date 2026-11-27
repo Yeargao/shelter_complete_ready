@@ -81,6 +81,22 @@ class WeeklyTests(unittest.TestCase):
             'break_end':'10:00','available_hours':hours,'scheduled_hours':0,
         })
 
+    def test_retired_weekly_tasks_and_one_click_vaccine_reports(self):
+        check = next(t for t in self.week()['tasks'] if t['label']=='確認疫苗紀錄')
+        for label in ('疫苗紀錄待確認','補做驅蟲'):
+            self.request('POST','/api/schedule/tasks',{'animal_id':1,'label':label,
+                'earliest':MONDAY,'due':MONDAY,'priority':3},expected=422)
+        self.place(check['task_id'],1)
+        self.request('POST',f"/api/schedule/tasks/{check['task_id']}/report",{'result':'yes'},self.staff)
+        with self.main.connect() as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM vaccination_records').fetchone()[0],0)
+        self.assertFalse(any(t['label'] in ('疫苗紀錄待確認','補做驅蟲') for t in self.week()['tasks']))
+        dose = self.add('疫苗施打')
+        self.place(dose,2,start='10:00')
+        self.request('POST',f'/api/schedule/tasks/{dose}/report',{'result':'done'},self.other)
+        with self.main.connect() as db:
+            self.assertEqual(db.execute('SELECT administered_date FROM vaccination_records').fetchone()[0],MONDAY)
+
     def test_generation_independent_completion_and_migration(self):
         first = self.week()
         self.assertEqual(len(first['days']),7)
