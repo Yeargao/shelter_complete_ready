@@ -675,7 +675,7 @@ def mount(legacy):
                         'photos': photos[tid], 'issue': issues.get(tid)}
                 # Display colours only; solver priorities remain unchanged.
                 colours = {'優先確認健康狀況':0, '健康狀態待確認':1,
-                           '健康問題追蹤':5, '疫苗施打':5, '疫苗紀錄待確認':3, '基礎驅蟲':3}
+                           '健康問題追蹤':5, '疫苗施打':3, '疫苗紀錄待確認':3, '基礎驅蟲':3}
                 if item['label'] in colours:
                     item['display_priority'] = colours[item['label']]
                 elif item['is_derived']:

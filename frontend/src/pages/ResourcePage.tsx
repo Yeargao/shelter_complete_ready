@@ -115,7 +115,7 @@ export default function ResourcePage() {
      <button type="button" aria-pressed={poolTab==='done'} className={poolTab==='done'?'':'secondary'} onClick={()=>setPoolTab('done')}>已完成</button>
     </div>
     <label className="weekly-checkbox"><input type="checkbox" checked={eligibleOnly} disabled={!focusedWorker} onChange={e=>setEligibleOnly(e.target.checked)}/>只顯示{focusedWorker? ` ${focusedWorker.name} `:'所選員工'}技能符合的任務</label>
-    <div className="weekly-pool">{visiblePool.map(t=><button key={t.task_id} className="weekly-task" data-priority={t.display_priority??t.priority} data-done={t.state==='done'} draggable={t.state==='pending'}
+    <div className="weekly-pool">{visiblePool.map(t=><button key={t.task_id} className="weekly-task" data-priority={t.display_priority??t.priority} draggable={t.state==='pending'}
      onDragStart={t.state==='pending'?e=>beginDrag(e,t):undefined} onDragEnd={endDrag} onClick={()=>choose(t)}>
      <strong><span className="weekly-dot" aria-hidden="true"/>{displayTaskLabel(t.label)}</strong><span className="weekly-animal">
       {t.photo_url?<img src={t.photo_url} alt=""/>:<span aria-label="尚無照片">🐾</span>}{t.animal_name} #{t.animal_id}</span>

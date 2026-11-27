@@ -22,7 +22,7 @@
 button.weekly-task:hover,.weekly-event:hover,.weekly-event[aria-pressed="true"]{background:var(--task-bg);color:#18232d;box-shadow:inset 0 0 0 1px var(--task-color)}
 .weekly-pool-tabs{display:flex;gap:6px;flex-wrap:nowrap}
 .weekly-pool-tabs>button{flex:1 1 0;min-width:0;padding-inline:4px;white-space:nowrap}
-.weekly-pool>.weekly-task[data-done="true"],.weekly-event--three-lines[data-done="true"],.staff-care-card[data-done="true"] .staff-care-identity{color:#687985;text-decoration:line-through;text-decoration-color:#687985}
+.weekly-event--three-lines[data-done="true"],.staff-care-card[data-done="true"] .staff-care-identity{color:#687985;text-decoration:line-through;text-decoration-color:#687985}
 .weekly-task.health-task{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
 .health-task>a{color:inherit}
 .weekly-dot{display:inline-block;width:7px;height:7px;margin-right:5px;border-radius:50%;background:var(--task-color);vertical-align:middle}
