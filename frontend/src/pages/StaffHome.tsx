@@ -171,7 +171,7 @@ export default function StaffHome({userId}:{userId:number}) {
     <div className="ux-stats"><span>全部 <b>{periodTasks.length}</b></span><span className="ux-success">已完成 <b>{doneCount}</b></span><span className="ux-warning">待完成 <b>{periodTasks.length-doneCount}</b></span></div>
     {nextTask&&<p><strong>今日最早未完成：</strong>{nextTask.start_time} · {nextTask.animal_name} · {displayTaskLabel(nextTask.label)}</p>}
     <div className="ux-tabs" aria-label="篩選照護任務">{([['all','全部'],['pending','待完成'],['done','已完成']] as const).map(([value,label])=><button type="button" key={value} aria-pressed={taskFilter===value} className={taskFilter===value?'':'secondary'} onClick={()=>{setTaskFilter(value);setSelectedId(undefined)}}>{label}</button>)}</div>
-   </div>
+   </div>}
    <div className="weekly-toolbar">
     <button type="button" className="secondary" onClick={()=>go(addDays(day,weekly?-7:-1))}>{weekly?'上一週':'前一天'}</button>
     <button type="button" className="secondary" onClick={()=>go(today)}>今天</button>
