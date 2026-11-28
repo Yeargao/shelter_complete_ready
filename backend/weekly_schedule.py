@@ -15,6 +15,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 import llm_service
 import care_workflow as care
+import report_reversal as reversal
 
 def mount(legacy):
     router = APIRouter(prefix='/api/schedule')
@@ -44,6 +45,7 @@ def mount(legacy):
             id INTEGER PRIMARY KEY, task_id TEXT NOT NULL, staff_id INTEGER NOT NULL,
             withdrawn_at TEXT NOT NULL, payload TEXT NOT NULL)""")
         db.execute('CREATE TABLE IF NOT EXISTS weekly_new_tasks (task_id TEXT PRIMARY KEY)')
+        reversal.migrate(db)
         db.execute("""CREATE TABLE IF NOT EXISTS weekly_task_operation_history (
             id INTEGER PRIMARY KEY, task_id TEXT NOT NULL, user_id INTEGER, operation TEXT NOT NULL,
             occurred_at TEXT NOT NULL, before_payload TEXT NOT NULL)""")
@@ -763,6 +765,9 @@ def mount(legacy):
                 item = {**as_task(task), 'report': reports.get(tid), 'is_new': tid in new_tasks or generated,
                         'is_derived': generated or (task['animal_id'],task['label']) in derived,
                         'photos': photos[tid], 'issue': issues.get(tid)}
+                if item['report']:
+                    item['withdrawal'] = reversal.status(db,{**item['report'],'animal_id':task['animal_id'],
+                        'is_active':task['is_active']},sid,today().isoformat())
                 # Display colours only; solver priorities remain unchanged.
                 colours = {'優先確認健康狀況':0, '健康狀態待確認':1,
                            '健康問題追蹤':5, '疫苗施打':3, '確認疫苗紀錄':3, '基礎驅蟲':3}
@@ -1086,6 +1091,7 @@ def mount(legacy):
                 raise HTTPException(422, '此任務類型已停用')
             if result not in care.allowed(label):
                 raise HTTPException(422,'回報選項不適用：'+care.outcomes(label))
+            before_effects = reversal.snapshot(db,animal_id)
             if label=='更新疫苗紀錄' and result=='done':
                 dose=body.administered_date
                 if dose is None and not db.execute("SELECT 1 FROM vaccination_records WHERE animal_id=? AND vaccine_type='general' AND administered_date IS NOT NULL AND next_due_date IS NOT NULL",(animal_id,)).fetchone():
@@ -1140,16 +1146,16 @@ def mount(legacy):
             db.execute('INSERT INTO weekly_reports VALUES (?,?,?,?,?)',
                        (task_id, staff_id, result, body.note, datetime.now(TAIPEI).isoformat()))
             db.execute("UPDATE weekly_tasks SET state='done' WHERE task_id=?", (task_id,))
-            source_id=task_id
-            while source_id.startswith('carry:'):
-                source_id=source_id.removeprefix('carry:')
-            parent=source_id.removeprefix('followup:') if source_id.startswith('followup:') else None
-            surgery_parent=bool(parent and db.execute("SELECT 1 FROM weekly_tasks WHERE task_id=? AND label='絕育手術'",(parent,)).fetchone())
+            surgery_parent=reversal.from_surgery(db,task_id)
             retry_label=care.next_task(label,result,from_surgery=surgery_parent)
             if retry_label:
-                existing=db.execute("""SELECT 1 FROM weekly_tasks WHERE animal_id=? AND label=?
-                    AND state IN ('pending','in_progress') AND NOT EXISTS (SELECT 1 FROM weekly_tasks c WHERE c.task_id='carry:'||weekly_tasks.task_id)""",(animal_id,retry_label)).fetchone()
-                if not existing:
+                existing=db.execute("""SELECT task_id FROM weekly_tasks WHERE animal_id=? AND label=?
+                    AND state IN ('pending','in_progress') AND NOT EXISTS (SELECT 1 FROM weekly_tasks c WHERE c.task_id='carry:'||weekly_tasks.task_id)
+                    ORDER BY earliest,task_id LIMIT 1""",(animal_id,retry_label)).fetchone()
+                retained=reversal.retained(db,task_id,retry_label,result)
+                if retained or existing:
+                    reversal.link(db,task_id,retained or existing['task_id'])
+                else:
                     _,skill,hours,urgent=legacy.TASK_CATALOG[retry_label]
                     earliest=today().isoformat()
                     if result in ('failed','defer','improving','not_recovered') and retry_label==label:
@@ -1157,70 +1163,100 @@ def mount(legacy):
                     db.execute("""INSERT INTO weekly_tasks(task_id,animal_id,label,skill,priority,quarters,earliest,due,note)
                         VALUES (?,?,?,?,?,?,?,?,?)""",(f'followup:{task_id}',animal_id,retry_label,skill,
                         0 if urgent else 3,quarters(hours),earliest,earliest,body.note))
+                    reversal.link(db,task_id,f'followup:{task_id}',created=True)
             if label=='更新疫苗紀錄' and result=='done':
                 latest=db.execute("""SELECT next_due_date FROM vaccination_records WHERE animal_id=? AND vaccine_type='general'
                     AND next_due_date IS NOT NULL ORDER BY administered_date DESC,id DESC LIMIT 1""",(animal_id,)).fetchone()
                 if latest:
                     due=latest['next_due_date']
                     _,skill,hours,_=legacy.TASK_CATALOG['疫苗施打']
-                    if not db.execute("SELECT 1 FROM weekly_tasks WHERE animal_id=? AND label='疫苗施打' AND due=? AND state IN ('pending','in_progress')",(animal_id,due)).fetchone():
-                        db.execute("""INSERT OR IGNORE INTO weekly_tasks(task_id,animal_id,label,skill,priority,quarters,earliest,due)
+                    existing=db.execute("SELECT task_id FROM weekly_tasks WHERE animal_id=? AND label='疫苗施打' AND due=? AND state IN ('pending','in_progress')",(animal_id,due)).fetchone()
+                    retained=reversal.retained(db,task_id,'疫苗施打',result,due)
+                    if retained or existing:
+                        reversal.link(db,task_id,retained or existing['task_id'])
+                    else:
+                        db.execute("""INSERT INTO weekly_tasks(task_id,animal_id,label,skill,priority,quarters,earliest,due)
                             VALUES (?,?, '疫苗施打',?,3,?,?,?)""",(f'followup:{task_id}',animal_id,skill,quarters(hours),max(due,today().isoformat()),due))
+                        reversal.link(db,task_id,f'followup:{task_id}',created=True)
+            reversal.save_effects(db,task_id,before_effects,reversal.snapshot(db,animal_id))
             if label in care.RULES:
                 db.execute('INSERT INTO weekly_events(animal_id,event) VALUES (?,?)',(animal_id,'task_report'))
         return {'ok': True}
 
+    class WithdrawInput(BaseModel):
+        mode: str = 'completion'
+        reason: str = Field(default='',max_length=2000)
+        acknowledge_downstream: bool = False
+
     @router.post('/tasks/{task_id}/withdraw-report')
-    def withdraw_report(task_id: str, request: Request):
+    def withdraw_report(task_id: str, request: Request, body: WithdrawInput | None = None):
+        body=body or WithdrawInput()
+        if body.mode not in ('completion','correction'):
+            raise HTTPException(422,'請選擇收回完成回報或誤報更正')
         with legacy.lock, legacy.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             migrate(db)
             sid = staff_identity(db, request)
-            record = db.execute("""SELECT r.*,t.animal_id,a.is_active FROM weekly_reports r
+            record = db.execute("""SELECT r.*,t.animal_id,a.is_active,t.label FROM weekly_reports r
                 JOIN weekly_tasks t ON t.task_id=r.task_id JOIN animals a ON a.id=t.animal_id
-                WHERE r.task_id=? AND r.staff_id=? AND t.staff_id=? AND t.state='done'""",
-                (task_id,sid,sid)).fetchone()
+                WHERE r.task_id=? AND t.state='done' AND (? IS NULL OR (r.staff_id=? AND t.staff_id=?))""",
+                (task_id,sid,sid,sid)).fetchone()
             if not record:
                 raise HTTPException(404, '找不到可收回的本人回報')
-            if not record['is_active'] or record['reported_at'][:10] != today().isoformat():
-                raise HTTPException(409, '僅可收回今日在所動物的回報')
-            issue = db.execute('SELECT * FROM weekly_issues WHERE task_id=?', (task_id,)).fetchone()
-            followup_id = f'followup:{task_id}'
-            followups = []
-            for candidate in rows(db, 'SELECT * FROM weekly_tasks WHERE animal_id=?', (record['animal_id'],)):
-                origin = candidate['task_id']
-                while origin.startswith('carry:'):
-                    origin = origin.removeprefix('carry:')
-                if origin == followup_id:
-                    followups.append(candidate)
-            followup = next((f for f in followups if f['task_id']==followup_id), None)
-            if (issue and issue['resolved_at']) or any(f['staff_id'] is not None or f['state'] != 'pending' or f['locked'] for f in followups):
-                raise HTTPException(409, '這筆回報已有處理或派工紀錄，請由管理者確認')
-            photos = rows(db, 'SELECT * FROM task_photos WHERE task_id=?', (task_id,))
-            archived = {'report':dict(record), 'issue':dict(issue) if issue else None,
-                        'followup':dict(followup) if followup else None, 'followups':followups, 'photos':photos}
+            policy=reversal.status(db,record,sid,today().isoformat())
+            if not policy['allowed']:
+                raise HTTPException(409,policy['reason'] or '此回報不可收回')
+            if (body.mode=='correction' or policy['requires_review'] or sid is None) and not body.reason.strip():
+                raise HTTPException(422,'請填寫收回或更正原因')
+            if policy['requires_review'] and not body.acknowledge_downstream:
+                raise HTTPException(409,'須由管理者確認後續紀錄：'+str(policy['reason']))
+            if body.mode=='correction' and not policy['can_correct']:
+                raise HTTPException(409,'舊回報缺少原始快照，請人工核對醫療資料')
+            issue=db.execute('SELECT * FROM weekly_issues WHERE task_id=?',(task_id,)).fetchone()
+            photos=rows(db,'SELECT * FROM task_photos WHERE task_id=?',(task_id,))
+            children=reversal.dependencies(db,record)
+            effects=db.execute('SELECT * FROM weekly_report_effects WHERE task_id=?',(task_id,)).fetchone()
+            archived={'report':dict(record),'issue':dict(issue) if issue else None,
+                      'photos':photos,'dependencies':children,'effects':dict(effects) if effects else None,
+                      'mode':body.mode,'reason':body.reason,'actor_user_id':request.state.user_id}
+            preserved=[]
+            if body.mode=='correction':
+                try:
+                    preserved=reversal.restore_clinical(db,record)
+                except ValueError as error:
+                    raise HTTPException(409,str(error)) from error
+            for group in children:
+                if group['started']:
+                    # Actual care is not undone; re-reporting the same result
+                    # reuses this downstream record instead of creating another.
+                    db.execute('INSERT OR IGNORE INTO weekly_retained_dependencies VALUES (?,?,?)',
+                               (task_id,group['root'],record['result']))
+                elif group['exclusive']:
+                    for child in group['tasks']:
+                        if child['state']=='pending':
+                            audit_task(db,child,request.state.user_id,'withdraw_derived_task')
+                            # Archived task and placement retain the history; deleting
+                            # the active row allows a later report to reuse its stable ID.
+                            for table in ('weekly_new_tasks','care_summary_cache','weekly_tasks'):
+                                db.execute(f'DELETE FROM {table} WHERE task_id=?',(child['task_id'],))
+                    db.execute('DELETE FROM weekly_report_owned_tasks WHERE task_id=?',(group['root'],))
+            archived['preserved_clinical_fields']=preserved
             db.execute("""INSERT INTO weekly_report_withdrawals(task_id,staff_id,withdrawn_at,payload)
-                VALUES (?,?,?,?)""", (task_id,sid,datetime.now(TAIPEI).isoformat(),json.dumps(archived,ensure_ascii=False)))
-            for child in followups:
-                for table in ('weekly_new_tasks','care_summary_cache','weekly_tasks'):
-                    db.execute(f'DELETE FROM {table} WHERE task_id=?', (child['task_id'],))
-            # Undo only the withdrawn health assessment, not independently recorded medical history.
-            baseline = db.execute('SELECT * FROM weekly_health_report_baseline WHERE task_id=?', (task_id,)).fetchone()
-            if baseline:
-                latest = db.execute("""SELECT MAX(id) FROM weekly_events WHERE animal_id=?
-                    AND event IN ('sick','injured','serious','health_update','intake','exit')""", (record['animal_id'],)).fetchone()[0]
-                if latest == baseline['event_id']:
-                    db.execute('UPDATE animals SET health_status=? WHERE id=? AND health_status=?',
-                               (baseline['old_status'],record['animal_id'],{'recovered':'healthy','abnormal':'needs_review','worsening':'needs_review'}.get(record['result'],record['result'])))
-                    db.execute("""DELETE FROM weekly_tasks WHERE task_id=? AND state='pending'
-                        AND staff_id IS NULL AND locked=0""", (f"health-event:{baseline['event_id']}",))
-                db.execute('DELETE FROM weekly_health_report_baseline WHERE task_id=?', (task_id,))
-            db.execute('DELETE FROM task_photos WHERE task_id=?', (task_id,))
-            db.execute('DELETE FROM weekly_issues WHERE task_id=?', (task_id,))
-            db.execute('DELETE FROM weekly_reports WHERE task_id=?', (task_id,))
-            db.execute("UPDATE weekly_tasks SET state='pending' WHERE task_id=?", (task_id,))
-            db.execute("INSERT INTO weekly_events(animal_id,event) VALUES (?,'report_withdrawn')", (record['animal_id'],))
-        return {'ok': True}
+                VALUES (?,?,?,?)""",(task_id,record['staff_id'],datetime.now(TAIPEI).isoformat(),json.dumps(archived,ensure_ascii=False)))
+            db.execute('DELETE FROM weekly_report_dependencies WHERE parent_id=?',(task_id,))
+            db.execute('DELETE FROM weekly_report_effects WHERE task_id=?',(task_id,))
+            db.execute('DELETE FROM weekly_health_report_baseline WHERE task_id=?',(task_id,))
+            db.execute('DELETE FROM task_photos WHERE task_id=?',(task_id,))
+            db.execute('DELETE FROM weekly_issues WHERE task_id=?',(task_id,))
+            db.execute('DELETE FROM weekly_reports WHERE task_id=?',(task_id,))
+            db.execute('DELETE FROM care_summary_cache WHERE task_id IN (SELECT task_id FROM weekly_tasks WHERE animal_id=?)',(record['animal_id'],))
+            if record['reported_at'][:10]!=today().isoformat():
+                db.execute("""UPDATE weekly_tasks SET state='pending',staff_id=NULL,day=NULL,start=NULL,locked=0,
+                    reason='跨日回報更正，待重新指派' WHERE task_id=?""",(task_id,))
+            else:
+                db.execute("UPDATE weekly_tasks SET state='pending' WHERE task_id=?",(task_id,))
+            db.execute("INSERT INTO weekly_events(animal_id,event) VALUES (?,'report_withdrawn')",(record['animal_id'],))
+        return {'ok':True,'preserved':preserved}
 
     @router.get('/tasks/{task_id}/photos/{photo_id}')
     def photo(task_id: str, photo_id: str, request: Request):

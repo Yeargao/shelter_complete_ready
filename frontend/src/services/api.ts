@@ -53,6 +53,7 @@ export type WeeklyTask = {
  species:string; breed:string|null; age_months:number|null; health_status:string; photo_url:string|null;
  is_active:number; is_new?:boolean; is_derived?:boolean; display_priority?:number; photos:string[]; issue:{resolved_at:string|null}|null; report:{result:string;note:string;reported_at:string}|null;
  summary?:CareSummary;
+ withdrawal?:{allowed:boolean;reason:string|null;requires_review:boolean;can_correct:boolean};
 };
 export type Placement = [number|null,string|null,number|null];
 export type WeeklyShift = Staff & {day:string;assignable_hours?:number;daily_capacity_hours?:number;break_windows?:[string,string][]};
@@ -69,7 +70,7 @@ export const api = {
   compareCarePhotos:(id:number,previous_id:string,current_id:string)=>request<PhotoObservation>(`/api/schedule/animals/${id}/photo-compare`,{method:'POST',body:JSON.stringify({previous_id,current_id})}),
   auditData:(scope:'all'|'health'|'resources'='all',animalId?:number)=>request<{findings:AuditFinding[];model_groups:number;warning:string|null;checked_count:number;checked_at:string|null;initial:boolean}>('/api/ai-tools/quality?'+new URLSearchParams({scope,...(animalId===undefined?{}:{animal_id:String(animalId)})})),
   comparePhotos:(photo:string)=>request<{mode:string;warning:string|null;results:PhotoMatch[];processed:number;skipped:number;remote_skipped:number;limit:number}>('/api/ai-tools/photos',{method:'POST',body:JSON.stringify({photo})}),
-  withdrawReport:(id:string)=>request<{ok:boolean}>(`/api/schedule/tasks/${encodeURIComponent(id)}/withdraw-report`,{method:'POST'}),
+  withdrawReport:(id:string,body:{mode:'completion'|'correction';reason?:string;acknowledge_downstream?:boolean}={mode:'completion'})=>request<{ok:boolean;preserved:string[]}>(`/api/schedule/tasks/${encodeURIComponent(id)}/withdraw-report`,{method:'POST',body:JSON.stringify(body)}),
   chat:(question:string,context:string|null,signal:AbortSignal)=>request<ChatAnswer>('/api/chat',
     {method:'POST',body:JSON.stringify({question,context}),signal}),
   llmUsage:()=>request<LlmUsage>('/api/llm/usage'),

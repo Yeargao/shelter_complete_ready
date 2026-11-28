@@ -50,6 +50,12 @@ export default function ResourcePage() {
  const move=useMutation({mutationFn:({id,body}:{id:string;body:Parameters<typeof api.place>[1]})=>api.place(id,body),onSuccess:async()=>{setNotice('已儲存指派');setSelected(undefined);await refresh();}});
  const create=useMutation({mutationFn:async(body:Parameters<typeof api.createWeeklyTask>[0])=>{const check=await smartRequest<Check>('/check',body);if(!check.ok)throw Error(check.issues.join('；'));return api.createWeeklyTask(body)},onSuccess:async()=>{setPoolTab('pending');await refresh();}});
  const resolve=useMutation({mutationFn:api.resolveIssue,onSuccess:async()=>{setSelected(undefined);await refresh();}});
+ const adminWithdraw=useMutation({mutationFn:({id,mode,reason}:{id:string;mode:'completion'|'correction';reason:string})=>api.withdrawReport(id,{mode,reason,acknowledge_downstream:true}),onSuccess:async(data)=>{setSelected(undefined);setNotice(data.preserved.length?'已收回，其他有效資料已保留：'+data.preserved.join('、'):'已收回回報，請核對待辦及排程');await refresh();}});
+ const reviewReport=(t:WeeklyTask,mode:'completion'|'correction')=>{
+  if(t.withdrawal?.requires_review&&!window.confirm('須確認後續已執行照護不可被取消：'+t.withdrawal.reason))return;
+  const reason=window.prompt(mode==='correction'?'確認原回報為誤報，請填寫更正原因':'僅收回完成紀錄，保留醫療資料；請填寫原因');
+  if(reason?.trim())adminWithdraw.mutate({id:t.task_id,mode,reason});
+ };
  const reverse=useMutation({mutationFn:({id,action}:{id:string;action:'reset_start'|'reopen_issue'})=>action==='reopen_issue'?api.reopenIssue(id):api.taskEvent(id,{event:'reset_start'}),onSuccess:async()=>{setSelected(undefined);await refresh();}});
  const event=useMutation({mutationFn:({id,date}:{id:string;date?:string})=>api.taskEvent(id,date?{event:'delay',earliest:date}:{event:'start'}),onSuccess:async()=>{setSelected(undefined);await refresh();}});
  const saveShift=useMutation({mutationFn:api.saveShift,onSuccess:refresh});
@@ -156,7 +162,7 @@ export default function ResourcePage() {
     {preview.isPending&&<p role="status">正在計算七天排程…</p>}
     {historical&&<p>歷史週只供查閱</p>}
     {notice&&<p role="status">{notice}</p>}
-    {[preview.error,apply.error,move.error,event.error,resolve.error,reverse.error].filter(Boolean).map((error,i)=><ErrorView key={i} error={error}/>)}
+    {[preview.error,apply.error,move.error,event.error,resolve.error,reverse.error,adminWithdraw.error].filter(Boolean).map((error,i)=><ErrorView key={i} error={error}/>)}
     {workers.length>0&&<details open><summary>全員每日工時 · {day}</summary><ul className="ux-workload">
      {workers.map(w=>{
       const assigned=tasks.filter(t=>t.staff_id===w.id&&t.day===day&&t.state!=='cancelled').reduce((total,t)=>total+t.hours,0);
@@ -181,7 +187,10 @@ export default function ResourcePage() {
      <p className="muted">{selected.day??'待指派'}　{selected.start_time??''} {selected.end_time?`– ${selected.end_time}`:''}
       {selected.state==='done'?' · 已完成':selected.state==='in_progress'?' · 執行中':''}</p>
      {selected.note&&<p>{selected.note}</p>}
-     {selected.report&&<p>回報：{selected.report.result} {selected.report.note}</p>}
+     {selected.report&&<><p>回報：{selected.report.result} {selected.report.note}</p>
+       {selected.withdrawal?.reason&&<p className="muted">{selected.withdrawal.reason}</p>}
+       {selected.withdrawal?.allowed&&<div className="weekly-toolbar"><button type="button" className="secondary" disabled={adminWithdraw.isPending} onClick={()=>reviewReport(selected,'completion')}>代為收回完成回報</button>
+       {selected.withdrawal.can_correct&&<button type="button" className="secondary" disabled={adminWithdraw.isPending} onClick={()=>reviewReport(selected,'correction')}>誤報更正</button>}</div>}</>}
      {selected.issue&&<p>{selected.issue.resolved_at?'問題已解決':'問題待處理'} {!selected.issue.resolved_at&&
       <button type="button" className="secondary" disabled={resolve.isPending} onClick={()=>resolve.mutate(selected.task_id)}>標記已解決</button>}{selected.issue.resolved_at&&<button type="button" className="secondary" disabled={reverse.isPending} onClick={()=>{if(window.confirm('確認此問題仍需處理？'))reverse.mutate({id:selected.task_id,action:'reopen_issue'});}}>取消已解決標記</button>}</p>}
       {selected.state==='in_progress'&&<button type="button" className="secondary" disabled={reverse.isPending} onClick={()=>{if(window.confirm('確認任務尚未實際開始，恢復待辦？'))reverse.mutate({id:selected.task_id,action:'reset_start'});}}>恢復待辦</button>}
