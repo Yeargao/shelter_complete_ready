@@ -71,6 +71,37 @@ class WorkflowDialogueTests(fixture.DialogueTests):
         self.assertNotIn('/animals/new',[x['path'] for x in t['links']])
     def test_staff_withdraw_guidance(self):
         self.guidance('回報錯了如何收回回報？',self.staff,('收回回報','個人工作台','管理者'))
+    def test_inverse_operation_journeys(self):
+        for q,words in [
+            ('如何取消指派？',('取消指派','釋放','不必')),
+            ('不小心標成執行中，要怎麼恢復待辦？',('恢復待辦','實際')),
+            ('如何取消已解決標記？',('取消已解決標記','健康登錄')),
+            ('手機怎麼派工？',('底部','可用時段','儲存指派','休息')),
+            ('如何取消最佳化派工預覽？',('取消','確認儲存','不會更動')),
+            ('如何重新指派？',('重新檢查','儲存指派')),
+            ('昨天的回報錯了，如何更正？',('代為收回完成回報','誤報更正','跨日','醫療')),
+        ]:
+            with self.subTest(q=q):
+                t=self.guidance(q,words=words)
+                self.assertNotIn('command',t)
+                self.assertIn('/resources',{x['path'] for x in t['links']})
+        for q in ('如何取消指派？','手機怎麼派工？','如何取消已解決標記？'):
+            t=self.guidance(q,self.staff,('管理者權限',))
+            self.assertNotIn('/resources',{x['path'] for x in t['links']})
+    def test_inverse_report_uses_scoped_live_state_without_writing(self):
+        tid=self.tids[0]
+        self.request('POST','/api/schedule/tasks/'+tid+'/report',{'result':'sick','note':'觀察紀錄','expected_day':self.day},self.staff)
+        q=self.names[0]+' 剛才的回報是誤報，如何收回回報？'
+        t=self.guidance(q,self.staff,(self.names[0],'可收回','誤報更正'))
+        self.assertNotIn('command',t)
+        with self.main.connect() as db:
+            self.assertIsNotNone(db.execute('SELECT 1 FROM weekly_reports WHERE task_id=?',(tid,)).fetchone())
+            db.execute('UPDATE weekly_reports SET reported_at=? WHERE task_id=?',((date.fromisoformat(self.day)-timedelta(days=1)).isoformat()+'T12:00:00',tid))
+        t=self.guidance(q,self.staff,('不可自行收回','跨日回報'))
+        self.assertNotIn('command',t)
+        t=self.guidance(q,words=('須管理者審核','跨日回報','誤報更正'))
+        self.assertNotIn('command',t)
+        with self.main.connect() as db:self.assertIsNotNone(db.execute('SELECT 1 FROM weekly_reports WHERE task_id=?',(tid,)).fetchone())
     def test_manager_resolve_guidance(self):
         self.guidance('健康異常要怎麼結案？',words=('標記已解決','資源配置','健康登錄'))
     def test_stock_fact_and_privacy(self):

@@ -7,6 +7,7 @@ import re
 from datetime import timedelta
 import chat_intent as ci
 import care_workflow as care
+import report_reversal as reversal
 from fastapi import HTTPException
 
 HEALTH={'healthy':'健康','sick':'生病','injured':'受傷','serious':'嚴重狀況','unknown':'未確認','needs_review':'待確認'}
@@ -22,7 +23,7 @@ def prompt(label,question):return {'label':label,'question':question}
 # The UI has two distinct reporting modes; keep this list aligned with StaffHome.directChoices.
 DIRECT_REPORT_TASKS=frozenset(('確認疫苗紀錄','疫苗施打','確認驅蟲紀錄','基礎驅蟲',
     '更新驅蟲狀態','更新驅蟲紀錄','評估絕育安排','絕育手術','更新絕育狀態'))
-ASSIGN_STEPS='資源配置 → 待指派任務池 → 衍生任務 → 選擇任務 → 選擇指派員工、指派日期及開始時間 → 儲存指派。也可按「七天最佳化派工」，核對預覽後按「確認儲存」。'
+ASSIGN_STEPS='資源配置 → 待指派任務池 → 選擇一般或衍生任務 → 選擇指派員工、指派日期及開始時間 → 儲存指派。也可按「七天最佳化派工」，核對預覽後按「確認儲存」。'
 STAFF_STEPS='登入照護人員帳號 → 照護人員工作台（個人工作台）→ 個人日曆選擇指派日期 → 找到對應動物及任務。確認工作已實際完成才回報。'
 READMIT_STEPS='動物列表 → ＋ 新增動物 → 以舊離所編號重新入所 → 選擇原動物編號（離所動物編號）→ 填寫重新入所日期 → 按「以原編號重新入所 #動物編號」。保留原有編號及入離所歷史、恢復在養、取消舊未完成驅蟲任務，並產生本次基礎驅蟲；不用重新建檔或先確認驅蟲紀錄。'
 
@@ -65,6 +66,22 @@ def care_task_steps(label):
                 detail+='；更新驅蟲狀態為已驅蟲'
         lines.append(f'・{title} → {detail}')
     return lines
+
+def reverse_topic(q):
+    """Keep inverse operations separate from affirmative care outcomes and draft notes."""
+    if re.search(r'^(?:請|幫我|我要|我想)?回報.+結果\s*[:：]|^(?:備註|說明)\s*[:：]',q):
+        return None
+    if re.search(r'取消(?:尚未送出(?:的)?回報|回報草案|未確認(?:的)?草案)',q):
+        return None
+    if re.search(r'取消.*預覽|預覽.*(?:取消|不儲存|不套用|關掉)',q):return 'preview'
+    if re.search(r'取消.*(?:結案|已解決|解決標記)|重新(?:開啟|打開).*問題|已解決.*(?:仍|還是|又)',q):return 'reopen'
+    if re.search(r'(?:誤|錯).*執行中|執行中.*(?:誤|錯|待辦)|(?:恢復|改回|退回).*待辦',q):return 'reset'
+    if re.search(r'(?:收回|撤回|取消|撤銷|更正|復原|改錯).*回報|回報.*(?:收回|撤回|取消|撤銷|更正|錯|誤)|誤報',q):return 'withdraw'
+    if re.search(r'取消.*指派|解除指派|移回.*任務池|撤銷.*指派',q):return 'unassign'
+    if re.search(r'手機|平板|觸控',q) and re.search(r'派工|指派|拖曳|拖拉',q):return 'mobile'
+    if re.search(r'重新指派|改派|換.*員工|更換.*員工',q):return 'reassign'
+    return None
+
 
 def guide(db,uid,q,active,current,resolve,resource_totals,topic=None):
     """Return (turn, active animal) or None. All staff reads are explicitly scoped."""
@@ -150,6 +167,46 @@ def guide(db,uid,q,active,current,resolve,resource_totals,topic=None):
     # Medical instructions are not a software operation. Never output drug/dose guidance.
     if re.search(r'劑量|用藥|給藥|開藥|吃什麼藥|用什麼藥|怎麼治療|如何治療|診斷',q):
         return reply('收容所助理只能協助登錄、回報及查詢照護資料，不能提供診斷、藥物或劑量建議。請通知獸醫；若情況緊急，立即依現場緊急流程處置。',[link('/resources' if manager else '/','資源配置' if manager else '個人工作台')])
+    inverse=reverse_topic(q)
+    if inverse=='withdraw':
+        page=[link('/resources','資源配置')] if manager else [link('/','個人工作台')]
+        lines=[
+            ('在資源配置切換原指派日期，開啟已回報的任務詳細資料，按「代為收回完成回報」或「誤報更正」，填寫原因；若需要審核，核對後續照護後確認。' if manager else
+             '在個人工作台選擇原指派日期，開啟本人已回報的任務，依系統顯示按「收回回報」或「誤報更正」。'),
+            '實際已完成的醫療照護只應收回完成登錄，不可當成誤報。確定內容錯誤才選「誤報更正」；其他有效回報及真實醫療紀錄必須保留。',
+            '尚未執行且沒有其他來源的衍生任務可取消並釋放工時；有其他有效來源則保留。跨日、問題已結案、動物已離所、後續任務已開始或完成、來源不明時，請由管理者核對。',
+            '缺少原始資料快照的舊回報不可自動復原醫療資料。聊天只提供指引，不會直接收回或更正紀錄。']
+        a=select_target()
+        sources=[]
+        if a:
+            sql="""SELECT r.*,t.label,t.day,t.animal_id,a.is_active FROM weekly_reports r
+                   JOIN weekly_tasks t ON t.task_id=r.task_id JOIN animals a ON a.id=t.animal_id
+                   WHERE t.animal_id=? AND t.state='done'"""
+            args=[a['id']]
+            if not manager:
+                sql+=' AND r.staff_id=? AND t.staff_id=?';args.extend([staff,staff])
+            records=list(db.execute(sql+' ORDER BY r.reported_at DESC LIMIT 8',args))
+            lines.append(a['name']+'｜目前可核對的回報（最近最多八筆）：')
+            if not records:lines.append('沒有符合權限的已完成回報。')
+            for record in records:
+                policy=reversal.status(db,record,None if manager else staff,current.isoformat())
+                state='須管理者審核' if policy['requires_review'] else '可收回'
+                if not policy['allowed']:state='不可自行收回'
+                lines.append(f"{record['day'] or record['reported_at'][:10]} · {care.display_label(record['label'])} · {state}"+('（'+policy['reason']+'）' if policy['reason'] else '')+('；可選誤報更正' if policy['allowed'] and policy['can_correct'] else '；不可自動更正醫療資料'))
+                sources.append('任務 '+record['task_id'])
+        else:lines.append('提供動物名稱或 #編號，就能核對該動物可查看的回報及實際限制。')
+        return reply('\n'.join(lines),page,sources=sources,target=a['id'] if a else active,topic='withdraw')
+    if inverse:
+        if not manager:return role_denied()
+        steps={
+            'preview':'在資源配置的七天最佳化派工預覽按「取消」；未按確認儲存前不會更動原任務或排程。若已確認儲存，這不是取消預覽，請逐筆核對已變動的指派。',
+            'reopen':'在資源配置切換原任務日期，開啟已回報且已結案的任務，按「取消已解決標記」；問題會重新列為未解決，但不會自行修改動物健康登錄。',
+            'reset':'在資源配置開啟執行中任務，確認工作尚未實際開始，按「恢復待辦」並確認。若實際照護已開始或完成，不可將它當成誤標。',
+            'unassign':'在資源配置點選已指派但尚未執行的任務，按「取消指派」並確認，任務回到待指派任務池且釋放員工工時；不必進行七天最佳化派工。執行中或已完成的工作不可直接取消指派。',
+            'reassign':'在資源配置點選尚未執行的已指派任務，選擇其他員工、日期、可用時段並儲存指派；系統重新檢查技能、出勤、休息時間、剩餘工時與重疊。也可先按「取消指派」。',
+            'mobile':'在手機的資源配置點選待指派任務，使用畫面底部的任務區塊選擇員工、日期與可用時段，按「儲存指派」；不用長距離拖曳。系統檢查技能、出勤、休息、剩餘工時與重疊。可取消選取，也可點選已指派未執行任務重新指派或取消指派。'
+        }
+        return reply(steps[inverse]+' 聊天不會直接變更排程或紀錄。',[link('/resources','資源配置')])
     how=bool(HOW.search(q))
     onboarding=bool(re.fullmatch(r'(?:你好[，,！! ]*)?(?:我(?:是)?(?:個)?(?:新手|第一次使用(?:這個)?(?:系統|程式|平台)?|剛開始使用(?:這個)?(?:系統|程式|平台)?)|第一次使用(?:這個)?(?:系統|程式|平台)?|新手入門)(?:[，, ]*(?:請問)?(?:我)?(?:該|要)?(?:怎麼|如何)(?:開始|使用|操作)(?:呢|嗎)?)?[。？?！!]*',q))
     onboarding=onboarding or bool(re.search(r'第一次(?:登入|上班|操作)|剛(?:入職|到職|來上班)|新來的(?:員工|管理者|照護人員)|不知道從哪(?:裡|里)?開始|不熟悉(?:這個)?(?:系統|程式)',q) and not re.search(r'修改|刪除|回報.+結果',q))
@@ -158,7 +215,7 @@ def guide(db,uid,q,active,current,resolve,resource_totals,topic=None):
         if manager:
             lines.extend(['1. 到動物列表確認在所動物及基本資料。',
                           '2. 選擇「待指派照護任務」查看需要安排的工作。'+ASSIGN_STEPS,
-                          '3. 員工回報後，到健康行政核對查看紀錄，並安排新產生的後續任務。管理者不可代替員工回報。'])
+                          '3. 員工回報後，到健康行政核對查看紀錄，並安排新產生的後續任務。管理者不可代替員工填寫正向回報，但可審核及更正既有回報。手機可點選任務派工，不必拖曳。'])
         else:
             lines.extend(['1. '+STAFF_STEPS+' 也可點選「我的照護任務回報選項」查看今日自己的任務。',
                           '2. 工作台有些任務直接按右側結果按鈕，有些需按「填寫回報」再「送出回報」。若需照片，請用工作台。',
@@ -167,7 +224,8 @@ def guide(db,uid,q,active,current,resolve,resource_totals,topic=None):
                       '如遇緊急異常，先通知主管及獸醫；助理不提供診斷或用藥建議。'])
         suggestions=[prompt('查看待指派照護任務','待指派照護任務') if manager else prompt('查看我的回報選項','我的照護任務回報選項')]
         suggestions.extend(prompt(g+'流程',g+'流程') for g in care.GROUPS)
-        if manager:suggestions.append(prompt('如何重新入所','如何重新入所？'))
+        suggestions.append(prompt('回報錯誤怎麼處理','回報錯了如何更正？'))
+        if manager:suggestions.extend([prompt('如何重新入所','如何重新入所？'),prompt('手機如何派工','手機如何派工？'),prompt('取消任務指派','如何取消指派？')])
         return reply('\n'.join(lines),[link('/resources','資源配置'),link('/health','健康行政核對'),link('/animals','動物列表')] if manager else [link('/','個人工作台')],suggestions)
     # Explicit product-operation questions must not fall through to an unrelated data query.
     # A report command remains a report command, even if its note contains a question.
@@ -269,8 +327,8 @@ def guide(db,uid,q,active,current,resolve,resource_totals,topic=None):
             if not manager:return role_denied()
             return reply('請在總覽核對收容所資源設定及實際盤點；目前可直接查詢系統登錄庫存與估算需求。若頁面未提供庫存編輯，請由管理者依既有設定流程更新，不會透過聊天自行扣庫存。',[link('/','總覽')],[prompt('查詢庫存','飼料庫存還剩多少？')])
         if re.search(r'取消|收回|撤回|復原|改回|更正',q) and re.search(r'回報|任務',q):
-            if manager:return reply('管理者不能代替員工收回回報。請原回報員工至個人工作台，開啟該筆已回報任務；能否收回由日期、任務狀態及後續處理紀錄決定。若已不可收回，請依行政核對流程處理。',[link('/resources','資源配置')])
-            return reply('在個人工作台開啟該筆已回報任務，若仍符合系統條件，按「收回回報」並確認；若已結案、非當日或已有後續變更，請聯絡管理者核對。',[link('/','個人工作台')])
+            if manager:return reply('請在資源配置開啟對應任務，依實際狀態選擇取消指派、恢復待辦、代為收回完成回報或誤報更正。',[link('/resources','資源配置')])
+            return reply('請在個人工作台核對自己的回報；若要更動指派或已有後續照護，請聯絡管理者。',[link('/','個人工作台')])
         if re.search(r'結案|解除異常|異常處理完成',q):
             if not manager:return role_denied()
             return reply('請至資源配置，找出該筆已完成任務的待處理異常，確認實際問題已處理，再於任務詳細資料按「標記已解決」。結案不是自動將動物判定為健康；健康登錄仍須核對。',[link('/resources','資源配置')])
@@ -281,7 +339,7 @@ def guide(db,uid,q,active,current,resolve,resource_totals,topic=None):
         if re.search(r'離所|送養|重新入所|入所|新增動物|建檔',q):
             if not manager:return role_denied()
             if '重新入所' in q:return reply(READMIT_STEPS,[link('/animals/new','重新入所')])
-            if re.search(r'離所|送養',q):return reply('到動物列表，選擇該動物的「離所」，填寫離所日期及實際原因（例如送養），確認後才更新在所狀態；歷史紀錄保留，待執行任務依原有規則處理。',[link('/animals','動物列表')])
+            if re.search(r'離所|送養',q):return reply('到動物列表，選擇該動物的「離所」，填寫離所日期及實際原因（例如送養），確認後才更新在所狀態；已完成的照護與醫療歷史保留；所有待辦及執行中任務會取消，釋放排程資源。',[link('/animals','動物列表')])
             return reply('到動物列表 → 新增動物，填寫名稱、物種、入所日期等資料；上傳照片時可先比對既有動物。疫苗、驅蟲及健康不明就選待確認，不捏造日期。若曾離所，使用重新入所而非新增。',[link('/animals/new','新增動物'),link('/animals','動物列表')])
         if re.search(r'疫苗|驅蟲',q):
             which='疫苗' if '疫苗' in q else '驅蟲'
