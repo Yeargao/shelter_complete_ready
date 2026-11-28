@@ -192,6 +192,8 @@ def mount(legacy,populate,week_days,catalog,quarters):
     def command(body:Command,request:Request):
         manager(request)
         text=body.text.strip()
+        if re.search(r'工作流程|自動化流程|提醒|通知',text):
+            return {'type':'clarify','message':'此功能已移除'}
         if re.search(r'刪除|刪掉|修改資料庫|忽略|DROP\s|DELETE\s',text,re.I):
             raise HTTPException(422,'不支援此指令；請使用原本有權限的操作介面')
         if '工作流程' in text or '自動化流程' in text:

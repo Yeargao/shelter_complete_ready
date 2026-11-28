@@ -13,9 +13,9 @@ INTENTS = (
     'staff_workload', 'staff_availability', 'workload_balance', 'staff_schedule',
     'pending_tasks', 'completed_tasks', 'urgent_tasks', 'next_task', 'unassigned_tasks',
     'assignment_reason', 'schedule_changes', 'leave_impact', 'capacity',
-    'animal_health', 'vaccination', 'deworming', 'open_issues', 'unknown',
+    'animal_health', 'vaccination', 'deworming', 'care_reports', 'open_issues', 'unknown',
 )
-ANIMAL_INTENTS = {'animal_health', 'vaccination', 'deworming'}
+ANIMAL_INTENTS = {'animal_health', 'vaccination', 'deworming','care_reports'}
 STAFF_INTENTS = {'staff_workload', 'staff_availability', 'workload_balance', 'staff_schedule', 'leave_impact'}
 PERIODS = ('all_day', 'morning', 'afternoon')
 SORTS = ('none', 'most', 'least')
@@ -52,6 +52,7 @@ period: all_day/morning/afternoon；sort: most/least/none；count_only: boolean�
 「牠最近怎麼樣」 animal_health, all_day, none, false
 「牠打過預防針嗎」 vaccination, all_day, none, false
 「牠有沒有除蟲」 deworming, all_day, none, false
+「某動物最近的照護回報」 care_reports, all_day, none, false
 「有哪些尚未處理的異常」 open_issues, all_day, none, false
 「幫我刪掉所有任務」 unknown, all_day, none, false
 """
@@ -178,6 +179,8 @@ def local_intent(text, *, animal=False, staff=False, task=False):
         intent = 'completed_tasks'
     elif has(q,'緊急','優先','最急','比較急','重要任務'):
         intent = 'urgent_tasks'
+    elif has(q,'照護回報','照護紀錄','回報紀錄','回報內容','上次回報','最近回報') and not has(q,'哪些動物','多少隻','幾隻'):
+        intent = 'care_reports'
     elif animal and has(q,'資料','健康','近況','身體','怎麼樣','如何','狀況','整理','總結','注意','疫苗','打針','預防針','打過針','驅蟲','除蟲') and not has(q,'任務','班表','排程','派工','指派','工作'):
         intent = 'animal_health' if has(q,'資料','整理','總結','摘要') or sum((has(q,'健康','近況','身體'),has(q,'驅蟲','除蟲'),has(q,'疫苗','打針','預防針')))>1 else 'deworming' if has(q,'驅蟲','除蟲') else 'vaccination' if has(q,'疫苗','打針','預防針','打過針') else 'animal_health'
     elif has(q,'疫苗','打針','預防針','打過針') and not has(q,'任務','工作','排程','班表'):

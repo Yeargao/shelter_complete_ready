@@ -26,7 +26,7 @@ VALS='|'.join(sorted(set(HEALTH)|set(TRI),key=len,reverse=True))
 FIELD_RE=re.compile(r'('+FIELD_WORDS+r')\s*(?:為|是|改成|改為|設為|更新為|[:：=])\s*[「"“]?\s*('+VALS+r')(?=[」"”\s，,。；;、！!]|$)')
 DIRECT_RE=re.compile(r'(?:已驅蟲|未驅蟲|已接種|未接種|已施打|未施打)')
 DATE_RE=re.compile(r'((?:驅蟲|疫苗(?:接種|施打)?)日期)\s*(?:為|是|改成|改為|[:：=])?\s*([0-9０-９年月日/\-]+|今天|昨天|前天|[一二三四五六七八九十\d]+天前)')
-SMART=re.compile(r'提醒|通知|統計|報表|分布|完成率|開啟|前往|我要(?:修改|編輯|新增|處理|看)|工作流程|自動化流程|(?:新增|建立|安排|加一個|加一項).*任務')
+SMART=re.compile(r'提醒|通知|統計|報表|分布|完成率|開啟|前往|我要新增動物|工作流程|自動化流程|(?:新增|建立|安排|加一個|加一項).*任務')
 def today():
     return datetime.now(TZ).date()
 def stamp():
@@ -317,7 +317,7 @@ def mount(legacy,read_chat,smart_command,smart_check):
                                 display.append({'field':label,'before':'、'.join(r[field] for r in current[key]) or '無日期紀錄','after':'、'.join(r[field] for r in previous[key]) or '無日期紀錄'})
                         cmd=draft(db,uid,sid,old['animal_id'],{'display':display},today(),'undo',old['action_id'])
                         result.append(turn(q,command=cmd));continue
-                if re.search(r'回報|我(?:已經|已|剛剛)?完成|我做完',q) and not QUERY.search(q) and not re.search(r'哪些|多少|幾項|紀錄|清單',q.replace('確認疫苗紀錄','').replace('確認驅蟲紀錄','')):
+                if re.search(r'^(?:請|幫我|我要|我想)?回報|^我(?:已經|已|剛剛)?完成|^我做完',q) and not QUERY.search(q) and not re.search(r'哪些|多少|幾項|紀錄|清單',q.replace('確認疫苗紀錄','').replace('確認驅蟲紀錄','')):
                     if uid==1:
                         result.append(message(q,'管理者不可代替員工回報；請使用照護人員帳號'));continue
                     with legacy.connect() as db:
@@ -328,7 +328,12 @@ def mount(legacy,read_chat,smart_command,smart_check):
                             WHERE t.staff_id=? AND t.day=? AND t.state IN ('pending','in_progress') AND a.is_active=1""",(account[0],today().isoformat()))]
                         ids=re.findall(r'#\s*(\d{1,18})(?!\d)',q)
                         exact=[r for r in own if re.search(r'(?<![A-Za-z0-9_:-])'+re.escape(r['task_id'])+r'(?![A-Za-z0-9_:-])',q)]
-                        candidates=exact if exact else [r for r in own if r['label'] in q and (str(r['animal_id']) in ids if ids else r['name'] and r['name'].casefold() in q.casefold())]
+                        named=[r for r in own if r['name'] and r['name'].casefold() in q.casefold()]
+                        candidates=exact if exact else [r for r in own if r['label'] in q and (str(r['animal_id']) in ids if ids else r in named)]
+                        if ids and (len(set(ids))!=1 or any(str(r['animal_id']) not in ids for r in candidates)):
+                            candidates=[]
+                        if named and any(r['animal_id'] not in {n['animal_id'] for n in named} for r in candidates):
+                            candidates=[]
                     if len(candidates)!=1:
                         result.append(message(q,'請指定今天自己的動物名稱和完整任務名稱，或任務 ID'));continue
                     t=candidates[0]
@@ -339,7 +344,7 @@ def mount(legacy,read_chat,smart_command,smart_check):
                              '確認疫苗紀錄':('yes','no'),'疫苗紀錄待確認':('yes','no'),'疫苗施打':('done','failed'),'健康問題追蹤':('reported',)}
                     note=re.search(r'(?:備註|說明)\s*[:：]\s*(.+)$',q)
                     text=(q[:note.start()] if note else q).replace(t['label'],'').replace(t['name'],'').replace(t['task_id'],'')
-                    if re.search(r'不要|取消|尚未|還沒|沒完成|未完成|可能|如果|假設|不確定',text):
+                    if re.search(r'不要|取消|尚未|還沒|沒完成|未完成|可能|如果|假設|不確定|不是|不健康|沒有生病|沒有受傷|無法',text):
                         result.append(message(q,'請明確提供本次回報結果'));continue
                     opts=[]
                     for words,value in [(r'未驅蟲|未接種|未施打|結果\s*[:：]\s*(?:否|無)','no'),(r'已驅蟲|已接種|已施打|結果\s*[:：]\s*(?:是|有)','yes'),(r'健康','healthy'),(r'生病','sick'),(r'受傷','injured'),(r'失敗','failed'),(r'完成|成功','done'),(r'已回報|已追蹤','reported')]:
@@ -389,14 +394,25 @@ def mount(legacy,read_chat,smart_command,smart_check):
                             result.append(turn(q,command=cmd));continue
                 # Current group queries are factual, role-scoped and do not need a model.
                 if re.search(r'哪些|多少|幾隻|列出|名單|清單|所有|全部',q) and re.search(r'動物|犬|狗|貓|貓咪|隻',q) and not re.search(r'任務|工作|排程|班表|統計|報表|昨天|明天|上週|下週|過去|最近|未來',q):
-                    cond=None
-                    for words,field,value in [(r'未驅蟲','dewormed','no'),(r'已驅蟲','dewormed','yes'),(r'未接種|未施打','vaccinated','no'),(r'已接種|已施打','vaccinated','yes'),(r'疫苗.*(?:未確認|待確認)','vaccinated','unknown'),(r'驅蟲.*(?:未確認|待確認)','dewormed','unknown'),(r'健康.*(?:未確認|待確認)','health_status','unknown'),(r'生病','health_status','sick'),(r'受傷','health_status','injured')]:
-                        if re.search(words,q):cond=(field,value);break
-                    if cond:
+                    conditions=[]
+                    for words,field,value in [(r'未驅蟲','dewormed','no'),(r'已驅蟲','dewormed','yes'),(r'未接種|未施打','vaccinated','no'),(r'已接種|已施打','vaccinated','yes'),(r'疫苗(?:紀錄|狀態)?\s*(?:為|是|[:：])?\s*(?:未確認|待確認)','vaccinated','unknown'),(r'驅蟲(?:紀錄|狀態)?\s*(?:為|是|[:：])?\s*(?:未確認|待確認)','dewormed','unknown'),(r'健康(?:狀況|狀態|登錄)?\s*(?:為|是|[:：])?\s*(?:未確認|待確認)','health_status','unknown'),(r'生病','health_status','sick'),(r'受傷','health_status','injured')]:
+                        if re.search(words,q):conditions.append((field,value))
+                    attention=bool(re.search(r'特別注意|需要注意|健康異常|健康不好|身體不好',q))
+                    if conditions or attention:
+                        if len(conditions)>1 and not re.search(r'且|並|同時|又|和|與|或',q):
+                            result.append(message(q,'請確認多個條件是同時符合，還是符合其中一個即可'));continue
                         with legacy.connect() as db:
-                            field,value=cond
-                            query=f"SELECT id,name FROM animals WHERE is_active=1 AND {field}=?"
-                            args=[value]
+                            args=[]
+                            clauses=[]
+                            for field,value in conditions:
+                                if value=='unknown' and field=='health_status':
+                                    clauses.append("health_status IN ('unknown','needs_review')")
+                                else:
+                                    clauses.append(field+'=?');args.append(value)
+                            if attention:
+                                clauses.append("(health_status IN ('unknown','needs_review','sick','injured','serious') OR EXISTS(SELECT 1 FROM weekly_issues i WHERE i.animal_id=animals.id AND i.resolved_at IS NULL))")
+                            joiner=' OR ' if '或' in q else ' AND '
+                            query="SELECT id,name FROM animals WHERE is_active=1 AND ("+joiner.join(clauses)+")"
                             if uid!=1:
                                 query+=" AND EXISTS(SELECT 1 FROM weekly_tasks t JOIN weekly_staff_accounts s ON s.staff_id=t.staff_id WHERE t.animal_id=animals.id AND s.user_id=? AND t.state!='cancelled')";args.append(uid)
                             if re.search(r'狗|犬',q) and '貓' not in q:query+=" AND species='dog'"
@@ -405,8 +421,9 @@ def mount(legacy,read_chat,smart_command,smart_check):
                         lines=[f'目前符合條件且可查看的在所動物共 {len(found)} 隻。']
                         if not re.search(r'多少|幾隻',q):lines.extend(f"{r['name']} #{r['id']}" for r in found[:20])
                         if len(found)>20 and not re.search(r'多少|幾隻',q):lines.append('顯示前 20 隻，完整資料請至動物列表。')
+                        active=None;ctx=None;missing=None
                         result.append(turn(q,answer={'answer':'\n'.join(lines),'source':'db','sources':['在所動物登錄'],'context':None,'fallback_reason':None,'queried_at':stamp()}));continue
-                if uid==1 and SMART.search(q) and (not QUERY.search(q) or re.search(r'統計|報表|分布|完成率',q)):
+                if uid==1 and SMART.search(q) and ((not QUERY.search(q) and not re.search(r'哪些|什麼|有沒有|是否|幾項|多少|誰|哪位',q)) or re.search(r'統計|報表|分布|完成率',q)):
                     # Legacy tools use signed read context. Inject the selected subject only for explicit pronouns.
                     smart_q=q
                     if active and re.search(r'(?:他|牠|它|這隻|該動物)',q) and not re.search(r'#\d+',q):
@@ -446,7 +463,10 @@ def mount(legacy,read_chat,smart_command,smart_check):
                 if answer.get('sources') and decoded and decoded.get('animal_id'):active=decoded['animal_id']
                 result.append(turn(q,answer=answer))
             except (ValueError,HTTPException) as e:
-                result.append(message(q,str(e.detail) if isinstance(e,HTTPException) else str(e)))
+                detail=str(e.detail) if isinstance(e,HTTPException) else str(e)
+                if re.search(r'多個動物|單一動物編號|找不到動物|名稱與編號不一致',detail):
+                    active=None;ctx=None;missing=None
+                result.append(message(q,detail))
         with legacy.lock,legacy.connect() as db:
             db.execute('UPDATE ai_chat_sessions SET animal_id=?,read_context=?,missing_json=? WHERE user_id=? AND session_id=?',(active,ctx,dump(missing) if missing else None,uid,sid))
         return {'turns':result}

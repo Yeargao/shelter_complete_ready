@@ -312,7 +312,7 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
                 previous={'intent':'animal_health','animal_id':old_animal,'start':current.isoformat(),
                           'end':current.isoformat(),'period':'all_day','sort':'none'}
             entities,problem,redacted=resolve_entities(db,sid,question)
-        animal_follow=bool(re.fullmatch(r'(?:那|所以|另外|他|她|牠|它|這隻|的|請問|\s)*(?:健康(?:狀況|狀態|登錄)?|疫苗(?:紀錄|日期)?|驅蟲(?:紀錄|日期)?|資料)[呢嗎?？。]*',question))
+        animal_follow=bool(re.fullmatch(r'(?:那|所以|另外|他|她|牠|它|這隻|的|請問|\s)*(?:健康(?:狀況|狀態|登錄)?|疫苗(?:紀錄|日期)?|驅蟲(?:紀錄|日期)?|照護回報|照護紀錄|回報紀錄|回報內容|資料)[呢嗎?？。]*',question))
         follow = bool(previous and (ci.followup(question) or (animal_follow and previous.get('animal_id'))))
         prior = previous if follow else None
         if any(word in question for word in ('劑量','診斷','開藥','用藥','給藥')):
@@ -323,7 +323,7 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
             source='rules'
         else:
             try:
-                temporal,explicit_date=ci.dates(question,current,prior)
+                temporal,explicit_date=ci.dates(question,current,None if animal_follow else prior)
             except ValueError as exc:
                 lines,sources=[str(exc)],[]
                 source='rules'
@@ -349,7 +349,7 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
                             temporal['period']=parsed['period']
                 intent=local['intent']
                 plan={**local,**temporal,**entities,'today':current.isoformat(),
-                      'explicit_date':explicit_date or bool(prior and prior.get('explicit_date')),
+                      'explicit_date':explicit_date or bool(prior and not animal_follow and prior.get('explicit_date')),
                       'routed_by':routed_by}
                 if intent in ci.ANIMAL_INTENTS and plan['animal_id'] is None and prior:
                     plan['animal_id']=prior.get('animal_id')
@@ -392,6 +392,20 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
                         if not animal:
                             lines,sources=['目前沒有可查看的動物紀錄。請提供已授權的動物名稱或編號。'],[]
                             source='rules'
+                        elif intent=='care_reports':
+                            params=[animal['id'],sid,sid]
+                            query="""SELECT r.task_id,r.reported_at,r.result,r.note,t.label FROM weekly_reports r
+                                JOIN weekly_tasks t ON t.task_id=r.task_id
+                                WHERE t.animal_id=? AND (? IS NULL OR r.staff_id=?)"""
+                            if plan['explicit_date']:
+                                query+=" AND substr(r.reported_at,1,10) BETWEEN ? AND ?";params.extend([plan['start'],plan['end']])
+                            records=db.execute(query+' ORDER BY r.reported_at DESC,r.task_id LIMIT 10',params).fetchall()
+                            labels={**HEALTH,'done':'完成','reported':'已回報','failed':'失敗','yes':'是','no':'否'}
+                            lines=[f"{animal['name']} #{animal['id']}：最近可查看的照護回報（最多 10 筆）。"]
+                            for r in records:
+                                lines.append(f"{r['reported_at'][:10]} · {r['label']} · {labels.get(r['result'],r['result'])}"+(' · 備註：'+r['note'] if r['note'] else ''))
+                            if not records:lines.append('沒有符合條件的回報紀錄。')
+                            sources=[f"動物 #{animal['id']}",*[f"任務 {r['task_id']}" for r in records]]
                         elif intent=='animal_health' and plan['explicit_date'] and (plan['start']!=current.isoformat() or plan['end']!=current.isoformat()):
                             lines,sources=['目前健康狀態是即時登錄，尚無指定日期的歷史健康快照。可查詢具日期的疫苗或驅蟲紀錄。'],[f'動物 #{animal["id"]}']
                         elif intent in ('vaccination','deworming') and plan['explicit_date']:

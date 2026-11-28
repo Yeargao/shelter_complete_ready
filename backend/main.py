@@ -11,6 +11,8 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
+from starlette.concurrency import run_in_threadpool
+import logging
 from pydantic import BaseModel, Field
 from uuid import uuid4
 
@@ -59,6 +61,7 @@ def login(body:LoginInput):
  uid=next((int(key) for key,value in AUTH_PASSWORDS.items()
            if hmac.compare_digest(value.encode(),body.password.encode())),None)
  if uid is None:raise HTTPException(401,'密碼錯誤')
+ refresh_consistency_safely()
  return {'token':token_for(uid),'user_id':uid,'role':'manager' if uid==1 else 'staff'}
 
 @app.middleware('http')
@@ -76,7 +79,24 @@ async def auth_guard(request:Request,call_next):
  if uid!=1 and request.method in ('POST','PATCH','DELETE','PUT') and path not in ('/api/stage2/answer','/api/chat','/api/agent/chat','/api/smart/handover') and not own_task_action:
   return JSONResponse(status_code=403,content={'detail':'此操作僅管理者可執行'})
  request.state.user_id=uid
- return await call_next(request)
+ # Removed modules are no longer executable through old cached clients.
+ if path.startswith(('/api/smart/rules','/api/smart/workflows','/api/smart/inbox')) or path in ('/api/smart/monitor','/api/smart/handover'):
+  return JSONResponse(status_code=410,content={'detail':'此功能已移除'})
+ response=await call_next(request)
+ if response.status_code<300 and request.method in ('POST','PATCH','PUT','DELETE') and (path.startswith(('/api/animals','/api/schedule/tasks','/api/agent/actions','/api/tasks')) or path=='/api/smart/task'):
+  await run_in_threadpool(refresh_consistency_safely)
+ return response
+
+def refresh_consistency_safely():
+ # Never report a successful operational write as failed because of a secondary audit.
+ # A failed audit transaction leaves the dirty queue available for the next read or write.
+ try:
+  from consistency_audit import refresh
+  with lock,connect() as db:
+   db.execute('BEGIN IMMEDIATE')
+   refresh(db)
+ except Exception:
+  logging.getLogger(__name__).exception('Incremental consistency refresh failed')
 
 @contextmanager
 def connect():

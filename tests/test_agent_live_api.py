@@ -44,6 +44,15 @@ class DialogueTests(unittest.TestCase):
             for idx,(task,aid,staff_id,state,label) in enumerate(zip(self.tids,self.ids,[self.sid,self.other_sid,self.sid],['pending','pending','done'],['健康狀態待確認','健康狀態待確認','基礎驅蟲'])):
                 db.execute("""INSERT INTO weekly_tasks(task_id,animal_id,label,skill,priority,quarters,earliest,due,day,staff_id,start,state)
                   VALUES (?,?,?,'health:observation',1,1,?,?,?,?,?,?)""",(task,aid,label,self.day,self.day,self.day,staff_id,36+idx,state))
+    def tearDown(self):
+        with self.main.connect() as db:
+            for aid in self.ids:
+                db.execute('DELETE FROM weekly_reports WHERE task_id IN (SELECT task_id FROM weekly_tasks WHERE animal_id=?)',(aid,))
+                db.execute('DELETE FROM weekly_issues WHERE animal_id=?',(aid,))
+                db.execute('DELETE FROM weekly_tasks WHERE animal_id=?',(aid,))
+                db.execute('DELETE FROM vaccination_records WHERE animal_id=?',(aid,))
+                db.execute('DELETE FROM deworming_events WHERE animal_id=?',(aid,))
+                db.execute('DELETE FROM animals WHERE id=?',(aid,))
     def request(self,method,path,body=None,headers=None,expected=200):
         r=self.client.request(method,path,json=body,headers=headers or self.manager)
         self.assertEqual(r.status_code,expected,r.text)
@@ -103,6 +112,40 @@ class DialogueTests(unittest.TestCase):
     def test_query_not_edit(self):
         r=self.send('列出已驅蟲的動物')
         self.assertNotEqual(r.get('command',{}).get('type'),'animal_action')
+    def test_compound_group_query(self):
+        with self.main.connect() as db:
+            db.execute("UPDATE animals SET dewormed='yes',vaccinated='no' WHERE id=?",(self.ids[0],))
+            db.execute("UPDATE animals SET dewormed='yes',vaccinated='yes' WHERE id=?",(self.ids[1],))
+        answer=self.send('列出已驅蟲且未接種的動物')['answer']['answer']
+        self.assertIn(self.names[0],answer);self.assertNotIn(self.names[1],answer)
+    def test_ambiguous_entity_clears_old_target(self):
+        self.send(self.names[0]+' 資料')
+        with self.main.connect() as db:
+            db.execute('UPDATE animals SET name=? WHERE id=?',(self.names[1],self.ids[2]))
+        r=self.send(self.names[1]+' 資料')
+        self.assertEqual(r['command']['type'],'clarify')
+        r=self.send('健康：健康')
+        self.assertEqual(r['command']['type'],'clarify')
+    def test_negative_report_does_not_write(self):
+        r=self.send('回報 '+self.names[0]+' 健康狀態待確認 結果：不是健康',self.staff)
+        self.assertEqual(r['command']['type'],'clarify')
+        with self.main.connect() as db:
+            self.assertIsNone(db.execute('SELECT 1 FROM weekly_reports WHERE task_id=?',(self.tids[0],)).fetchone())
+    def test_read_report_and_immediate_incremental_audit(self):
+        self.request('GET','/api/ai-tools/quality?scope=health')
+        cmd=self.send('回報 '+self.names[0]+' 健康狀態待確認 結果：受傷 備註：左前腳待觀察',self.staff)['command']
+        self.assertEqual(cmd['type'],'staff_report')
+        self.request('POST','/api/schedule/tasks/'+cmd['task_id']+'/report',{'result':cmd['result'],'note':cmd['note'],'expected_day':cmd['day']},self.staff)
+        r=self.send(self.names[0]+' 最近照護回報',self.staff)
+        self.assertIn('左前腳待觀察',r['answer']['answer'])
+        with self.main.connect() as db:
+            self.assertIsNone(db.execute('SELECT 1 FROM consistency_dirty WHERE animal_id=?',(self.ids[0],)).fetchone())
+            self.assertIsNotNone(db.execute('SELECT 1 FROM consistency_cache WHERE animal_id=?',(self.ids[0],)).fetchone())
+    def test_removed_routes(self):
+        self.request('GET','/api/smart/monitor',expected=410)
+        self.request('POST','/api/smart/rules',{'metric':'stock','threshold':30},expected=410)
+        r=self.send('飼料低於30公斤提醒我')
+        self.assertEqual(r['command']['type'],'clarify')
     def test_incremental_consistency(self):
         path='/api/ai-tools/quality?scope=health'
         first=self.request('GET',path)
