@@ -311,6 +311,7 @@ def mount(legacy,read_chat,smart_command,smart_check,populate_tasks=None):
                 phrase=q[:next_match.start()].strip(' ，,。') if is_next else q
                 explicit_report=bool(re.search(r'^回報\s+\S+.*結果\s*[:：]|^(?:請|幫我|我要|我想)?回報\s+[A-Za-z0-9_:-]{12,}$',q))
                 candidate=(not explicit_report and not reverse_topic(q) and not cd.READ.search(phrase) and not cd.UNCERTAIN.search(phrase)
+                           and not (uid==1 and re.search(r'(?:生病|受傷)了(?:之後|以後)?(?:下一步|接下來|該怎麼|要怎麼)',q) and not re.search(r'回報|結果|健康狀態待確認|傷病治療',q))
                            and (is_next or not QUERY.search(q))
                            and not re.search(r'[:：=]|備註|說明|照片|圖片|今天.*日期|明天|昨天|前天',phrase))
                 if candidate and (is_next or any(re.search(p,phrase) for p in cd.GROUP_HINTS.values())

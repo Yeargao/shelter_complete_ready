@@ -85,7 +85,8 @@ def from_surgery(db, task_id):
         WHERE d.child_id=? AND t.label='絕育手術' AND r.result='done'""",(child,)).fetchone():
         return True
     # Legacy tasks created before provenance was introduced.
-    if db.execute('SELECT 1 FROM weekly_report_dependencies WHERE child_id=?',(child,)).fetchone():
+    if (db.execute('SELECT 1 FROM weekly_report_dependencies WHERE child_id=?',(child,)).fetchone()
+            or db.execute('SELECT 1 FROM weekly_report_owned_tasks WHERE task_id=?',(child,)).fetchone()):
         return False
     return child.startswith('followup:') and bool(db.execute(
         "SELECT 1 FROM weekly_tasks WHERE task_id=? AND label='絕育手術'",
