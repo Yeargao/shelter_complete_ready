@@ -297,8 +297,10 @@ def readmit_animal(id:int,payload:AnimalReadmitInput):
   c.execute('INSERT INTO animal_stay_history(animal_id,intake_date,exit_date,exit_reason) VALUES (?,?,?,?)',(id,animal['intake_date'],animal['exit_date'],animal['exit_reason']))
   c.execute('UPDATE animals SET is_active=1,intake_date=?,exit_date=NULL,exit_reason=NULL WHERE id=?',(payload.intake_date.isoformat(),id))
   stay=c.execute('SELECT MAX(id) FROM animal_stay_history WHERE animal_id=?',(id,)).fetchone()[0]
-  c.execute("""INSERT OR IGNORE INTO weekly_tasks(task_id,animal_id,label,skill,priority,quarters,earliest,due)
-    VALUES (?,?,'基礎驅蟲','health:observation',3,2,?,?)""",(f'readmit:{stay}',id,payload.intake_date.isoformat(),payload.intake_date.isoformat()))
+  if c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='weekly_tasks'").fetchone():
+   c.execute("UPDATE weekly_tasks SET state='cancelled',reason='重新入所：舊驅蟲任務結束' WHERE animal_id=? AND label IN ('確認驅蟲紀錄','基礎驅蟲','更新驅蟲紀錄','更新驅蟲狀態') AND state IN ('pending','in_progress')",(id,))
+   c.execute("""INSERT OR IGNORE INTO weekly_tasks(task_id,animal_id,label,skill,priority,quarters,earliest,due)
+     VALUES (?,?,'基礎驅蟲','health:observation',3,2,?,?)""",(f'readmit:{stay}',id,payload.intake_date.isoformat(),payload.intake_date.isoformat()))
  return get_animal(id)
 
 @app.get('/api/animals/{id}')

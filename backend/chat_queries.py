@@ -2,6 +2,7 @@
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 import json
+from care_workflow import display_label
 
 TAIPEI = ZoneInfo('Asia/Taipei')
 ACTIVE = ('pending','in_progress')
@@ -183,7 +184,7 @@ def execute(legacy, db, plan, sid, shifts_for, daily_limit, tasks_for, task_answ
         sources=[]
         for t in selected[:12]:
             reason=t['reason'] or ('目前已指派，沒有其他已記錄原因。' if t['staff_id'] else '目前沒有已記錄的未指派原因。')
-            lines.append(f'{t["day"] or "待指派"} · {t["animal_name"]} · {t["label"]}：{reason}')
+            lines.append(f'{t["day"] or "待指派"} · {t["animal_name"]} · {display_label(t["label"])}：{reason}')
             sources.append(f'任務 {t["task_id"]}')
         if len(selected)>12:
             lines.append('僅顯示前 12 項，可提供任務 ID 縮小範圍。')

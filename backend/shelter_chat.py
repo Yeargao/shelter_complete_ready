@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 import llm_service as llm
 import chat_intent as ci
 import chat_queries as cq
+from care_workflow import display_label, result_title
 
 
 class Question(BaseModel):
@@ -79,7 +80,7 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
             if dose:
                 sources.append(f'疫苗紀錄 #{dose["id"]}')
             return [f'{name}疫苗登錄：'+{'yes':'已接種','no':'未接種','unknown':'未確認'}.get(animal['vaccinated'],'未確認')+'。', f'最近疫苗日期：{dose[1]}。' if dose else '目前沒有具日期的疫苗紀錄。'], sources, None
-        reports = list(db.execute("""SELECT r.task_id,r.reported_at,r.result FROM weekly_reports r
+        reports = list(db.execute("""SELECT r.task_id,r.reported_at,r.result,t.label FROM weekly_reports r
             JOIN weekly_tasks t ON t.task_id=r.task_id WHERE t.animal_id=? AND (? IS NULL OR r.staff_id=?)
             ORDER BY r.reported_at DESC,r.task_id LIMIT 4""", (aid, sid, sid)))
         issues = db.execute("""SELECT COUNT(*) FROM weekly_issues i JOIN weekly_tasks t ON t.task_id=i.task_id
@@ -103,7 +104,7 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
         labels = {**HEALTH, 'done': '完成', 'reported': '已回報異常', 'failed': '未能執行',
                   'yes': '已確認', 'no': '未確認'}
         for report in reports:
-            lines.append(f'{report["reported_at"][:10]} 照護回報：{labels.get(report["result"], "其他")}。')
+            lines.append(f'{report["reported_at"][:10]} 照護回報：{result_title(report["label"],report["result"],labels.get(report["result"], "其他"))}。')
             sources.append(f'任務 {report["task_id"]} · {report["reported_at"][:10]}')
             safe_facts.append({'care_result': report['result'] if report['result'] in labels else 'other'})
         if not reports:
@@ -115,7 +116,7 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
         lines = [f'{title}共 {len(tasks)} 項。']
         sources = []
         for task in tasks[:12]:
-            label = task['label']
+            label = display_label(task['label'])
             animal = task['animal_name']
             start = task['start']
             when = (f"{task['day']} {start//4:02d}:{start%4*15:02d}"
@@ -179,7 +180,7 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
             named = next((t for t in tasks if len(t['task_id']) > 4 and t['task_id'] in question), None)
             if named is None:
                 names = {t['animal_name'] for t in tasks if t['animal_name'] and t['animal_name'] in question}
-                labels = {t['label'] for t in tasks if t['label'] and t['label'] in question}
+                labels = {t['label'] for t in tasks if t['label'] and (t['label'] in question or display_label(t['label']) in question)}
                 candidates = active if ('週' in question or names or labels) and not date_text else daily
                 matches = [t for t in candidates if (not names or t['animal_name'] in names)
                            and (not labels or t['label'] in labels)]
@@ -190,7 +191,7 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
                     sources = []
                     for task in matches[:12]:
                         reason = task['reason'] or ('目前已指派，沒有其他已記錄原因。' if task['staff_id'] else '目前沒有已記錄的未指派原因。')
-                        lines.append(f"{task['day'] or '待指派'} · {task['animal_name']} · {task['label']}：{reason}")
+                        lines.append(f"{task['day'] or '待指派'} · {task['animal_name']} · {display_label(task['label'])}：{reason}")
                         sources.append(f"任務 {task['task_id']}")
                     if len(matches) > 12:
                         lines.append('僅顯示前 12 項，可加入動物名稱或任務名稱縮小範圍。')
@@ -372,7 +373,7 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
                     plan['staff_id']=sid
                 # Use local species/label matches, never model-generated IDs or SQL.
                 plan['species']='dog' if ci.has(question,'狗狗','犬隻','狗','犬') and not ci.has(question,'貓','猫') else 'cat' if ci.has(question,'貓','猫') and not ci.has(question,'狗','犬') else None
-                plan['labels']=[label for label in legacy.TASK_CATALOG if label in question]
+                plan['labels']=[label for label in legacy.TASK_CATALOG if label in question or display_label(label) in question]
                 if continuation and prior:
                     plan['species']=prior.get('species')
                     plan['labels']=prior.get('labels',[])
@@ -403,7 +404,7 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
                             labels={**HEALTH,'done':'完成','reported':'已回報','failed':'失敗','yes':'是','no':'否'}
                             lines=[f"{animal['name']} #{animal['id']}：最近可查看的照護回報（最多 10 筆）。"]
                             for r in records:
-                                lines.append(f"{r['reported_at'][:10]} · {r['label']} · {labels.get(r['result'],r['result'])}"+(' · 備註：'+r['note'] if r['note'] else ''))
+                                lines.append(f"{r['reported_at'][:10]} · {display_label(r['label'])} · {result_title(r['label'],r['result'],labels.get(r['result'],r['result']))}"+(' · 備註：'+r['note'] if r['note'] else ''))
                             if not records:lines.append('沒有符合條件的回報紀錄。')
                             sources=[f"動物 #{animal['id']}",*[f"任務 {r['task_id']}" for r in records]]
                         elif intent=='animal_health' and plan['explicit_date'] and (plan['start']!=current.isoformat() or plan['end']!=current.isoformat()):

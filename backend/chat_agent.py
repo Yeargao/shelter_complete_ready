@@ -267,7 +267,7 @@ class ActionInput(BaseModel):
     session_id:str=Field(pattern=r'^[a-f0-9-]{32,36}$')
     decision:str=Field(pattern=r'^(confirm|cancel)$')
 
-def mount(legacy,read_chat,smart_command,smart_check):
+def mount(legacy,read_chat,smart_command,smart_check,populate_tasks=None):
     router=APIRouter(prefix='/api/agent')
     def turn(question,**kwargs):return {'question':question,**kwargs}
     def message(question,text):return turn(question,command={'type':'clarify','message':text})
@@ -298,6 +298,9 @@ def mount(legacy,read_chat,smart_command,smart_check):
             q=re.sub(r'^(並且|並|再|另外)','',q).strip()
             if not q:continue
             try:
+                if uid==1 and populate_tasks and re.fullmatch(r'(?:查看)?待指派照護任務[。？?]*',q):
+                    with legacy.lock,legacy.connect() as db:
+                        db.execute('BEGIN IMMEDIATE');populate_tasks(db)
                 # Product guidance and scoped operational answers precede generic keyword routing.
                 with legacy.connect() as db:
                     guidance=work_guide(db,uid,q,active,today(),resolve,getattr(legacy,'resource_totals',None),topic) if hasattr(legacy,'resource_totals') else None
@@ -334,7 +337,7 @@ def mount(legacy,read_chat,smart_command,smart_check):
                                 display.append({'field':label,'before':'、'.join(r[field] for r in current[key]) or '無日期紀錄','after':'、'.join(r[field] for r in previous[key]) or '無日期紀錄'})
                         cmd=draft(db,uid,sid,old['animal_id'],{'display':display},today(),'undo',old['action_id'])
                         result.append(turn(q,command=cmd));continue
-                if uid!=1 and missing and missing.get('staff_report') and re.fullmatch(r'(?:備註|說明)\s*[:：]\s*.+',q):
+                if uid!=1 and missing and missing.get('staff_report') and not missing.get('staff_date') and re.fullmatch(r'(?:備註|說明)\s*[:：]\s*.+',q):
                     saved=missing['staff_report']
                     note=re.split(r'[:：]',q,maxsplit=1)[1].strip()
                     with legacy.connect() as db:
@@ -434,9 +437,15 @@ def mount(legacy,read_chat,smart_command,smart_check):
                          'result':code,'note':note[1].strip() if note else '', 'administered_date':dose.isoformat() if dose else None,
                          'next_step':care.describe_next(t['label'],code)}
                     active=t['animal_id']
+                    if t['label']=='更新絕育狀態' and code=='done':
+                        parent=t['task_id']
+                        while parent.startswith('carry:'):parent=parent.removeprefix('carry:')
+                        with legacy.connect() as db:
+                            from_surgery=parent.startswith('followup:') and db.execute("SELECT 1 FROM weekly_tasks WHERE task_id=? AND label='絕育手術'",(parent.removeprefix('followup:'),)).fetchone()
+                        cmd['next_step']='術後健康追蹤' if from_surgery else '任務結束'
                     if t['label']=='更新疫苗紀錄' and code=='done' and not dose:
                         with legacy.connect() as db:
-                            known=db.execute("SELECT 1 FROM vaccination_records WHERE animal_id=? AND administered_date IS NOT NULL AND next_due_date IS NOT NULL",(active,)).fetchone()
+                            known=db.execute("SELECT 1 FROM vaccination_records WHERE animal_id=? AND vaccine_type='general' AND administered_date IS NOT NULL AND next_due_date IS NOT NULL",(active,)).fetchone()
                         if not known:
                             missing={'staff_report':cmd,'staff_date':True}
                             result.append(message(q,'缺少可信的疫苗施打日期。請輸入實際日期（例如 1128 或 2026-11-28），確認前不會送出回報。'));continue

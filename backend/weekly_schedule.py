@@ -189,6 +189,14 @@ def mount(legacy):
                       AND (live.day IS NULL OR live.day>=?))
                 """, (present,present,present,present))
         active = rows(db, 'SELECT * FROM animals WHERE is_active=1')
+        # Recover readmission work when an older database is first opened.
+        for a in active:
+            stay=db.execute('SELECT MAX(id) FROM animal_stay_history WHERE animal_id=?',(a['id'],)).fetchone()[0]
+            if stay and not db.execute('SELECT 1 FROM deworming_events WHERE animal_id=? AND intake_date=?',(a['id'],a['intake_date'])).fetchone():
+                if not db.execute("SELECT 1 FROM weekly_tasks WHERE animal_id=? AND label='基礎驅蟲' AND state IN ('pending','in_progress')",(a['id'],)).fetchone():
+                    start=max(present,a['intake_date'] or present)
+                    db.execute("""INSERT OR IGNORE INTO weekly_tasks(task_id,animal_id,label,skill,priority,quarters,earliest,due)
+                        VALUES (?,?,'基礎驅蟲','health:observation',3,2,?,?)""",(f'readmit:{stay}',a['id'],start,start))
         for animal in active:
             if animal['health_status'] not in ('sick','injured','serious'):
                 continue
@@ -238,7 +246,7 @@ def mount(legacy):
             if group:
                 marks=','.join('?' for _ in group)
                 if db.execute(f"""SELECT 1 FROM weekly_tasks WHERE animal_id=? AND label IN ({marks})
-                    AND label!=? AND state IN ('pending','in_progress')""",(task['animal_id'],*group,task['label'])).fetchone():
+                    AND label!=? AND state IN ('pending','in_progress') AND NOT EXISTS (SELECT 1 FROM weekly_tasks c WHERE c.task_id='carry:'||weekly_tasks.task_id)""",(task['animal_id'],*group,task['label'])).fetchone():
                     continue
             pending = db.execute("""SELECT task_id,day FROM weekly_tasks WHERE animal_id=? AND label=?
                           AND state IN ('pending','in_progress') ORDER BY day IS NULL DESC, day DESC""",
@@ -996,7 +1004,7 @@ def mount(legacy):
                 raise HTTPException(422,'回報選項不適用：'+care.outcomes(label))
             if label=='更新疫苗紀錄' and result=='done':
                 dose=body.administered_date
-                if dose is None and not db.execute("SELECT 1 FROM vaccination_records WHERE animal_id=? AND administered_date IS NOT NULL AND next_due_date IS NOT NULL",(animal_id,)).fetchone():
+                if dose is None and not db.execute("SELECT 1 FROM vaccination_records WHERE animal_id=? AND vaccine_type='general' AND administered_date IS NOT NULL AND next_due_date IS NOT NULL",(animal_id,)).fetchone():
                     raise HTTPException(422,'缺少可信施打日期；請提供實際施打日期，不可假設為今天')
                 if dose is not None:
                     if dose>today():
@@ -1025,7 +1033,10 @@ def mount(legacy):
                         db.execute("""INSERT INTO vaccination_records (animal_id,administered_date,next_due_date)
                             VALUES (?,?,?)""", (animal_id, dose.isoformat(), legacy.month_after(dose,12).isoformat()))
                 db.execute("UPDATE animals SET vaccinated='yes' WHERE id=?", (animal_id,))
-            health_result={'recovered':'healthy','abnormal':'needs_review'}.get(result,result)
+            health_result={'recovered':'healthy','abnormal':'needs_review','worsening':'needs_review'}.get(result,result)
+            if result in ('abnormal','worsening'):
+                previous=db.execute('SELECT health_status FROM animals WHERE id=?',(animal_id,)).fetchone()[0]
+                if previous in ('sick','injured','serious'):health_result=previous
             if health_result in ('healthy','sick','injured','needs_review'):
                 old_status = db.execute('SELECT health_status FROM animals WHERE id=?', (animal_id,)).fetchone()[0]
                 db.execute('UPDATE animals SET health_status=? WHERE id=?', (health_result, animal_id))
@@ -1053,7 +1064,7 @@ def mount(legacy):
             retry_label=care.next_task(label,result,from_surgery=surgery_parent)
             if retry_label:
                 existing=db.execute("""SELECT 1 FROM weekly_tasks WHERE animal_id=? AND label=?
-                    AND state IN ('pending','in_progress')""",(animal_id,retry_label)).fetchone()
+                    AND state IN ('pending','in_progress') AND NOT EXISTS (SELECT 1 FROM weekly_tasks c WHERE c.task_id='carry:'||weekly_tasks.task_id)""",(animal_id,retry_label)).fetchone()
                 if not existing:
                     _,skill,hours,urgent=legacy.TASK_CATALOG[retry_label]
                     earliest=today().isoformat()
@@ -1068,8 +1079,9 @@ def mount(legacy):
                 if latest:
                     due=latest['next_due_date']
                     _,skill,hours,_=legacy.TASK_CATALOG['疫苗施打']
-                    db.execute("""INSERT OR IGNORE INTO weekly_tasks(task_id,animal_id,label,skill,priority,quarters,earliest,due)
-                        VALUES (?,?, '疫苗施打',?,3,?,?,?)""",(f'{animal_id}:疫苗施打@{due}',animal_id,skill,quarters(hours),max(due,today().isoformat()),due))
+                    if not db.execute("SELECT 1 FROM weekly_tasks WHERE animal_id=? AND label='疫苗施打' AND due=? AND state IN ('pending','in_progress')",(animal_id,due)).fetchone():
+                        db.execute("""INSERT OR IGNORE INTO weekly_tasks(task_id,animal_id,label,skill,priority,quarters,earliest,due)
+                            VALUES (?,?, '疫苗施打',?,3,?,?,?)""",(f'followup:{task_id}',animal_id,skill,quarters(hours),max(due,today().isoformat()),due))
             if label in care.RULES:
                 db.execute('INSERT INTO weekly_events(animal_id,event) VALUES (?,?)',(animal_id,'task_report'))
         return {'ok': True}
@@ -1115,7 +1127,7 @@ def mount(legacy):
                     AND event IN ('sick','injured','serious','health_update','intake','exit')""", (record['animal_id'],)).fetchone()[0]
                 if latest == baseline['event_id']:
                     db.execute('UPDATE animals SET health_status=? WHERE id=? AND health_status=?',
-                               (baseline['old_status'],record['animal_id'],{'recovered':'healthy','abnormal':'needs_review'}.get(record['result'],record['result'])))
+                               (baseline['old_status'],record['animal_id'],{'recovered':'healthy','abnormal':'needs_review','worsening':'needs_review'}.get(record['result'],record['result'])))
                     db.execute("""DELETE FROM weekly_tasks WHERE task_id=? AND state='pending'
                         AND staff_id IS NULL AND locked=0""", (f"health-event:{baseline['event_id']}",))
                 db.execute('DELETE FROM weekly_health_report_baseline WHERE task_id=?', (task_id,))
@@ -1186,5 +1198,5 @@ def mount(legacy):
     read_chat=next(r.endpoint for r in chat_router.routes if r.path=='/api/chat')
     command=next(r.endpoint for r in smart_router.routes if r.path=='/api/smart/command')
     check=next(r.endpoint for r in smart_router.routes if r.path=='/api/smart/check')
-    legacy.app.include_router(mount_agent(legacy,read_chat,command,check))
+    legacy.app.include_router(mount_agent(legacy,read_chat,command,check,populate_tasks=lambda db:populate(db,week_days(today(),rolling=True))))
     return router

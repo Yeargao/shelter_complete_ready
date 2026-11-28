@@ -252,3 +252,6 @@ def workflow_lines(group):
     if group=='驅蟲':
         lines.append('動物重新入所 → 基礎驅蟲')
     return lines
+
+def result_title(label,result,fallback=None):
+    return next((row[1] for row in RULES.get(label,()) if row[0]==result), fallback if fallback is not None else result)

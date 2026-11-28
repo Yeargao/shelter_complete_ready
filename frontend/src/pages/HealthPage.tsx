@@ -24,7 +24,7 @@ export default function HealthPage(){
     return <details key={label} open={!!openGroups[label]} onToggle={e=>{if(e.currentTarget.open!==!!openGroups[label])setOpenGroups(p=>({...p,[label]:e.currentTarget.open}))}} className="rounded-xl border border-slate-200 p-4"><summary className={`cursor-pointer font-semibold ${label==='優先確認健康狀況'?'text-red-700':label==='健康狀態待確認'?'text-orange-600':label==='健康問題追蹤'?'text-amber-600':''}`}>{healthGroupTitle(label)}（待辦 {group.filter(t=>t.state==='pending').length}／全部 {group.length}）</summary>
      <div className="mt-3 space-y-2">{group.map(t=><div key={t.id} className="weekly-task health-task" data-priority={t.label==='基礎驅蟲'?3:t.priority??4} data-done={t.state==='done'}>
        <Link to={`/animals/${t.animal_id}`} className="font-semibold"><span className="weekly-dot" aria-hidden="true"/>{t.animal_name} #{t.animal_id}</Link>
-       <div className="text-sm text-slate-600">{t.state==='done'?'✓ 已完成':'待處理'} · {t.due_date||'待確認日期'}{t.state==='done'&&t.completed_at?` · 完成 ${t.completed_at.slice(0,10)}`:''}{t.state==='pending'&&t.due_date&&t.due_date<new Date().toISOString().slice(0,10)?' · 已逾期':''}{t.state==='done'&&(t.result||t.note)?` · 回報：${reportText(t.result)}`:''}{t.note?` · 備註：${t.note}`:''}</div>
+       <div className="text-sm text-slate-600">{t.state==='done'?'✓ 已完成':'待處理'} · {t.due_date||'待確認日期'}{t.state==='done'&&t.completed_at?` · 完成 ${t.completed_at.slice(0,10)}`:''}{t.state==='pending'&&t.due_date&&t.due_date<new Date().toISOString().slice(0,10)?' · 已逾期':''}{t.state==='done'&&(t.result||t.note)?` · 回報：${reportText(t.result,undefined,t.label)}`:''}{t.note?` · 備註：${t.note}`:''}</div>
       </div>)}{!group.length&&<p className="muted">目前沒有此類任務</p>}</div>
     </details>})}</div>
   </section>

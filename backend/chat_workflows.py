@@ -120,10 +120,10 @@ def guide(db,uid,q,active,current,resolve,resource_totals,topic=None):
         sql="""SELECT t.task_id,t.label,t.animal_id,a.name,t.day,t.due FROM weekly_tasks t JOIN animals a ON a.id=t.animal_id
             WHERE a.is_active=1 AND t.state IN ('pending','in_progress')"""
         args=[]
-        if manager:sql+=' AND t.staff_id IS NULL'
+        if manager:sql+=' AND t.staff_id IS NULL AND t.earliest<=?';args.append((current+timedelta(days=6)).isoformat())
         else:sql+=' AND t.staff_id=? AND t.day=?';args.extend([staff,current.isoformat()])
         tasks=[t for t in db.execute(sql+' ORDER BY t.priority,t.due,t.task_id',args) if t['label'] in care.RULES]
-        lines=[f"目前有 {len(tasks)} 項{'待指派' if manager else '今日可回報'}照護任務。"]
+        lines=[f"目前有 {len(tasks)} 項{'未來七日內可安排的待指派' if manager else '今日可回報'}照護任務。"]
         suggestions=[]
         for t in tasks[:12]:
             label=care.display_label(t['label'])

@@ -1,3 +1,4 @@
+import {displayTaskLabel} from './taskPresentation';
 import {useEffect,useRef,useState,type ReactNode} from 'react';
 import {Link} from 'react-router-dom';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
@@ -35,7 +36,7 @@ export function CommandPreview({command:c,onNavigate}:{command:Command;onNavigat
  if(c.type==='clarify')return <p>{c.message}</p>;
  if(c.type==='rule'||c.type==='workflow')return <p>此功能已移除</p>;
 
- if(c.type==='task')return <p>建立任務：{c.name} #{c.animal_id} · {c.label} · {c.earliest} 至 {c.due}</p>;
+ if(c.type==='task')return <p>建立任務：{c.name} #{c.animal_id} · {displayTaskLabel(c.label)} · {c.earliest} 至 {c.due}</p>;
  return null;
 }
 type Recommendation={animal_id:number;name:string;steps:{label:string;existing:boolean}[]};
@@ -46,7 +47,7 @@ export function RecommendationPanel({animalId}:{animalId:number}){
  const a=useActions();const qc=useQueryClient();
  return <Fold id={'recommend:'+animalId} title="照護流程建議" defaultOpen={true}>
   {a.button('get',result?'重新整理建議':'取得建議',async()=>{setResult(await smartRequest<Recommendation>('/recommend/'+animalId));setCompleted({})})}{a.error('get')}
-  {result&&<div className="space-y-2">{result.steps.map(s=><Result key={s.label}><strong>{s.label}</strong>{s.existing||completed[s.label]?<button type="button" disabled>{completed[s.label]??'已有任務'}</button>:<div className="smart-inline"><label>日期<input type="date" min={taipeiToday()} value={dates[s.label]??taipeiToday()} onChange={e=>setDates(p=>({...p,[s.label]:e.target.value}))}/></label>{a.button(s.label,'確認新增任務',async()=>{const date=dates[s.label]??taipeiToday();const outcome=await executeCommand({type:'task',animal_id:animalId,name:result.name,label:s.label,earliest:date,due:date});setCompleted(p=>({...p,[s.label]:outcome}));await qc.invalidateQueries({queryKey:['schedule-week']});await qc.invalidateQueries({queryKey:['tasks']})},!(dates[s.label]??taipeiToday()))}</div>}{a.error(s.label)}</Result>)}{!result.steps.length&&<p>無待處理建議</p>}</div>}
+  {result&&<div className="space-y-2">{result.steps.map(s=><Result key={s.label}><strong>{displayTaskLabel(s.label)}</strong>{s.existing||completed[s.label]?<button type="button" disabled>{completed[s.label]??'已有任務'}</button>:<div className="smart-inline"><label>日期<input type="date" min={taipeiToday()} value={dates[s.label]??taipeiToday()} onChange={e=>setDates(p=>({...p,[s.label]:e.target.value}))}/></label>{a.button(s.label,'確認新增任務',async()=>{const date=dates[s.label]??taipeiToday();const outcome=await executeCommand({type:'task',animal_id:animalId,name:result.name,label:s.label,earliest:date,due:date});setCompleted(p=>({...p,[s.label]:outcome}));await qc.invalidateQueries({queryKey:['schedule-week']});await qc.invalidateQueries({queryKey:['tasks']})},!(dates[s.label]??taipeiToday()))}</div>}{a.error(s.label)}</Result>)}{!result.steps.length&&<p>無待處理建議</p>}</div>}
  </Fold>
 }
 const consistencyKey=['consistency-audit'];
