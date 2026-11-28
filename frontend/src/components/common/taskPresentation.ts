@@ -1,7 +1,6 @@
-// Only transform labels for presentation; historical SQLite task identifiers stay unchanged.
-export const healthTaskLabels=['優先確認健康狀況','健康狀態待確認','健康問題追蹤','確認驅蟲紀錄','基礎驅蟲','補做驅蟲','確認疫苗紀錄','疫苗紀錄待確認','疫苗施打','評估絕育安排'];
+// Keep historical task IDs; use the same public names everywhere.
+export const healthTaskLabels=["健康狀態待確認","優先確認健康狀況","健康問題追蹤","確認疫苗紀錄","疫苗施打","更新疫苗紀錄","確認驅蟲紀錄","基礎驅蟲","更新驅蟲狀態","更新驅蟲紀錄","評估絕育安排","絕育手術","更新絕育狀態","術後健康追蹤"];
 export const displayTaskLabel=(label:string)=>label==='優先確認健康狀況'?'傷病治療':label;
-export const reportText=(value?:string|null,resolved?:string|null)=>resolved==='no'?'否':resolved==='yes'?'是':value==='no'?'否':value==='yes'?'是':value==='healthy'?'健康':value==='sick'?'生病':value==='injured'?'受傷':value||'—';
-
-// Health administration group titles only; task records and other section names remain unchanged.
-export const healthGroupTitle=(label:string)=>label==='基礎驅蟲'?'基礎驅蟲(含確認是否驅蟲)':label==='疫苗施打'?'疫苗施打(含確認是否已注射)':displayTaskLabel(label);
+export const taskChoices:Record<string,[string,string][]>={"健康狀態待確認":[["healthy","健康"],["sick","生病"],["injured","受傷"]],"優先確認健康狀況":[["recovered","已康復"],["not_recovered","尚未康復"]],"健康問題追蹤":[["recovered","已康復"],["improving","狀況改善但未康復"],["worsening","狀況未改善／惡化"]],"確認疫苗紀錄":[["yes","已施打"],["no","未施打"]],"疫苗施打":[["done","成功"],["failed","失敗"]],"更新疫苗紀錄":[["done","已更新"]],"確認驅蟲紀錄":[["yes","已驅蟲"],["no","未驅蟲"]],"基礎驅蟲":[["done","成功"],["failed","失敗"]],"更新驅蟲狀態":[["done","已更新"]],"更新驅蟲紀錄":[["done","已更新"]],"評估絕育安排":[["already","已絕育"],["suitable","適合絕育"],["defer","暫不適合絕育"]],"絕育手術":[["done","成功"],["incomplete","未完成"]],"更新絕育狀態":[["done","已更新"]],"術後健康追蹤":[["recovered","已康復"],["not_recovered","尚未康復"],["abnormal","出現異常"]]};
+export const reportText=(value?:string|null,resolved?:string|null)=>resolved==='no'?'否':resolved==='yes'?'是':({"healthy":"健康","sick":"生病","injured":"受傷","recovered":"已康復","not_recovered":"尚未康復","improving":"狀況改善但未康復","worsening":"狀況未改善／惡化","yes":"是","no":"否","done":"已完成","failed":"失敗","already":"已絕育","suitable":"適合絕育","defer":"暫不適合絕育","incomplete":"未完成","abnormal":"出現異常"} as Record<string,string>)[value||'']||value||'—';
+export const healthGroupTitle=displayTaskLabel;

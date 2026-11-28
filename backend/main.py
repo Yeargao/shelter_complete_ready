@@ -296,6 +296,9 @@ def readmit_animal(id:int,payload:AnimalReadmitInput):
   if payload.intake_date<date.fromisoformat(animal['exit_date']):raise HTTPException(422,'重新入所日期不能早於離所日期')
   c.execute('INSERT INTO animal_stay_history(animal_id,intake_date,exit_date,exit_reason) VALUES (?,?,?,?)',(id,animal['intake_date'],animal['exit_date'],animal['exit_reason']))
   c.execute('UPDATE animals SET is_active=1,intake_date=?,exit_date=NULL,exit_reason=NULL WHERE id=?',(payload.intake_date.isoformat(),id))
+  stay=c.execute('SELECT MAX(id) FROM animal_stay_history WHERE animal_id=?',(id,)).fetchone()[0]
+  c.execute("""INSERT OR IGNORE INTO weekly_tasks(task_id,animal_id,label,skill,priority,quarters,earliest,due)
+    VALUES (?,?,'基礎驅蟲','health:observation',3,2,?,?)""",(f'readmit:{stay}',id,payload.intake_date.isoformat(),payload.intake_date.isoformat()))
  return get_animal(id)
 
 @app.get('/api/animals/{id}')
@@ -358,7 +361,8 @@ def assess(a):
  if a['vaccinated']!='yes':tasks.append('確認疫苗紀錄')
  if a['dewormed']!='yes':tasks.append('確認驅蟲紀錄')
  if a['sterilized']!='yes':tasks.append('評估絕育安排')
- if a['health_status']!='healthy':tasks.append('安排獸醫或健康紀錄複核')
+ if a['health_status'] in ('sick','injured','serious'):tasks.append('傷病治療')
+ elif a['health_status']!='healthy':tasks.append('健康狀態待確認')
  return {'mock':health_model is None,'mode':'demo' if health_model is None else 'real','ml_status':'demo' if health_model is None else 'real','ml_model':ml,'priority':'high' if a['health_status'] in ('serious','sick','injured') else 'medium' if tasks else 'low','tasks':tasks,'model_version':'health_catboost.cbm' if health_model is not None else 'synthetic-demo-health-v1','warnings':['模型標籤來自 PetFinder，輸入欄位有示範映射；結果僅供展示，不可作為醫療診斷。']}
 @app.post('/api/health/assess')
 def health_assess(animal_id:int):return assess(get_animal(animal_id))
@@ -539,6 +543,8 @@ def remove_staff(id:int):
 
 OBSOLETE_TASKS=('未來長期滯留風險','長期在所動物關懷','長期留所追蹤','定期驅蟲')
 TASK_CATALOG={'優先確認健康狀況':('health','health:veterinary',1.0,True),'健康狀態待確認':('health','health:observation',0.5,False),'疫苗紀錄待確認':('admin','admin:records',0.25,False),'疫苗施打':('health','health:veterinary',0.5,False),'基礎驅蟲':('health','health:observation',0.5,False),'評估絕育安排':('admin','admin:records',0.25,False),'健康問題追蹤':('health','health:veterinary',1.0,True),'補做驅蟲':('health','health:observation',0.5,False),'確認疫苗紀錄':('admin','admin:records',0.25,False),'確認驅蟲紀錄':('admin','admin:records',0.25,False)}
+from care_workflow import ADDITIONAL_TASKS
+TASK_CATALOG.update(ADDITIONAL_TASKS)
 class TaskChange(BaseModel):
  animal_id:int
  label:str

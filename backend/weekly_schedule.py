@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 import llm_service
+import care_workflow as care
 
 def mount(legacy):
     router = APIRouter(prefix='/api/schedule')
@@ -195,8 +196,8 @@ def mount(legacy):
                 event IN ('sick','injured','serious') ORDER BY id DESC LIMIT 1""", (animal['id'],)).fetchone()
             label = '優先確認健康狀況'
             if not event or db.execute("""SELECT 1 FROM weekly_tasks WHERE animal_id=?
-                    AND label=? AND state IN ('pending','in_progress')
-                    AND (day IS NULL OR day>=?)""", (animal['id'],label,present)).fetchone():
+                    AND label IN ('優先確認健康狀況','健康問題追蹤','術後健康追蹤') AND state IN ('pending','in_progress')
+                    AND (day IS NULL OR day>=?)""", (animal['id'],present)).fetchone():
                 continue
             if db.execute("""SELECT 1 FROM weekly_reports r JOIN weekly_tasks t ON t.task_id=r.task_id
                     WHERE t.animal_id=? AND t.label=? AND datetime(r.reported_at)>=?""",
@@ -209,7 +210,7 @@ def mount(legacy):
                 (f"health-event:{event['id']}",animal['id'],label,skill,quarters(hours),max(present,animal['intake_date'] or present),present))
         overrides = {(r['animal_id'], r['label']): r['state'] for r in db.execute('SELECT * FROM task_overrides')}
         intakes = {a['id']:a['intake_date'] or present for a in active}
-        health_labels = {'優先確認健康狀況','健康狀態待確認','健康問題追蹤'}
+        health_labels = set(care.GROUPS['健康照護'])
         for task in legacy.build_tasks(active, overrides):
             if task['label'] == '疫苗紀錄待確認':
                 label = '確認疫苗紀錄'
@@ -219,8 +220,26 @@ def mount(legacy):
                     AND label IN ('確認疫苗紀錄','疫苗紀錄待確認') AND state='done'""", (task['animal_id'],)).fetchone():
                     continue
                 task = {**task, 'label':label, 'id':f"{task['animal_id']}:{label}", 'skill':skill, 'hours':hours}
+            if task['label']=='基礎驅蟲':
+                aid=task['animal_id']
+                history=db.execute('SELECT 1 FROM animal_stay_history WHERE animal_id=?',(aid,)).fetchone()
+                existing=db.execute("""SELECT 1 FROM weekly_tasks WHERE animal_id=? AND label IN
+                    ('確認驅蟲紀錄','基礎驅蟲','更新驅蟲紀錄','更新驅蟲狀態')
+                    AND state IN ('pending','in_progress')""",(aid,)).fetchone()
+                if not history and not existing:
+                    if db.execute("SELECT 1 FROM weekly_tasks WHERE animal_id=? AND label='確認驅蟲紀錄' AND state='done'",(aid,)).fetchone():
+                        continue
+                    label='確認驅蟲紀錄'
+                    _,skill,hours,_=schedule_catalog[label]
+                    task={**task,'label':label,'id':f"{aid}:{label}",'skill':skill,'hours':hours,'due_date':None}
             if task['label'] not in schedule_catalog:
                 continue
+            group=next((labels for labels in care.GROUPS.values() if task['label'] in labels),())
+            if group:
+                marks=','.join('?' for _ in group)
+                if db.execute(f"""SELECT 1 FROM weekly_tasks WHERE animal_id=? AND label IN ({marks})
+                    AND label!=? AND state IN ('pending','in_progress')""",(task['animal_id'],*group,task['label'])).fetchone():
+                    continue
             pending = db.execute("""SELECT task_id,day FROM weekly_tasks WHERE animal_id=? AND label=?
                           AND state IN ('pending','in_progress') ORDER BY day IS NULL DESC, day DESC""",
                           (task['animal_id'], task['label'])).fetchone()
@@ -657,6 +676,29 @@ def mount(legacy):
                 'urgent_tasks':sum(t['priority']<=1 for t in pending),'open_issues':issues,
                 'schedule_status':schedule_status}
 
+    @router.get('/health-tasks')
+    def health_tasks(request: Request):
+        if request.state.user_id!=1:
+            raise HTTPException(403,'僅管理者可查看全所健康行政任務')
+        with legacy.lock,legacy.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            migrate(db)
+            populate(db,week_days(today(),rolling=True))
+            marks=','.join('?' for _ in care.RULES)
+            result=[]
+            for t in db.execute(f"""SELECT t.*,a.name AS animal_name,r.result,r.reported_at,r.note AS report_note
+                FROM weekly_tasks t JOIN animals a ON a.id=t.animal_id
+                LEFT JOIN weekly_reports r ON r.task_id=t.task_id
+                WHERE a.is_active=1 AND t.label IN ({marks}) AND t.state!='cancelled'
+                AND NOT EXISTS (SELECT 1 FROM weekly_tasks c WHERE c.task_id='carry:'||t.task_id)
+                ORDER BY COALESCE(t.due,t.earliest),t.priority,t.animal_id""",tuple(care.RULES)):
+                category,skill,hours,serious=legacy.TASK_CATALOG[t['label']]
+                result.append(dict(id=t['task_id'],animal_id=t['animal_id'],animal_name=t['animal_name'],
+                    label=t['label'],category=category,skill=skill,hours=t['quarters']/4,serious=serious,
+                    state='done' if t['state']=='done' else 'pending',due_date=t['due'] or t['earliest'],
+                    priority=t['priority'],completed_at=t['reported_at'],result=t['result'],note=t['report_note'] or t['note']))
+            return result
+
     @router.get('/week')
     def get_week(week: date, request: Request, rolling: bool = False):
         days = week_days(week, rolling)
@@ -950,14 +992,22 @@ def mount(legacy):
             label, result, animal_id = task['label'], body.result, task['animal_id']
             if label not in schedule_catalog:
                 raise HTTPException(422, '此任務類型已停用')
-            choices = {
-                '確認驅蟲紀錄': ('yes','no'), '基礎驅蟲': ('done','failed'), '補做驅蟲': ('done','failed'),
-                '健康狀態待確認': ('healthy','sick','injured'), '優先確認健康狀況': ('healthy','sick','injured'),
-                '確認疫苗紀錄': ('yes','no'), '疫苗紀錄待確認': ('yes','no'),
-                '疫苗施打': ('done','failed'), '健康問題追蹤': ('reported',),
-            }
-            if result != 'reported' and result not in choices.get(label, ('done',)):
-                raise HTTPException(422, '回報選項不適用')
+            if result not in care.allowed(label):
+                raise HTTPException(422,'回報選項不適用：'+care.outcomes(label))
+            if label=='更新疫苗紀錄' and result=='done':
+                dose=body.administered_date
+                if dose is None and not db.execute("SELECT 1 FROM vaccination_records WHERE animal_id=? AND administered_date IS NOT NULL AND next_due_date IS NOT NULL",(animal_id,)).fetchone():
+                    raise HTTPException(422,'缺少可信施打日期；請提供實際施打日期，不可假設為今天')
+                if dose is not None:
+                    if dose>today():
+                        raise HTTPException(422,'實際施打日期不可晚於今日')
+                    db.execute("""INSERT OR IGNORE INTO vaccination_records(animal_id,administered_date,next_due_date)
+                        VALUES (?,?,?)""",(animal_id,dose.isoformat(),legacy.month_after(dose,12).isoformat()))
+                db.execute("UPDATE animals SET vaccinated='yes' WHERE id=?",(animal_id,))
+            if label in ('更新驅蟲狀態','更新驅蟲紀錄') and result=='done':
+                db.execute("UPDATE animals SET dewormed='yes' WHERE id=?",(animal_id,))
+            if label=='更新絕育狀態' and result=='done':
+                db.execute("UPDATE animals SET sterilized='yes' WHERE id=?",(animal_id,))
             if label in ('基礎驅蟲','補做驅蟲') and result == 'done':
                 db.execute("""INSERT OR IGNORE INTO deworming_events
                     (animal_id,intake_date,completed_date) VALUES (?,?,?)""",
@@ -975,10 +1025,11 @@ def mount(legacy):
                         db.execute("""INSERT INTO vaccination_records (animal_id,administered_date,next_due_date)
                             VALUES (?,?,?)""", (animal_id, dose.isoformat(), legacy.month_after(dose,12).isoformat()))
                 db.execute("UPDATE animals SET vaccinated='yes' WHERE id=?", (animal_id,))
-            if result in ('healthy','sick','injured'):
+            health_result={'recovered':'healthy','abnormal':'needs_review'}.get(result,result)
+            if health_result in ('healthy','sick','injured','needs_review'):
                 old_status = db.execute('SELECT health_status FROM animals WHERE id=?', (animal_id,)).fetchone()[0]
-                db.execute('UPDATE animals SET health_status=? WHERE id=?', (result, animal_id))
-                if label == '健康狀態待確認' and old_status != result:
+                db.execute('UPDATE animals SET health_status=? WHERE id=?', (health_result, animal_id))
+                if old_status != health_result:
                     event_id = db.execute('SELECT MAX(id) FROM weekly_events WHERE animal_id=?', (animal_id,)).fetchone()[0]
                     db.execute('INSERT OR REPLACE INTO weekly_health_report_baseline VALUES (?,?,?)',
                                (task_id,old_status,event_id))
@@ -989,34 +1040,30 @@ def mount(legacy):
                     key = save(image)
                     db.execute('INSERT INTO task_photos VALUES (?,?,?,?,?,?)',
                                (uuid4().hex, task_id, animal_id, staff_id, datetime.now(TAIPEI).isoformat(), key))
-            if result in ('reported','sick','injured','failed'):
+            if result in care.ISSUE_RESULTS:
                 db.execute('INSERT INTO weekly_issues(task_id,animal_id,note) VALUES (?,?,?)', (task_id,animal_id,body.note))
             db.execute('INSERT INTO weekly_reports VALUES (?,?,?,?,?)',
                        (task_id, staff_id, result, body.note, datetime.now(TAIPEI).isoformat()))
             db.execute("UPDATE weekly_tasks SET state='done' WHERE task_id=?", (task_id,))
-            if result in ('sick','injured','failed','reported') or (
-                result == 'no' and label in ('確認驅蟲紀錄','疫苗紀錄待確認','確認疫苗紀錄')
-            ):
-                db.execute('INSERT INTO weekly_events(animal_id,event) VALUES (?,?)', (animal_id,'task_report'))
-            if result in ('sick','injured','failed') or (result=='reported' and label!='健康問題追蹤') or (
-                result == 'no' and label in ('確認驅蟲紀錄','疫苗紀錄待確認','確認疫苗紀錄')
-            ):
-                retry_label = label
-                if result in ('sick','injured') and label=='健康狀態待確認':
-                    retry_label = '優先確認健康狀況'
-                elif result in ('sick','injured','reported'):
-                    retry_label = '健康問題追蹤'
-                elif result == 'no':
-                    retry_label = '基礎驅蟲' if label=='確認驅蟲紀錄' else '疫苗施打'
-                existing = db.execute("""SELECT 1 FROM weekly_tasks WHERE animal_id=? AND label=?
-                    AND state IN ('pending','in_progress') AND (day IS NULL OR day>=?)""",
-                    (animal_id, retry_label,today().isoformat())).fetchone()
+            source_id=task_id
+            while source_id.startswith('carry:'):
+                source_id=source_id.removeprefix('carry:')
+            parent=source_id.removeprefix('followup:') if source_id.startswith('followup:') else None
+            surgery_parent=bool(parent and db.execute("SELECT 1 FROM weekly_tasks WHERE task_id=? AND label='絕育手術'",(parent,)).fetchone())
+            retry_label=care.next_task(label,result,from_surgery=surgery_parent)
+            if retry_label:
+                existing=db.execute("""SELECT 1 FROM weekly_tasks WHERE animal_id=? AND label=?
+                    AND state IN ('pending','in_progress')""",(animal_id,retry_label)).fetchone()
                 if not existing:
-                    _, skill, hours, _ = legacy.TASK_CATALOG[retry_label]
+                    _,skill,hours,urgent=legacy.TASK_CATALOG[retry_label]
+                    earliest=today().isoformat()
+                    if result in ('failed','defer','improving','not_recovered') and retry_label==label:
+                        earliest=(today()+timedelta(days=1)).isoformat()
                     db.execute("""INSERT INTO weekly_tasks(task_id,animal_id,label,skill,priority,quarters,earliest,due,note)
-                        VALUES (?,?,?,?,?,?,?,?,?)""", (f'followup:{task_id}', animal_id, retry_label, skill,
-                        0 if result in ('sick','injured') else 3,
-                        quarters(hours), today().isoformat(), today().isoformat(), body.note))
+                        VALUES (?,?,?,?,?,?,?,?,?)""",(f'followup:{task_id}',animal_id,retry_label,skill,
+                        0 if urgent else 3,quarters(hours),earliest,earliest,body.note))
+            if label in care.RULES:
+                db.execute('INSERT INTO weekly_events(animal_id,event) VALUES (?,?)',(animal_id,'task_report'))
         return {'ok': True}
 
     @router.post('/tasks/{task_id}/withdraw-report')
@@ -1060,7 +1107,7 @@ def mount(legacy):
                     AND event IN ('sick','injured','serious','health_update','intake','exit')""", (record['animal_id'],)).fetchone()[0]
                 if latest == baseline['event_id']:
                     db.execute('UPDATE animals SET health_status=? WHERE id=? AND health_status=?',
-                               (baseline['old_status'],record['animal_id'],record['result']))
+                               (baseline['old_status'],record['animal_id'],{'recovered':'healthy','abnormal':'needs_review'}.get(record['result'],record['result'])))
                     db.execute("""DELETE FROM weekly_tasks WHERE task_id=? AND state='pending'
                         AND staff_id IS NULL AND locked=0""", (f"health-event:{baseline['event_id']}",))
                 db.execute('DELETE FROM weekly_health_report_baseline WHERE task_id=?', (task_id,))

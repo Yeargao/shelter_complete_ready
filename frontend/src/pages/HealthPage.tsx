@@ -9,7 +9,7 @@ import {displayTaskLabel,healthGroupTitle,healthTaskLabels,reportText} from '../
 import './HealthPage.css';
 export default function HealthPage(){
  const animals=useQuery({queryKey:['animals','health'],queryFn:()=>api.animals('','','',0,1000)});
- const tasks=useQuery({queryKey:['tasks'],queryFn:api.tasks});
+ const tasks=useQuery({queryKey:['tasks'],queryFn:api.healthTasks});
  const [q,setQ]=useState('');
  const [openGroups,setOpenGroups]=useStored<Record<string,boolean>>('health-open-groups',{});
  const validIds=new Set((animals.data||[]).map(a=>a.id));

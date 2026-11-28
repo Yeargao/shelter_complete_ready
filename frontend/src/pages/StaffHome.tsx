@@ -8,21 +8,12 @@ import { ErrorView } from '../components/common/States';
 import { addDays, taipeiToday } from '../components/common/scheduleDates';
 import ScheduleCalendar from '../components/common/ScheduleCalendar';
 
-import {displayTaskLabel} from '../components/common/taskPresentation';
+import {displayTaskLabel,taskChoices} from '../components/common/taskPresentation';
 import TaskPhotos from '../components/common/TaskPhotos';
 import './StaffHome.css';
 
-const directChoices:Record<string,[string,string][]> = {
- '確認驅蟲紀錄': [['yes','已驅蟲'],['no','未驅蟲']],
- '基礎驅蟲': [['done','已完成']],
- '確認疫苗紀錄': [['yes','已施打'],['no','未施打']],
- '疫苗施打': [['done','已完成']],
- '評估絕育安排': [['done','已完成']],
-};
-const choices:Record<string,[string,string][]> = {
- '健康狀態待確認': [['healthy','健康'],['sick','生病'],['injured','受傷']],
- '優先確認健康狀況': [['healthy','健康'],['sick','生病'],['injured','受傷']],
-};
+const directChoices:Record<string,[string,string][]>=Object.fromEntries(Object.entries(taskChoices).filter(([label])=>['確認驅蟲紀錄','基礎驅蟲','確認疫苗紀錄','疫苗施打','評估絕育安排','更新驅蟲狀態','更新驅蟲紀錄','更新絕育狀態','絕育手術'].includes(label)));
+const choices=taskChoices;
 
 function encodePhoto(file:File) {
  return new Promise<string>((resolve,reject)=>{
@@ -50,9 +41,10 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
  const [cachedSummary,setCachedSummary]=useStored<Awaited<ReturnType<typeof api.taskSummary>>|null>('care-result:'+t.task_id,null);
  const summary=useMutation({mutationFn:()=>api.taskSummary(t.task_id),onSuccess:setCachedSummary});
  const care=cachedSummary??t.summary;
- const follow=t.label==='健康問題追蹤';
+ const follow=false;
+ const [dose,setDose]=useState('');
  const direct=directChoices[t.label];
- const needsNote=(result:string)=>['reported','sick','injured'].includes(result);
+ const needsNote=(result:string)=>['reported','sick','injured','failed','not_recovered','improving','worsening','abnormal'].includes(result);
  const result=choice;
  const displayPriority=t.display_priority??t.priority;
  const refresh=async()=>{await qc.invalidateQueries({queryKey:['schedule-week']});await qc.invalidateQueries({queryKey:['resource-overview']});};
@@ -65,7 +57,7 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
    setUpload(undefined);
    const photos=needsNote(value)?files:[];
    if(photos.length>4||photos.some(f=>f.size>5*1024*1024))throw Error('最多四張，每張最多 5 MB');
-   return api.reportWeekly(t.task_id,{result:value,note,administered_date:null,
+   return api.reportWeekly(t.task_id,{result:value,note,administered_date:dose||null,
     photos:await Promise.all(photos.map(encodePhoto))},photos.length?setUpload:undefined);
   },
   onSuccess:async()=>{setReportOpen(false);setChoice('');setNote('');setFiles([]);setUpload(undefined);await refresh();}
@@ -129,6 +121,7 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
      {!follow&&<div className="flex flex-wrap gap-2">{(choices[t.label]??[['done','完成任務']]).map(([value,label])=>
       <button type="button" key={value} disabled={report.isPending} className={choice===value?'':'secondary'} aria-pressed={choice===value} onClick={()=>setChoice(value)}>{label}</button>)}
      </div>}
+     {t.label==='更新疫苗紀錄'&&<label>實際施打日期（已有可信紀錄可留空）<input type="date" max={taipeiToday()} value={dose} onChange={e=>setDose(e.target.value)}/></label>}
      {needsNote(result)&&<label>情況說明（選填）<textarea value={note} onChange={e=>setNote(e.target.value)}/></label>}
      {needsNote(result)&&<>
       <label>選擇照片<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>setFiles(Array.from(e.target.files??[]))}/></label>

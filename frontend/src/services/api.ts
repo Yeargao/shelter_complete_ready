@@ -107,6 +107,7 @@ export const api = {
   batchReassign:(task_ids:string[],staff_id:number)=>request<{results:object[];count:number}>('/api/staff/assignments/batch',{method:'POST',body:JSON.stringify({task_ids,staff_id})}),
   reassign:(task_id:string,staff_id:number)=>request<object>(`/api/staff/assignments/${encodeURIComponent(task_id)}`,{method:'PATCH',body:JSON.stringify({staff_id})}),
   staffAssignments:()=>request<{assignments:Array<{task_id:string;animal_id:number;animal_name:string;staff_id:number|null;staff_name:string|null;category:string;label:string;date:string|null;hours:number;state:string;start_time?:string|null;end_time?:string|null;result?:string|null;resolved?:string|null;note?:string|null;administered_date?:string|null}>;planning_start:string;reset_mode?:boolean;note:string}>("/api/staff/assignments"),
+  healthTasks:()=>request<Task[]>("/api/schedule/health-tasks"),
   tasks:()=>request<Task[]>("/api/tasks"),
   setTask:(body:{animal_id:number;label:string;state:"pending"|"done"|"removed";result?:"healthy"|"sick"|"injured"|"yes"|"no";resolved?:"yes"|"no";note?:string;administered_date?:string;edit_report?:boolean})=>request<object>("/api/tasks",{method:"PUT",body:JSON.stringify(body)}),
   staff:(profile_id:number)=>request<Staff[]>(`/api/resources/staff?profile_id=${profile_id}`),
