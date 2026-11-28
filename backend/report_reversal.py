@@ -235,7 +235,7 @@ def restore_clinical(db, record):
                 preserved.append(table)
                 continue
             if table=='vaccination_records':
-                if db.execute('SELECT 1 FROM task_vaccination_link WHERE record_id=?',(row['id'],)).fetchone():
+                if db.execute('SELECT 1 FROM task_vaccination_link WHERE record_id=? AND animal_id=?',(row['id'],aid)).fetchone():
                     preserved.append(table)
                     continue
                 db.execute('DELETE FROM vaccination_records WHERE id=? AND animal_id=?',(row['id'],aid))

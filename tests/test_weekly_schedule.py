@@ -1,6 +1,7 @@
 
 """HTTP regression tests with real CP-SAT and a separate temporary SQLite per test."""
 import base64
+import json
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
@@ -368,14 +369,14 @@ class WeeklyTests(unittest.TestCase):
                 payload={'result':result}
                 if label=='更新疫苗紀錄':payload['administered_date']=MONDAY
                 self.request('POST',path+'/report',payload,self.staff)
-                self.request('POST',path+'/withdraw-report',{'mode':'correction','reason':'測試誤報'},self.staff)
+                withdrawal=self.request('POST',path+'/withdraw-report',{'mode':'correction','reason':'測試誤報'},self.staff).json()
                 with self.main.connect() as db:
                     self.assertEqual(db.execute('SELECT state FROM weekly_tasks WHERE task_id=?',(task,)).fetchone()[0],'pending')
                     self.assertIsNone(db.execute('SELECT 1 FROM weekly_reports WHERE task_id=?',(task,)).fetchone())
                     self.assertIsNone(db.execute('SELECT 1 FROM weekly_issues WHERE task_id=?',(task,)).fetchone())
                     self.assertEqual(db.execute('SELECT health_status,vaccinated,dewormed,sterilized FROM animals WHERE id=?',(i,)).fetchone()[:],('healthy','no','no','no'))
                     for table in ('vaccination_records','deworming_events'):
-                        self.assertEqual(db.execute(f'SELECT count(*) FROM {table} WHERE animal_id=?',(i,)).fetchone()[0],0)
+                        self.assertEqual(db.execute(f'SELECT count(*) FROM {table} WHERE animal_id=?',(i,)).fetchone()[0],0,(table,withdrawal,[dict(r) for r in db.execute(f'SELECT * FROM {table} WHERE animal_id=?',(i,))],json.loads(db.execute('SELECT payload FROM weekly_report_withdrawals WHERE task_id=?',(task,)).fetchone()[0])['effects']))
                 self.request('POST',path+'/report',payload,self.staff)
                 with self.main.connect() as db:
                     self.assertEqual(db.execute('SELECT count(*) FROM weekly_reports WHERE task_id=?',(task,)).fetchone()[0],1)
@@ -399,11 +400,11 @@ class WeeklyTests(unittest.TestCase):
                 self.assertIsNotNone(db.execute("SELECT 1 FROM weekly_task_operation_history WHERE task_id=? AND operation='animal_exit'",(task,)).fetchone())
 
     def test_manual_placement_rejects_date_before_task_earliest(self):
-        task = self.request('POST','/api/schedule/tasks',{'label':'確認驅蟲紀錄','animal_id':1,
+        task = self.request('POST','/api/schedule/tasks',{'label':'健康問題追蹤','animal_id':1,
             'earliest':TUESDAY,'due':TUESDAY,'priority':3}).json()['task_id']
-        self.place(task,1,day=MONDAY,expected=422)
-        self.place(task,1,day=TUESDAY)
-        self.request('POST',f'/api/schedule/tasks/{task}/report',{'result':'no'},self.staff,409)
+        self.place(task,2,day=MONDAY,start='10:00',expected=422)
+        self.place(task,2,day=TUESDAY,start='10:00')
+        self.request('POST',f'/api/schedule/tasks/{task}/report',{'result':'recovered'},self.other,409)
 
     def test_manual_skill_break_overlap_cross_day_and_budgets(self):
         tid = self.add('健康問題追蹤')
