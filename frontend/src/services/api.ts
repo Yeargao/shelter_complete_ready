@@ -81,6 +81,7 @@ export const api = {
   createWeeklyTask:(body:object)=>request<object>('/api/schedule/tasks',{method:'POST',body:JSON.stringify(body)}),
   saveShift:(s:WeeklyShift)=>request<object>(`/api/schedule/shifts/${s.id}/${s.day}`,{method:'PUT',body:JSON.stringify(s)}),
   resolveIssue:(id:string)=>request<object>('/api/schedule/tasks/'+encodeURIComponent(id)+'/resolve',{method:'POST'}),
+  reopenIssue:(id:string)=>request<object>('/api/schedule/tasks/'+encodeURIComponent(id)+'/reopen-issue',{method:'POST'}),
   taskEvent:(id:string,body:object)=>request<object>('/api/schedule/tasks/'+encodeURIComponent(id)+'/event',{method:'POST',body:JSON.stringify(body)}),
   async taskPhoto(id:string,photo:string) {
    const response=await fetch(base+'/api/schedule/tasks/'+encodeURIComponent(id)+'/photos/'+encodeURIComponent(photo),{headers:{Authorization:'Bearer '+sessionStorage.getItem('shelter_token')}});

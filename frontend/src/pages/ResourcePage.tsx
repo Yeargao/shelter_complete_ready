@@ -50,6 +50,7 @@ export default function ResourcePage() {
  const move=useMutation({mutationFn:({id,body}:{id:string;body:Parameters<typeof api.place>[1]})=>api.place(id,body),onSuccess:async()=>{setNotice('已儲存指派');setSelected(undefined);await refresh();}});
  const create=useMutation({mutationFn:async(body:Parameters<typeof api.createWeeklyTask>[0])=>{const check=await smartRequest<Check>('/check',body);if(!check.ok)throw Error(check.issues.join('；'));return api.createWeeklyTask(body)},onSuccess:async()=>{setPoolTab('pending');await refresh();}});
  const resolve=useMutation({mutationFn:api.resolveIssue,onSuccess:async()=>{setSelected(undefined);await refresh();}});
+ const reverse=useMutation({mutationFn:({id,action}:{id:string;action:'reset_start'|'reopen_issue'})=>action==='reopen_issue'?api.reopenIssue(id):api.taskEvent(id,{event:'reset_start'}),onSuccess:async()=>{setSelected(undefined);await refresh();}});
  const event=useMutation({mutationFn:({id,date}:{id:string;date?:string})=>api.taskEvent(id,date?{event:'delay',earliest:date}:{event:'start'}),onSuccess:async()=>{setSelected(undefined);await refresh();}});
  const saveShift=useMutation({mutationFn:api.saveShift,onSuccess:refresh});
  const saveStaff=useMutation({mutationFn:(staff:Staff)=>api.updateStaff(staff.id,staff),
@@ -65,7 +66,7 @@ export default function ResourcePage() {
  const completedPool=tasks.filter(t=>t.state==='done'&&[t.label,displayTaskLabel(t.label),t.animal_name,t.animal_id].join(' ').toLowerCase().includes(search.toLowerCase()));
  const visiblePool=(poolTab==='done'?completedPool:pool.filter(t=>poolTab==='derived'?t.is_derived:!t.is_derived))
   .filter(t=>!eligibleOnly||focusedWorker?.skills.includes(t.skill));
- const choose=(t:WeeklyTask)=>{setSelected(t);setDestination({staff_id:t.staff_id??sid??0,day:t.day??(day<taipeiToday()?taipeiToday():day),start_time:t.start_time??'09:00',locked:t.staff_id===null||Boolean(t.locked)});};
+ const choose=(t:WeeklyTask)=>{setSelected(t);setDestination({staff_id:t.staff_id??sid??0,day:t.day??[day,taipeiToday(),t.earliest].sort()[2],start_time:t.start_time??'09:00',locked:t.staff_id===null||Boolean(t.locked)});};
  const drop=(id:string,staff_id:number,date?:string,start_time?:string)=>{
   if(id&&!move.isPending)move.mutate({id,body:{staff_id,day:date,start_time,locked:true}});
  };
@@ -79,6 +80,7 @@ export default function ResourcePage() {
  };
  const dropReason=(task:WeeklyTask,shift:WeeklyShift|undefined,date:string,start:number)=>{
   if(date<taipeiToday())return '歷史排程只供查閱';
+   if(date<task.earliest)return '不可早於任務最早可安排日期';
   if(!shift?.attending)return '員工未出勤';
   if(!shift.skills.includes(task.skill))return '技能不符';
   const end=start+task.hours*4;
@@ -154,7 +156,7 @@ export default function ResourcePage() {
     {preview.isPending&&<p role="status">正在計算七天排程…</p>}
     {historical&&<p>歷史週只供查閱</p>}
     {notice&&<p role="status">{notice}</p>}
-    {[preview.error,apply.error,move.error,event.error].filter(Boolean).map((error,i)=><ErrorView key={i} error={error}/>)}
+    {[preview.error,apply.error,move.error,event.error,resolve.error,reverse.error].filter(Boolean).map((error,i)=><ErrorView key={i} error={error}/>)}
     {workers.length>0&&<details open><summary>全員每日工時 · {day}</summary><ul className="ux-workload">
      {workers.map(w=>{
       const assigned=tasks.filter(t=>t.staff_id===w.id&&t.day===day&&t.state!=='cancelled').reduce((total,t)=>total+t.hours,0);
@@ -181,7 +183,8 @@ export default function ResourcePage() {
      {selected.note&&<p>{selected.note}</p>}
      {selected.report&&<p>回報：{selected.report.result} {selected.report.note}</p>}
      {selected.issue&&<p>{selected.issue.resolved_at?'問題已解決':'問題待處理'} {!selected.issue.resolved_at&&
-      <button type="button" className="secondary" disabled={resolve.isPending} onClick={()=>resolve.mutate(selected.task_id)}>標記已解決</button>}</p>}
+      <button type="button" className="secondary" disabled={resolve.isPending} onClick={()=>resolve.mutate(selected.task_id)}>標記已解決</button>}{selected.issue.resolved_at&&<button type="button" className="secondary" disabled={reverse.isPending} onClick={()=>{if(window.confirm('確認此問題仍需處理？'))reverse.mutate({id:selected.task_id,action:'reopen_issue'});}}>取消已解決標記</button>}</p>}
+      {selected.state==='in_progress'&&<button type="button" className="secondary" disabled={reverse.isPending} onClick={()=>{if(window.confirm('確認任務尚未實際開始，恢復待辦？'))reverse.mutate({id:selected.task_id,action:'reset_start'});}}>恢復待辦</button>}
      {selected.state==='done'&&<TaskPhotos task={selected}/>}
      {selected.state==='pending'&&(!selected.day||selected.day>=taipeiToday())&&<form className="weekly-toolbar" onSubmit={e=>{e.preventDefault();move.mutate({id:selected.task_id,body:destination});}}>
      <select aria-label="指派員工" value={destination.staff_id} onChange={e=>setDestination({...destination,staff_id:Number(e.target.value)})}>{workers.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</select>
@@ -189,7 +192,7 @@ export default function ResourcePage() {
      <input aria-label="開始時間" type="time" step={900} value={destination.start_time} required onChange={e=>setDestination({...destination,start_time:e.target.value})}/>
      <label className="weekly-checkbox"><input type="checkbox" checked={destination.locked} onChange={e=>setDestination({...destination,locked:e.target.checked})}/>鎖定</label>
      <button disabled={move.isPending}>儲存指派</button>
-     {selected.staff_id&&<small className="muted">如需移回任務池，請使用七天最佳化派工。</small>}
+     {selected.staff_id&&<button type="button" className="secondary" disabled={move.isPending} onClick={()=>{if(window.confirm('取消此任務指派並釋放工時？'))move.mutate({id:selected.task_id,body:{staff_id:null}});}}>取消指派</button>}
      {!selected.locked&&<button type="button" className="secondary" disabled={event.isPending} onClick={()=>event.mutate({id:selected.task_id,date:destination.day})}>延遲至所選日期</button>}
      {selected.staff_id&&selected.day===taipeiToday()&&<button type="button" className="secondary"
       onClick={()=>event.mutate({id:selected.task_id})}>標記執行中</button>}

@@ -44,6 +44,9 @@ def mount(legacy):
             id INTEGER PRIMARY KEY, task_id TEXT NOT NULL, staff_id INTEGER NOT NULL,
             withdrawn_at TEXT NOT NULL, payload TEXT NOT NULL)""")
         db.execute('CREATE TABLE IF NOT EXISTS weekly_new_tasks (task_id TEXT PRIMARY KEY)')
+        db.execute("""CREATE TABLE IF NOT EXISTS weekly_task_operation_history (
+            id INTEGER PRIMARY KEY, task_id TEXT NOT NULL, user_id INTEGER, operation TEXT NOT NULL,
+            occurred_at TEXT NOT NULL, before_payload TEXT NOT NULL)""")
         db.execute("""CREATE TABLE IF NOT EXISTS weekly_health_report_baseline (
             task_id TEXT PRIMARY KEY, old_status TEXT, event_id INTEGER NOT NULL)""")
         db.execute("""CREATE TABLE IF NOT EXISTS weekly_plans (
@@ -72,11 +75,18 @@ def mount(legacy):
                 CASE WHEN NEW.is_active=0 THEN 'exit' WHEN OLD.is_active=0 THEN 'intake'
                      WHEN NEW.health_status IN ('sick','injured','serious') THEN NEW.health_status ELSE 'health_update' END);
             END""")
-        db.execute("""CREATE TRIGGER IF NOT EXISTS weekly_exit_tasks AFTER UPDATE OF is_active ON animals
-            WHEN OLD.is_active=1 AND NEW.is_active=0
-            BEGIN UPDATE weekly_tasks SET state='cancelled', reason='動物已離所'
-              WHERE animal_id=NEW.id AND state='pending'
-              AND COALESCE(day,earliest)>=COALESCE(NEW.exit_date,date('now','+8 hours')); END""")
+        if not db.execute("SELECT 1 FROM sqlite_master WHERE type='trigger' AND name='weekly_exit_tasks_v2'").fetchone():
+            db.execute("DROP TRIGGER IF EXISTS weekly_exit_tasks")
+            db.execute("""CREATE TRIGGER weekly_exit_tasks_v2 AFTER UPDATE OF is_active ON animals
+                WHEN OLD.is_active=1 AND NEW.is_active=0
+                BEGIN
+                  INSERT INTO weekly_task_operation_history(task_id,user_id,operation,occurred_at,before_payload)
+                    SELECT task_id,1,'animal_exit',CURRENT_TIMESTAMP,
+                      json_object('state',state,'staff_id',staff_id,'day',day,'start',start,'locked',locked,'reason',reason)
+                    FROM weekly_tasks WHERE animal_id=NEW.id AND state IN ('pending','in_progress');
+                  UPDATE weekly_tasks SET state='cancelled', reason='動物已離所'
+                    WHERE animal_id=NEW.id AND state IN ('pending','in_progress');
+                END""")
         db.execute("""CREATE TRIGGER IF NOT EXISTS weekly_staff_change AFTER UPDATE OF skills,attending,
             weekly_hours,available_hours,scheduled_hours,shift_start,shift_end,break_start,break_end ON staff
             WHEN NEW.profile_id=1 BEGIN INSERT INTO weekly_events(staff_id,event) VALUES (NEW.id,'staff_change'); END""")
@@ -141,6 +151,12 @@ def mount(legacy):
     def rows(db, sql, params=()):
         return [dict(r) for r in db.execute(sql, params)]
 
+
+    def audit_task(db, task, uid, operation, extra=None):
+        payload = {'task': dict(task), **(extra or {})}
+        db.execute("""INSERT INTO weekly_task_operation_history(task_id,user_id,operation,occurred_at,before_payload)
+            VALUES (?,?,?,?,?)""", (task['task_id'],uid,operation,datetime.now(TAIPEI).isoformat(),
+                                     json.dumps(payload,ensure_ascii=False)))
 
     def event_state(db, monday):
         event = db.execute('SELECT COALESCE(MAX(id),0) FROM weekly_events').fetchone()[0]
@@ -824,10 +840,16 @@ def mount(legacy):
         with legacy.lock, legacy.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             migrate(db)
-            populate(db, days, reschedule_overdue=True)
-            workers, shifts = shifts_for(db, days)
-            tasks = tasks_for(db, days)
             version = revision(db)
+            # Only apply may persist carry-forward and population changes.
+            db.execute('SAVEPOINT preview_population')
+            try:
+                populate(db, days, reschedule_overdue=True)
+                workers, shifts = shifts_for(db, days)
+                tasks = tasks_for(db, days)
+            finally:
+                db.execute('ROLLBACK TO preview_population')
+                db.execute('RELEASE preview_population')
         # Preview must not change any existing placement. Only unlock invalid lunch
         # placements in the solver's private copy; apply handles the actual update.
         lunch_start, lunch_end = legacy.SHELTER_LUNCH
@@ -842,7 +864,7 @@ def mount(legacy):
         plan_id = uuid4().hex
         with legacy.connect() as db:
             db.execute('INSERT INTO weekly_plans VALUES (?,?,?,?)',
-                       (plan_id, days[0], version, json.dumps({'changes': changes, 'status': status})))
+                       (plan_id, days[0], version, json.dumps({'changes': changes, 'status': status, 'days': days})))
         return {'plan_id': plan_id if status in ('OPTIMAL', 'FEASIBLE') else None,
                 'changes': changes, 'solver_status': status}
 
@@ -858,7 +880,11 @@ def mount(legacy):
             proposal = json.loads(plan['body'])
             if not isinstance(proposal, dict) or proposal.get('status') not in ('OPTIMAL', 'FEASIBLE'):
                 raise HTTPException(409, '此預覽沒有可套用的可行解')
+            if proposal.get('days'):
+                populate(db, proposal['days'], reschedule_overdue=True)
             for change in proposal['changes']:
+                if not db.execute('SELECT 1 FROM weekly_tasks WHERE task_id=?',(change['task_id'],)).fetchone():
+                    raise HTTPException(409, '預覽任務已變更，請重新預覽')
                 sid, day, start = change['after']
                 if sid is not None and start is not None:
                     length = db.execute('SELECT quarters FROM weekly_tasks WHERE task_id=?',(change['task_id'],)).fetchone()[0]
@@ -882,7 +908,7 @@ def mount(legacy):
 
 
     @router.patch('/tasks/{task_id}/placement')
-    def move(task_id: str, body: MoveInput):
+    def move(task_id: str, body: MoveInput, request: Request):
         with legacy.lock, legacy.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             migrate(db)
@@ -897,11 +923,20 @@ def mount(legacy):
             if task['state'] != 'pending' or (task['day'] and task['day'] < today().isoformat()):
                 raise HTTPException(409, '僅可移動尚未執行的任務')
             if body.staff_id is None:
-                raise HTTPException(409, '已指派任務只能透過七天最佳化派工重新移回任務池')
+                if body.day is not None or body.start_time is not None:
+                    raise HTTPException(422, '取消指派不可同時指定日期或時間')
+                if task['staff_id'] is not None:
+                    audit_task(db, task, request.state.user_id, 'unassign')
+                    db.execute("""UPDATE weekly_tasks SET staff_id=NULL,day=NULL,start=NULL,locked=0,
+                        reason='管理者取消指派' WHERE task_id=?""",(task_id,))
+                    db.execute("INSERT INTO weekly_events(animal_id,event) VALUES (?,'task_unassigned')",(task['animal_id'],))
+                return {'ok': True}
             if body.day is None or body.start_time is None or body.day < today():
                 raise HTTPException(422, '請指定今天或未來的日期及開始時間')
             days = week_days(body.day)
             day, start = body.day.isoformat(), slot(body.start_time)
+            if day < task['earliest']:
+                raise HTTPException(422, '不可早於任務最早可安排日期')
             _, shifts = shifts_for(db, days)
             key = body.staff_id, day
             shift = shifts.get(key)
@@ -919,6 +954,7 @@ def mount(legacy):
                     raise HTTPException(409, '該時間與既有任務重疊')
             if length + sum(t['quarters'] for t in assignments if t['day'] == day) > daily_limit(shift):
                 raise HTTPException(409, '超出每日可用工時')
+            audit_task(db, task, request.state.user_id, 'assign')
             db.execute('UPDATE weekly_tasks SET staff_id=?,day=?,start=?,locked=?,reason=NULL WHERE task_id=?',
                        (body.staff_id, day, start, body.locked, task_id))
         return {'ok': True}
@@ -1203,11 +1239,22 @@ def mount(legacy):
         earliest: date | None = None
 
     @router.post('/tasks/{task_id}/event')
-    def task_event(task_id: str, body: TaskEvent):
+    def task_event(task_id: str, body: TaskEvent, request: Request):
         with legacy.lock, legacy.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             migrate(db)
             task = db.execute('SELECT * FROM weekly_tasks WHERE task_id=?', (task_id,)).fetchone()
+            if body.event == 'reset_start':
+                if not task or task['state'] != 'in_progress':
+                    raise HTTPException(409, '僅可復原誤標為執行中的任務')
+                if db.execute('SELECT 1 FROM weekly_reports WHERE task_id=?',(task_id,)).fetchone():
+                    raise HTTPException(409, '已有回報，請先核對回報紀錄')
+                if not db.execute('SELECT 1 FROM animals WHERE id=? AND is_active=1',(task['animal_id'],)).fetchone():
+                    raise HTTPException(409, '動物已離所')
+                audit_task(db, task, request.state.user_id, 'reset_start')
+                db.execute("UPDATE weekly_tasks SET state='pending' WHERE task_id=?",(task_id,))
+                db.execute("INSERT INTO weekly_events(animal_id,event) VALUES (?,'task_start_reset')",(task['animal_id'],))
+                return {'ok': True}
             if not task or task['state'] != 'pending':
                 raise HTTPException(409, '此任務已開始、已結束或不存在')
             if body.event == 'start' and task['day'] == today().isoformat():
@@ -1232,6 +1279,20 @@ def mount(legacy):
             db.execute("""INSERT INTO weekly_events(animal_id,event)
                 SELECT animal_id,'issue_resolved' FROM weekly_issues WHERE task_id=?""", (task_id,))
         return {'ok': True}
+
+    @router.post('/tasks/{task_id}/reopen-issue')
+    def reopen_issue(task_id: str, request: Request):
+        with legacy.lock, legacy.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            migrate(db)
+            task = db.execute('SELECT * FROM weekly_tasks WHERE task_id=?',(task_id,)).fetchone()
+            issue = db.execute('SELECT * FROM weekly_issues WHERE task_id=?',(task_id,)).fetchone()
+            if not task or not issue or not issue['resolved_at']:
+                raise HTTPException(409, '找不到已結案問題')
+            audit_task(db, task, request.state.user_id, 'reopen_issue', {'issue':dict(issue)})
+            db.execute('UPDATE weekly_issues SET resolved_at=NULL WHERE task_id=?',(task_id,))
+            db.execute("INSERT INTO weekly_events(animal_id,event) VALUES (?,'issue_reopened')",(task['animal_id'],))
+        return {'ok':True}
 
     with legacy.lock, legacy.connect() as db:
         db.execute('BEGIN IMMEDIATE')

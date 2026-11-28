@@ -237,12 +237,14 @@ class WeeklyTests(unittest.TestCase):
             self.assertFalse(any(t['task_id']=='carry:followup:past' for t in week['tasks']))
         with self.main.connect() as db:
             self.assertEqual(db.execute("SELECT staff_id FROM weekly_tasks WHERE task_id='followup:past'").fetchone()[0],2)
-        self.request('POST',PREVIEW)
+        plan = self.request('POST',PREVIEW).json()
+        with self.main.connect() as db:
+            self.assertIsNone(db.execute("SELECT 1 FROM weekly_tasks WHERE task_id='carry:followup:past'").fetchone())
+        self.request('POST','/api/schedule/apply/'+plan['plan_id'])
         for week in (self.week(),self.week()):
             carried = [t for t in week['tasks'] if t['label']=='健康問題追蹤']
             self.assertEqual([t['task_id'] for t in carried],['carry:followup:past'])
             self.assertTrue(carried[0]['is_derived'])
-            self.assertIsNone(carried[0]['staff_id'])
         self.request('POST','/api/schedule/tasks/followup:past/report',
                      {'result':'reported','note':'Observation'},self.other,409)
 
@@ -262,11 +264,36 @@ class WeeklyTests(unittest.TestCase):
             self.assertEqual(db.execute('SELECT COUNT(*) FROM weekly_report_withdrawals WHERE task_id=?', (task,)).fetchone()[0], 1)
         self.request('POST', path+'/report', {'result':'yes'}, self.staff)
 
-    def test_manual_placement_accepts_date_before_task_earliest(self):
+    def test_manager_single_task_inverse_operations(self):
+        task = self.add('健康狀態待確認')
+        self.place(task,1,start='10:00')
+        path = f'/api/schedule/tasks/{task}'
+        self.request('PATCH',path+'/placement',{'staff_id':None},self.staff,403)
+        self.request('POST',path+'/event',{'event':'start'})
+        self.request('PATCH',path+'/placement',{'staff_id':None},expected=409)
+        self.request('POST',path+'/event',{'event':'reset_start'})
+        self.request('PATCH',path+'/placement',{'staff_id':None})
+        with self.main.connect() as db:
+            row = db.execute('SELECT * FROM weekly_tasks WHERE task_id=?',(task,)).fetchone()
+            self.assertEqual((row['state'],row['staff_id'],row['day'],row['start'],row['locked']),
+                             ('pending',None,None,None,0))
+            events = [r[0] for r in db.execute('SELECT operation FROM weekly_task_operation_history WHERE task_id=? ORDER BY id',(task,))]
+            self.assertEqual(events,['assign','reset_start','unassign'])
+        self.place(task,1,start='10:00')
+        self.request('POST',path+'/report',{'result':'injured'},self.staff)
+        self.request('POST',path+'/resolve')
+        self.request('POST',path+'/reopen-issue',headers=self.staff,expected=403)
+        self.request('POST',path+'/reopen-issue')
+        with self.main.connect() as db:
+            self.assertIsNone(db.execute('SELECT resolved_at FROM weekly_issues WHERE task_id=?',(task,)).fetchone()[0])
+            self.assertIsNotNone(db.execute('SELECT 1 FROM weekly_reports WHERE task_id=?',(task,)).fetchone())
+
+    def test_manual_placement_rejects_date_before_task_earliest(self):
         task = self.request('POST','/api/schedule/tasks',{'label':'確認驅蟲紀錄','animal_id':1,
             'earliest':TUESDAY,'due':TUESDAY,'priority':3}).json()['task_id']
-        self.place(task,1,day=MONDAY)
-        self.request('POST',f'/api/schedule/tasks/{task}/report',{'result':'no'},self.staff)
+        self.place(task,1,day=MONDAY,expected=422)
+        self.place(task,1,day=TUESDAY)
+        self.request('POST',f'/api/schedule/tasks/{task}/report',{'result':'no'},self.staff,409)
 
     def test_manual_skill_break_overlap_cross_day_and_budgets(self):
         tid = self.add('健康問題追蹤')
