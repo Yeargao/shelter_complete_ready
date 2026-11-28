@@ -150,17 +150,42 @@ def evaluate():
         assert c['type']=='animal_action' and c['animal_id']==1
         execute(c,decision='cancel',sid=sid)
     test('日期缺漏後續補齊',missing_date)
-    db.close()
     import care_workflow as care
-    from care_workflow_cases import CASES
+    from care_dialogue_cases import DIALOGUES
+    import care_dialogue as cd
+    db.executescript("""
+      CREATE TABLE staff(id INTEGER PRIMARY KEY,profile_id INTEGER);
+      INSERT INTO staff VALUES(1,1);
+      CREATE TABLE weekly_staff_accounts(user_id INTEGER,staff_id INTEGER);
+      INSERT INTO weekly_staff_accounts VALUES(2,1);
+      CREATE TABLE weekly_tasks(task_id TEXT PRIMARY KEY,animal_id INTEGER,label TEXT,day TEXT,state TEXT,staff_id INTEGER);
+    """)
     recognition=[];transitions=[]
-    for label,phrase,expected_code,expected_next in CASES:
-        actual=care.result_code(label,phrase)
-        correct=actual==expected_code
-        transition=care.next_task(label,actual)==expected_next
+    for label,phrase,expected_code,expected_next in DIALOGUES:
+        tid=uuid4().hex;sid=uuid4().hex;actual=None;preview='';correct=False;transition=False
+        try:
+            with db:
+                db.execute('DELETE FROM weekly_tasks')
+                db.execute("INSERT INTO weekly_tasks VALUES (?,?,?,?,'pending',1)",(tid,1,label,agent.today().isoformat()))
+            q='Lulu '+phrase
+            first=send(q+' 下一步',staff,sid)
+            preview=first.get('answer',{}).get('answer','')
+            answer=send(q,staff,sid)
+            if answer.get('command',{}).get('type')=='clarify':
+                msg=answer['command']['message']
+                if '施打日期' in msg:answer=send(agent.today().isoformat(),staff,sid)
+                elif '略過備註' in msg:answer=send('略過備註',staff,sid)
+            cmd=answer.get('command',{})
+            actual=cmd.get('result')
+            correct=cmd.get('type')=='staff_report' and cmd.get('task_id')==tid and actual==expected_code
+            marker=care.display_label(expected_next) if expected_next else '結束'
+            transition=correct and not first.get('command') and marker in preview and len(preview)<160
+        except Exception as exc:
+            preview=type(exc).__name__+': '+str(exc)
         recognition.append(correct);transitions.append(transition)
-        cases.append({'name':'照護流程 · '+care.display_label(label)+'／'+phrase,'passed':correct and transition,
-                      'detail':'結果：'+str(actual)+'；後續：'+care.describe_next(label,actual)})
+        cases.append({'name':'新手對話 · '+care.display_label(label)+'／'+phrase+' 下一步 → 回報','passed':correct and transition,
+                      'detail':'辨識：'+str(actual)+'；'+preview})
+    db.close()
     surgery=care.next_task('更新絕育狀態','done',from_surgery=True)=='術後健康追蹤'
     transitions.append(surgery)
     cases.append({'name':'絕育手術來源 · 更新絕育狀態','passed':surgery,'detail':'應接續術後健康追蹤'})
@@ -170,8 +195,8 @@ def evaluate():
     task_names=['確認健康修改','多欄位原子修改及不虛構日期','省略對象的驅蟲日期寫入']
     context_names=['上下文與未確認不寫入','未知對象不沿用 Lulu']
     metrics=[
-      metric('Care Outcome Recognition',pct(sum(recognition),len(recognition)),len(recognition),'四類照護結果詞彙的本機精確辨識；非自然語言泛化測試'),
-      metric('Care Transition Coverage',pct(sum(transitions),len(transitions)),len(transitions),'獨立預期轉移表；不含實際派工、疫苗日期及重新入所 API'),
+      metric('Care Outcome Recognition',pct(sum(recognition),len(recognition)),len(recognition),'獨立口語情境的隔離 chatbot 對話與回報草案辨識；非 Gemini 或真實流量泛化測試'),
+      metric('Care Transition Coverage',pct(sum(transitions),len(transitions)),len(transitions),'獨立口語情境及預期轉移；完整 HTTP 多輪測試另見 tests/test_care_workflow_dialogue.py'),
       metric('Intent Accuracy',pct(sum(a==b for a,b in zip(edit_expected,edit_pred)),len(examples)),len(examples),'本機修改候選二元辨識；非全意圖分類'),
       metric('Multi-intent F1',pct(2*multi_tp,2*multi_tp+multi_fp+multi_fn),len(examples),'多欄位意圖 micro-F1；不含所有舊有查詢類別'),
       metric('Slot F1',pct(2*slot_tp,2*slot_tp+slot_fp+slot_fn),len(examples),'欄位與標準化日期精確配對 micro-F1'),

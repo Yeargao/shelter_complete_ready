@@ -215,6 +215,103 @@ class CareDialogueTests(fixture.DialogueTests):
             with self.main.connect() as db:
                 self.assertIsNone(db.execute('SELECT 1 FROM weekly_reports WHERE task_id=?',(tid,)).fetchone())
 
+    def test_heldout_step_by_step_dialogues(self):
+        from care_dialogue_cases import DIALOGUES
+        from care_workflow import display_label
+        for label,utterance,expected,target in DIALOGUES:
+            with self.subTest(label=label,utterance=utterance):
+                self.reset_care()
+                tid=self.assign(label)
+                name=self.names[0]
+                self.session=uuid4().hex
+                self.assertIn('照護人員工作台',self.send('我剛入職，不知道從哪裡開始',self.staff)['answer']['answer'])
+                self.assertIn(name,self.send('我的照護任務回報選項 動物 #'+str(self.ids[0]),self.staff)['answer']['answer'])
+                question=name+' '+utterance
+                answer=self.send(question+' 下一步',self.staff)
+                self.assertNotIn('command',answer)
+                self.assertLess(len(answer['answer']['answer']),160)
+                self.assertIn(display_label(target) if target else '結束',answer['answer']['answer'])
+                with self.main.connect() as db:
+                    self.assertIsNone(db.execute('SELECT 1 FROM weekly_reports WHERE task_id=?',(tid,)).fetchone())
+                turn=self.send(question,self.staff)
+                if turn.get('command',{}).get('type')=='clarify':
+                    msg=turn['command']['message']
+                    if '施打日期' in msg:turn=self.send(self.day,self.staff)
+                    elif '略過備註' in msg:turn=self.send('略過備註',self.staff)
+                cmd=turn['command']
+                self.assertEqual((cmd['type'],cmd['task_id'],cmd['result']),('staff_report',tid,expected))
+                with self.main.connect() as db:
+                    self.assertIsNone(db.execute('SELECT 1 FROM weekly_reports WHERE task_id=?',(tid,)).fetchone())
+                payload={k:cmd[k] for k in ('result','note','administered_date')}
+                payload['expected_day']=cmd['day']
+                self.request('POST','/api/schedule/tasks/'+tid+'/report',payload,self.staff)
+                with self.main.connect() as db:
+                    child=db.execute('SELECT label,earliest FROM weekly_tasks WHERE task_id=?',('followup:'+tid,)).fetchone()
+                    self.assertEqual(child['label'] if child else None,target)
+                    if child and target==label:
+                        self.assertEqual(child['earliest'],(date.fromisoformat(self.day)+timedelta(days=1)).isoformat())
+                if child:
+                    if target!='疫苗施打' or label!='更新疫苗紀錄':
+                        manager=self.send('後續任務還沒指派怎麼辦？',self.manager)
+                        self.assertIn('儲存指派',manager['answer']['answer'])
+
+    def test_natural_multi_task_journeys(self):
+        from care_dialogue_cases import DIALOGUES
+        # Independent expected sequences, including origin-sensitive sterilization.
+        for sequence in ((2,4,5),(9,10,12),(13,17),(14,15,18),(19,24),(20,22,24,25),(20,22,24,27,3)):
+            with self.subTest(sequence=sequence):
+                self.reset_care()
+                self.session=uuid4().hex
+                tid=self.assign(DIALOGUES[sequence[0]][0])
+                for pos,index in enumerate(sequence):
+                    label,phrase,code,_=DIALOGUES[index]
+                    expected=DIALOGUES[sequence[pos+1]][0] if pos+1<len(sequence) else None
+                    if label=='更新疫苗紀錄':expected='疫苗施打'
+                    q=self.names[0]+' '+phrase
+                    preview=self.send(q+' 接下來呢？',self.staff)
+                    self.assertNotIn('command',preview)
+                    if expected:
+                        from care_workflow import display_label
+                        self.assertIn(display_label(expected),preview['answer']['answer'])
+                    else:self.assertIn('結束',preview['answer']['answer'])
+                    turn=self.send(q,self.staff)
+                    if turn.get('command',{}).get('type')=='clarify':
+                        msg=turn['command']['message']
+                        if '施打日期' in msg:turn=self.send(self.day,self.staff)
+                        elif '略過備註' in msg:turn=self.send('略過備註',self.staff)
+                    cmd=turn['command']
+                    self.assertEqual((cmd['type'],cmd['task_id'],cmd['result']),('staff_report',tid,code))
+                    payload={k:cmd[k] for k in ('result','note','administered_date')}
+                    payload['expected_day']=cmd['day']
+                    self.request('POST','/api/schedule/tasks/'+tid+'/report',payload,self.staff)
+                    child='followup:'+tid
+                    with self.main.connect() as db:
+                        row=db.execute('SELECT label,earliest FROM weekly_tasks WHERE task_id=?',(child,)).fetchone()
+                        self.assertEqual(row['label'] if row else None,expected)
+                    if pos+1<len(sequence):
+                        self.assertIn('儲存指派',self.send('衍生任務怎麼安排？',self.manager)['answer']['answer'])
+                        # Simulate the manager's assignment, not a production scheduling write.
+                        with self.main.connect() as db:
+                            self.assertLessEqual(row['earliest'],self.day)
+                            db.execute('UPDATE weekly_tasks SET staff_id=?,day=?,start=40 WHERE task_id=?',(self.sid,self.day,child))
+                        tid=child
+
+    def test_numeric_name_and_next_step_regression(self):
+        self.reset_care()
+        tid=self.assign('優先確認健康狀況')
+        with self.main.connect() as db:
+            db.execute("UPDATE animals SET name='9182747',health_status='injured' WHERE id=?",(self.ids[0],))
+        reply=self.send('9182747 受傷已解決 下一步',self.staff)
+        self.assertNotIn('command',reply)
+        self.assertIn('結束',reply['answer']['answer'])
+        self.assertLess(len(reply['answer']['answer']),120)
+        cmd=self.send('9182747 受傷已解決',self.staff)['command']
+        self.assertEqual((cmd['type'],cmd['task_id'],cmd['result']),('staff_report',tid,'recovered'))
+        denied=self.send('9182747 受傷已解決',self.other)
+        self.assertNotEqual(denied.get('command',{}).get('type'),'staff_report')
+        with self.main.connect() as db:
+            self.assertEqual(db.execute('SELECT health_status FROM animals WHERE id=?',(self.ids[0],)).fetchone()[0],'injured')
+
     def test_readmission_deworm(self):
         self.reset_care()
         aid=self.ids[0]

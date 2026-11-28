@@ -152,7 +152,7 @@ def gemini_call(instruction, content, schema, maximum, model=None):
             config = types.GenerateContentConfig(
                 system_instruction=instruction, max_output_tokens=maximum,
                 tools=[types.Tool(function_declarations=[types.FunctionDeclaration(
-                    name=function_name, description='Select one authorized read-only shelter query.',
+                    name=function_name, description=('Select one authorized read-only shelter query.' if function_name=='query_shelter' else 'Classify one care outcome; never execute or select an animal.'),
                     parameters_json_schema=parameters)])],
                 tool_config=types.ToolConfig(function_calling_config=types.FunctionCallingConfig(
                     mode='ANY', allowed_function_names=[function_name])),
@@ -182,10 +182,10 @@ def generate(connect, kind, instruction, data, schema, validate):
     return output, error
 
 
-def generate_tool(connect, instruction, data, schema, validate):
+def generate_tool(connect, instruction, data, schema, validate, function_name='query_shelter'):
     """One native function-call attempt, charged against the existing chat budget."""
     return _generate(connect, 'chat', instruction, data,
-                     {**schema, 'x_function_name': 'query_shelter'}, validate)
+                     {**schema, 'x_function_name': function_name}, validate)
 
 
 def _generate(connect, kind, instruction, data, schema, validate, model=None):

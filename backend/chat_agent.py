@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 import chat_intent as ci
 import care_workflow as care
+import care_dialogue as cd
 from chat_workflows import guide as work_guide, DIRECT_REPORT_TASKS
 from shelter_chat import Question
 from smart_tools import Command, Check, report
@@ -301,6 +302,83 @@ def mount(legacy,read_chat,smart_command,smart_check,populate_tasks=None):
                 if uid==1 and populate_tasks and re.fullmatch(r'(?:查看)?待指派照護任務(?:\s+動物\s*#\d+)?[。？?]*',q):
                     with legacy.lock,legacy.connect() as db:
                         db.execute('BEGIN IMMEDIATE');populate_tasks(db)
+                # A natural outcome statement and a hypothetical next-step question are different intents.
+                # Preserve explicit commands, administrative edits, and ordinary read queries.
+                original=q
+                next_match=cd.NEXT.search(q)
+                is_next=bool(next_match and not cd.READ.search(q))
+                phrase=q[:next_match.start()].strip(' ，,。') if is_next else q
+                explicit_report=bool(re.search(r'^回報\s+\S+.*結果\s*[:：]|^(?:請|幫我|我要|我想)?回報\s+[A-Za-z0-9_:-]{12,}$',q))
+                candidate=(not explicit_report and not cd.READ.search(phrase) and not cd.UNCERTAIN.search(phrase)
+                           and (is_next or not QUERY.search(q))
+                           and not re.search(r'[:：=]|備註|說明|照片|圖片|今天.*日期|明天|昨天|前天',phrase))
+                if candidate and (is_next or any(re.search(p,phrase) for p in cd.GROUP_HINTS.values())
+                                  or re.search(r'成功|失敗|完成|正常|沒問題|已更新',phrase)):
+                    with legacy.connect() as db:
+                        aid=resolve(db,phrase)
+                        if aid is None and re.fullmatch(r'(?:那|所以|然後|牠|它|這隻|該動物|的|[ ，,])*',phrase) and is_next and topic and topic.startswith('care-result:'):
+                            _,label,code=topic.split(':',2)
+                            if label in care.RULES and code in {r[0] for r in care.RULES[label]}:
+                                result.append(turn(original,answer={'answer':cd.next_text(label,code),'source':'rules','sources':[],'context':None,'queried_at':stamp(),'fallback_reason':None}));continue
+                        if aid is None and re.search(r'牠|它|這隻|該動物',phrase) and not re.search(r'[A-Za-z0-9]',phrase):
+                            aid=active
+                        animal=db.execute('SELECT id,name,is_active FROM animals WHERE id=?',(aid,)).fetchone() if aid is not None else None
+                        if animal and not (uid==1 and not is_next and parse_edit(q,today()) is not None):
+                            outcome_text=re.sub(re.escape(animal['name']),'',phrase,flags=re.I)
+                            outcome_text=re.sub(r'(?:動物\s*)?#\s*\d+|動物\s*\d+','',outcome_text).strip(' ，,。')
+                            # Keep the legacy health alert guidance for an unqualified "生病了/受傷了".
+                            if not is_next and outcome_text in ('生病了','受傷了'):
+                                animal=None
+                        if animal and not (uid==1 and not is_next and parse_edit(q,today()) is not None):
+                            sql="""SELECT t.task_id,t.label,t.day,t.state FROM weekly_tasks t
+                                WHERE t.animal_id=? AND t.state IN ('pending','in_progress')
+                                AND NOT EXISTS (SELECT 1 FROM weekly_tasks c WHERE c.task_id='carry:'||t.task_id)"""
+                            args=[aid]
+                            if uid!=1:
+                                account=db.execute('SELECT a.staff_id FROM weekly_staff_accounts a JOIN staff s ON s.id=a.staff_id WHERE a.user_id=? AND s.profile_id=1',(uid,)).fetchone()
+                                if not account:raise HTTPException(403,'帳號未連結員工')
+                                sql+=' AND t.staff_id=? AND t.day=?';args.extend([account[0],today().isoformat()])
+                            rows=[dict(r) for r in db.execute(sql,args)] if animal['is_active'] else []
+                            labels=cd.matching_labels(outcome_text)
+                            pairs=cd.choices(outcome_text,labels)
+                            eligible=[(r,c) for r in rows for label,c in pairs if label==r['label']]
+                            # Only send subject-free, bounded care text to Gemini when local classification fails.
+                            model_candidates=list(dict.fromkeys((r['label'],code) for r in rows if r['label'] in labels and r['label'] in care.RULES for code,_,_ in care.RULES[r['label']]))
+                    if animal and not (uid==1 and not is_next and parse_edit(q,today()) is not None):
+                        if not pairs and model_candidates and len(outcome_text)<=100 and not re.search(r'[A-Za-z0-9#]|要|想|應該|能不能|嗎|呢|[?？]',outcome_text) and any(re.search(p,outcome_text) for p in cd.GROUP_HINTS.values()):
+                            # Existing quota, configuration and offline fallback gates remain in llm_service.
+                            pairs=cd.model_choice(legacy.connect,outcome_text,model_candidates)
+                            eligible=[(r,c) for r in rows for label,c in pairs if label==r['label']]
+                        if pairs:
+                            if is_next:
+                                options=list(dict.fromkeys((r['label'],c) for r,c in eligible)) or pairs
+                                if len(options)>1 and len({cd.next_text(label,code) for label,code in options})==1:
+                                    options=options[:1]
+                                if len(options)==1:
+                                    label,code=options[0]
+                                    surgery=None
+                                    if label=='更新絕育狀態' and len(eligible)==1:
+                                        source=eligible[0][0]['task_id']
+                                        while source.startswith('carry:'):source=source.removeprefix('carry:')
+                                        with legacy.connect() as db:
+                                            surgery=bool(source.startswith('followup:') and db.execute("SELECT 1 FROM weekly_tasks WHERE task_id=? AND label='絕育手術'",(source.removeprefix('followup:'),)).fetchone())
+                                    answer=cd.next_text(label,code,surgery)
+                                    if len(eligible)==1:
+                                        if active!=aid:ctx=None;missing=None
+                                        active=aid;topic='care-result:'+label+':'+code
+                                else:
+                                    answer='請先確認是哪項任務：'+'／'.join(dict.fromkeys(care.display_label(label) for label,_ in options))+'，不同任務的下一步可能不同。'
+                                # Generic rule answer only; never reveal another employee's tasks.
+                                result.append(turn(original,answer={'answer':answer,'source':'rules','sources':[],'context':None,'queried_at':stamp(),'fallback_reason':None}));continue
+                            if uid==1:
+                                result.append(message(original,'管理者不可代替員工回報；請由被指派的照護人員確認結果。'));continue
+                            if len(eligible)!=1:
+                                msg='目前沒有符合條件、今日指派給你的可回報任務。請核對個人工作台、日期或聯絡管理者。' if not eligible else '有多個符合的任務，請選擇正確的任務再回報。'
+                                result.append(turn(original,answer={'answer':msg,'source':'rules','sources':[],'context':None,'queried_at':stamp(),'fallback_reason':None},suggestions=[{'label':care.display_label(r['label'])+'／'+care.result_title(r['label'],c),'question':f"回報 {r['task_id']} 結果：{care.result_title(r['label'],c)}"} for r,c in eligible]))
+                                continue
+                            selected,code=eligible[0]
+                            # Reuse the canonical path and its authorization, date, note and confirmation checks.
+                            q=f"回報 {selected['task_id']} 結果：{care.result_title(selected['label'],code)}"
                 # Product guidance and scoped operational answers precede generic keyword routing.
                 with legacy.connect() as db:
                     guidance=work_guide(db,uid,q,active,today(),resolve,getattr(legacy,'resource_totals',None),topic) if hasattr(legacy,'resource_totals') else None
@@ -437,7 +515,8 @@ def mount(legacy,read_chat,smart_command,smart_check,populate_tasks=None):
                     cmd={'type':'staff_report','task_id':t['task_id'],'animal_id':t['animal_id'],'name':t['name'],'label':t['label'],'day':t['day'],
                          'result':code,'note':note[1].strip() if note else '', 'administered_date':dose.isoformat() if dose else None,
                          'next_step':care.describe_next(t['label'],code)}
-                    active=t['animal_id']
+                    if active!=t['animal_id']:ctx=None;missing=None
+                    active=t['animal_id'];topic='care-result:'+t['label']+':'+code
                     if t['label']=='更新絕育狀態' and code=='done':
                         parent=t['task_id']
                         while parent.startswith('carry:'):parent=parent.removeprefix('carry:')
@@ -449,12 +528,12 @@ def mount(legacy,read_chat,smart_command,smart_check,populate_tasks=None):
                             known=db.execute("SELECT 1 FROM vaccination_records WHERE animal_id=? AND vaccine_type='general' AND administered_date IS NOT NULL AND next_due_date IS NOT NULL",(active,)).fetchone()
                         if not known:
                             missing={'staff_report':cmd,'staff_date':True}
-                            result.append(message(q,'缺少可信的疫苗施打日期。請輸入實際日期（例如 1128 或 2026-11-28），確認前不會送出回報。'));continue
+                            result.append(message(original,'缺少可信的疫苗施打日期。請輸入實際日期（例如 1128 或 2026-11-28），確認前不會送出回報。'));continue
                     if code in care.NOTE_RESULTS and t['label'] not in DIRECT_REPORT_TASKS and not cmd['note']:
                         missing={'staff_report':cmd}
-                        result.append(message(q,'可補充觀察或處理情況，例如「備註：今天早上發現精神不佳，已通知主管」，也可輸入「略過備註」。照片請至個人工作台上傳。確認前不會送出回報。'));continue
+                        result.append(message(original,'可補充觀察或處理情況，例如「備註：今天早上發現精神不佳，已通知主管」，也可輸入「略過備註」。照片請至個人工作台上傳。確認前不會送出回報。'));continue
                     missing=None
-                    result.append(turn(q,command=cmd));continue
+                    result.append(turn(original,command=cmd));continue
                 q_for_entity=q
                 date_missing=re.search(r'(驅蟲|疫苗(?:接種|施打)?)日期\s*(?:(?:為|是|改成|改為|[:：=])\s*)?$',q)
                 if date_missing and not QUERY.search(q) and re.search(r'[:：=]|修改|更正|登錄|更新|改成|改為',q):
