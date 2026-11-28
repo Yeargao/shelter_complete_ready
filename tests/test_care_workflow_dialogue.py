@@ -96,6 +96,63 @@ class CareDialogueTests(fixture.DialogueTests):
         denied=self.send('回報 '+self.tids[0]+' 結果：健康',self.manager)
         self.assertIn('管理者不可',denied['command']['message'])
 
+    def test_novice_scoped_followup(self):
+        first=self.send('我第一次使用這個系統，該怎麼開始？',self.staff)
+        self.assertIn('回報',first['answer']['answer'])
+        self.assertIn('我的照護任務回報選項',[s['question'] for s in first['suggestions']])
+        manager=self.send('第一次使用',self.manager)
+        self.assertIn('待指派照護任務',[s['question'] for s in manager['suggestions']])
+        self.reset_care()
+        tid=self.assign('健康狀態待確認')
+        aid=self.ids[0]
+        scoped=f'我的照護任務回報選項 動物 #{aid}'
+        options=self.send(scoped,self.staff)
+        self.assertEqual([s['question'] for s in options['suggestions']],['回報 '+tid])
+        cmd=self.submit(tid,'受傷')
+        self.assertEqual(cmd['animal_id'],aid)
+        child='followup:'+tid
+        with self.main.connect() as db:
+            self.assertEqual(db.execute('SELECT label FROM weekly_tasks WHERE task_id=?',(child,)).fetchone()[0],'優先確認健康狀況')
+        self.assertIn('尚未指派',self.send(scoped,self.staff)['answer']['answer'])
+        manager=self.send(f'待指派照護任務 動物 #{aid}',self.manager)
+        self.assertIn('傷病治療',manager['answer']['answer'])
+        with self.main.connect() as db:
+            db.execute('UPDATE weekly_tasks SET staff_id=?,day=?,start=40 WHERE task_id=?',(self.sid,self.day,child))
+        self.assertEqual([s['question'] for s in self.send(scoped,self.staff)['suggestions']],['回報 '+child])
+        self.submit(child,'尚未康復')
+        track='followup:'+child
+        with self.main.connect() as db:
+            self.assertEqual(db.execute('SELECT label FROM weekly_tasks WHERE task_id=?',(track,)).fetchone()[0],'健康問題追蹤')
+            db.execute('UPDATE weekly_tasks SET staff_id=?,day=?,start=44 WHERE task_id=?',(self.sid,self.day,track))
+        self.submit(track,'已康復')
+        self.assertFalse(self.send(scoped,self.staff)['suggestions'])
+        with self.main.connect() as db:
+            self.assertEqual(db.execute('SELECT health_status FROM animals WHERE id=?',(aid,)).fetchone()[0],'healthy')
+
+    def test_continuous_vaccine_and_deworm_journeys(self):
+        for start,first,second,third,expected in (
+            ('確認疫苗紀錄','未施打','疫苗施打','更新疫苗紀錄','疫苗施打'),
+            ('確認驅蟲紀錄','未驅蟲','基礎驅蟲','更新驅蟲紀錄',None),
+        ):
+            with self.subTest(start=start):
+                self.reset_care()
+                self.assertIn(start,self.send(('疫苗' if '疫苗' in start else '驅蟲')+'流程',self.staff)['answer']['answer'])
+                task=self.assign(start)
+                self.submit(task,first)
+                for label,phrase in ((second,'成功'),(third,'已更新')):
+                    child='followup:'+task
+                    with self.main.connect() as db:
+                        self.assertEqual(db.execute('SELECT label FROM weekly_tasks WHERE task_id=?',(child,)).fetchone()[0],label)
+                        db.execute('UPDATE weekly_tasks SET staff_id=?,day=?,start=40 WHERE task_id=?',(self.sid,self.day,child))
+                    self.submit(child,phrase)
+                    task=child
+                with self.main.connect() as db:
+                    following=db.execute('SELECT label,due,earliest FROM weekly_tasks WHERE task_id=?',('followup:'+task,)).fetchone()
+                    if expected:
+                        due=self.main.month_after(date.fromisoformat(self.day),12).isoformat()
+                        self.assertEqual(tuple(following),(expected,due,due))
+                    else:self.assertIsNone(following)
+
     def test_vaccine_date_followup(self):
         self.reset_care()
         tid=self.assign('更新疫苗紀錄')

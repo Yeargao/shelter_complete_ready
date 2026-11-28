@@ -247,8 +247,19 @@ def describe_next(label,result):
     return display_label(target) if target else '任務結束'
 
 def workflow_lines(group):
-    lines=[f'{display_label(label)} →（{title}）→ {describe_next(label,result)}'
-           for label in GROUPS[group] for result,title,_ in RULES[label]]
+    lines=[]
+    for label in GROUPS[group]:
+        # Postoperative follow-up belongs to the sterilization journey in user-facing guides.
+        if group=='健康照護' and label=='術後健康追蹤':
+            continue
+        for result,title,_ in RULES[label]:
+            if label=='更新疫苗紀錄':
+                lines.append('更新疫苗紀錄 →（到達下次施打日期）→ 疫苗施打')
+            elif label=='更新絕育狀態':
+                lines.extend(['更新絕育狀態（已絕育核對來源） → 任務結束',
+                              '更新絕育狀態（手術成功來源） → 術後健康追蹤'])
+            else:
+                lines.append(f'{display_label(label)} →（{title}）→ {describe_next(label,result)}')
     if group=='驅蟲':
         lines.append('動物重新入所 → 基礎驅蟲')
     return lines

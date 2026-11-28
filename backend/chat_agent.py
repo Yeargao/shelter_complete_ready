@@ -298,7 +298,7 @@ def mount(legacy,read_chat,smart_command,smart_check,populate_tasks=None):
             q=re.sub(r'^(並且|並|再|另外)','',q).strip()
             if not q:continue
             try:
-                if uid==1 and populate_tasks and re.fullmatch(r'(?:查看)?待指派照護任務[。？?]*',q):
+                if uid==1 and populate_tasks and re.fullmatch(r'(?:查看)?待指派照護任務(?:\s+動物\s*#\d+)?[。？?]*',q):
                     with legacy.lock,legacy.connect() as db:
                         db.execute('BEGIN IMMEDIATE');populate_tasks(db)
                 # Product guidance and scoped operational answers precede generic keyword routing.
@@ -433,7 +433,7 @@ def mount(legacy,read_chat,smart_command,smart_check,populate_tasks=None):
                         suggestions=[{'label':title,'question':f"回報 {t['task_id']} 結果：{title}"}
                                      for _,title,_ in care.RULES.get(t['label'],(('done','完成',None),))]
                         result.append(turn(q,answer={'answer':'請選擇實際結果：'+care.outcomes(t['label']),'source':'rules','sources':[],'context':None,'queried_at':stamp(),'fallback_reason':None},suggestions=suggestions));continue
-                    cmd={'type':'staff_report','task_id':t['task_id'],'name':t['name'],'label':t['label'],'day':t['day'],
+                    cmd={'type':'staff_report','task_id':t['task_id'],'animal_id':t['animal_id'],'name':t['name'],'label':t['label'],'day':t['day'],
                          'result':code,'note':note[1].strip() if note else '', 'administered_date':dose.isoformat() if dose else None,
                          'next_step':care.describe_next(t['label'],code)}
                     active=t['animal_id']
