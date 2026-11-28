@@ -6,6 +6,7 @@ on:
       - 'backend/**'
       - 'tests/test_agent_live_api.py'
       - 'tests/test_chat_workflows.py'
+      - 'tests/test_chat_workflow_followups.py'
       - 'frontend/src/**'
       - '.github/workflows/chat-agent-regression.yml'
   workflow_dispatch:
@@ -44,6 +45,17 @@ jobs:
         run: python tests/test_chat_workflows.py
       - name: After role-specific improvements — user journeys
         run: python tests/test_chat_workflows.py
+      - uses: actions/checkout@v4
+        with:
+          ref: 5c09d083f27556cee14e28a944c449427dca4da2
+          path: .followup-baseline
+      - name: Before second iteration — follow-up user journeys
+        continue-on-error: true
+        env:
+          AGENT_BACKEND_DIR: ${{ github.workspace }}/.followup-baseline/backend
+        run: python tests/test_chat_workflow_followups.py
+      - name: After second iteration — follow-up user journeys
+        run: python tests/test_chat_workflow_followups.py
   frontend:
     runs-on: ubuntu-latest
     defaults:

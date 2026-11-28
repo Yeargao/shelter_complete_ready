@@ -29,7 +29,7 @@ class WorkflowDialogueTests(fixture.DialogueTests):
         with self.main.connect() as db:self.assertEqual(db.execute('SELECT health_status FROM animals WHERE id=?',(self.ids[0],)).fetchone()[0],'unknown')
         self.confirm(c)
         self.assertIn('生病',self.send(name+' 資料')['answer']['answer'])
-        t=self.guidance('牠下一步應該怎麼做？' if False else '牠生病了下一步怎麼做？',words=(name,'資源配置'))
+        t=self.guidance('牠生病了下一步怎麼做？',words=(name,'資源配置'))
         suggestion=next((x for x in t['suggestions'] if '建立今日優先' in x['label']),None)
         if suggestion:
             r=self.send(suggestion['question']);self.assertEqual(r['command']['type'],'task');self.assertEqual(r['command']['animal_id'],self.ids[0])

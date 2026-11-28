@@ -12,3 +12,5 @@ cd backend
 python -m unittest test_chat_agent test_smart_tools -v
 ```
 CI 用同一套新增情境測試比較改善前 commit 519852f 與最新版本。沒有測到的自然語言、正式網路及部署環境不宣稱已驗證。
+
+第二輪補上健康流程的連續追問、明確疫苗到期日與即將到期／已逾期區分、逾期任務、未結案異常、長期在所及已接種缺日期查詢；未支援的直接派工及結案會導引到既有頁面。測試 `python tests/test_chat_workflow_followups.py`。

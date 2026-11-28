@@ -106,6 +106,8 @@ def migrate(db):
     db.execute("""CREATE TABLE IF NOT EXISTS ai_chat_sessions(
         user_id INTEGER NOT NULL, session_id TEXT NOT NULL, animal_id INTEGER,
         read_context TEXT, missing_json TEXT, PRIMARY KEY(user_id,session_id))""")
+    if 'guide_topic' not in {r[1] for r in db.execute('PRAGMA table_info(ai_chat_sessions)')}:
+        db.execute('ALTER TABLE ai_chat_sessions ADD COLUMN guide_topic TEXT')
     db.execute("""CREATE TABLE IF NOT EXISTS ai_action_history(
         action_id TEXT PRIMARY KEY,user_id INTEGER NOT NULL,session_id TEXT NOT NULL,
         animal_id INTEGER NOT NULL,kind TEXT NOT NULL,payload TEXT NOT NULL,
@@ -289,7 +291,7 @@ def mount(legacy,read_chat,smart_command,smart_check):
             migrate(db)
             db.execute('INSERT OR IGNORE INTO ai_chat_sessions(user_id,session_id) VALUES (?,?)',(uid,sid))
             state=dict(db.execute('SELECT * FROM ai_chat_sessions WHERE user_id=? AND session_id=?',(uid,sid)).fetchone())
-        active=state['animal_id'];ctx=state['read_context']
+        active=state['animal_id'];ctx=state['read_context'];topic=state.get('guide_topic')
         missing=json.loads(state['missing_json']) if state['missing_json'] else None
         for index,q in enumerate(parts):
             q=re.sub(r'^(並且|並|再|另外)','',q).strip()
@@ -297,9 +299,12 @@ def mount(legacy,read_chat,smart_command,smart_check):
             try:
                 # Product guidance and scoped operational answers precede generic keyword routing.
                 with legacy.connect() as db:
-                    guidance=work_guide(db,uid,q,active,today(),resolve,getattr(legacy,'resource_totals',None)) if hasattr(legacy,'resource_totals') else None
+                    guidance=work_guide(db,uid,q,active,today(),resolve,getattr(legacy,'resource_totals',None),topic) if hasattr(legacy,'resource_totals') else None
                 if guidance:
-                    response,active=guidance
+                    response,target=guidance
+                    if target!=active:
+                        ctx=None;missing=None
+                    active=target;topic=response.pop('workflow_topic',None)
                     response['answer']['queried_at']=stamp()
                     result.append(turn(q,**response));continue
                 if re.search(r'自訂自動化|工作流程|智慧提醒|(?:建立|設定|新增|自動).*提醒|(?:提醒|通知)我',q):
@@ -483,6 +488,10 @@ def mount(legacy,read_chat,smart_command,smart_check):
                 if re.search(r'修改|更正|改成|改為|更新|登錄|設定|[:：=]',q) and not QUERY.search(q) and re.search(FIELD_WORDS,q):
                     result.append(message(q,'請提供要修改的欄位與數值，例如「健康：健康」'));continue
                 read_q=q
+                # Both roles may reuse a verified active animal for a narrowly scoped read.
+                # The existing read endpoint still authorizes the animal and all returned data.
+                if active and re.fullmatch(r'(?:那|所以|另外|他|她|牠|它|這隻|的|請問|\s)*(?:健康(?:狀況|狀態|登錄)?|疫苗(?:紀錄|日期)?|驅蟲(?:紀錄|日期)?|最近照護回報|照護回報|資料)[呢嗎?？。]*',q):
+                    read_q=q+' 動物 #'+str(active)
                 if uid!=1 and re.fullmatch(r'(?:我要|請|幫我)?(?:開啟|前往|看)(?:個人工作台|照護人員工作台|今日工作|動物列表)',q):
                     result.append(turn(q,command={'type':'link','path':'/animals' if '動物列表' in q else '/','message':'開啟頁面'}));continue
                 if uid==1:
@@ -503,15 +512,19 @@ def mount(legacy,read_chat,smart_command,smart_check):
                 answer=read_chat(Question(question=read_q,context=ctx),request)
                 ctx=answer.get('context')
                 decoded=ci.decode_context(legacy.AUTH_SECRET,request.headers.get('Authorization',''),answer.get('context'))
-                if answer.get('sources') and decoded and decoded.get('animal_id'):active=decoded['animal_id']
+                if answer.get('sources') and decoded and decoded.get('animal_id'):
+                    if active!=decoded['animal_id']:topic=None;missing=None
+                    active=decoded['animal_id']
+                elif re.search(r'資料|健康|疫苗|驅蟲|照護回報',q) and not answer.get('sources'):
+                    active=None;ctx=None;topic=None;missing=None
                 result.append(turn(q,answer=answer))
             except (ValueError,HTTPException) as e:
                 detail=str(e.detail) if isinstance(e,HTTPException) else str(e)
                 if re.search(r'多個動物|單一動物編號|找不到動物|找不到指定動物|名稱與編號不一致|目前沒有可查看的動物紀錄',detail):
-                    active=None;ctx=None;missing=None
+                    active=None;ctx=None;missing=None;topic=None
                 result.append(message(q,detail))
         with legacy.lock,legacy.connect() as db:
-            db.execute('UPDATE ai_chat_sessions SET animal_id=?,read_context=?,missing_json=? WHERE user_id=? AND session_id=?',(active,ctx,dump(missing) if missing else None,uid,sid))
+            db.execute('UPDATE ai_chat_sessions SET animal_id=?,read_context=?,missing_json=?,guide_topic=? WHERE user_id=? AND session_id=?',(active,ctx,dump(missing) if missing else None,topic,uid,sid))
         return {'turns':result}
 
     @router.post('/actions/{action_id}')

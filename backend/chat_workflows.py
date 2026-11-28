@@ -17,7 +17,7 @@ GROUP=re.compile(r'哪些|多少|幾隻|所有|全部|名單|清單|列出')
 def link(path,label):return {'path':path,'label':label}
 def prompt(label,question):return {'label':label,'question':question}
 
-def guide(db,uid,q,active,current,resolve,resource_totals):
+def guide(db,uid,q,active,current,resolve,resource_totals,topic=None):
     """Return (turn, active animal) or None. All staff reads are explicitly scoped."""
     manager=uid==1
     staff=None
@@ -25,9 +25,9 @@ def guide(db,uid,q,active,current,resolve,resource_totals):
         row=db.execute('SELECT s.id FROM weekly_staff_accounts a JOIN staff s ON s.id=a.staff_id WHERE a.user_id=? AND s.profile_id=1',(uid,)).fetchone()
         if not row:raise HTTPException(403,'目前帳號未連結員工')
         staff=row[0]
-    def reply(text,links=(),suggestions=(),sources=(),target=active):
+    def reply(text,links=(),suggestions=(),sources=(),target=active,topic=None):
         return ({'answer':{'answer':text,'source':'db' if sources else 'rules','sources':list(sources),'context':None,'fallback_reason':None,'queried_at':None},
-                 'links':list(links),'suggestions':list(suggestions)},target)
+                 'links':list(links),'suggestions':list(suggestions),'workflow_topic':topic},target)
     def role_denied():
         return reply('此操作需要管理者權限。你可以在個人工作台查閱、回報自己的任務；如需修改動物行政資料或班表，請聯絡管理者。',[link('/','個人工作台')])
     def select_target():
@@ -100,17 +100,28 @@ def guide(db,uid,q,active,current,resolve,resource_totals):
                     elif t['day']==current.isoformat() and t['label']=='健康問題追蹤':
                         prompts.append(prompt('回報健康追蹤（需填備註）',f"回報 {t['task_id']} 結果：已追蹤"))
                 prompts.append(prompt('查最近照護回報',f'動物 #{aid} 最近照護回報'))
-        return reply('\n'.join(lines),links,prompts,sources,aid if a else active)
+        return reply('\n'.join(lines),links,prompts,sources,aid if a else None,topic='health')
     # Medical instructions are not a software operation. Never output drug/dose guidance.
     if re.search(r'劑量|用藥|給藥|開藥|吃什麼藥|用什麼藥|怎麼治療|如何治療|診斷',q):
         return reply('收容所助理只能協助登錄、回報及查詢照護資料，不能提供診斷、藥物或劑量建議。請通知獸醫；若情況緊急，立即依現場緊急流程處置。',[link('/resources' if manager else '/','資源配置' if manager else '個人工作台')])
     how=bool(HOW.search(q))
+    if topic=='health' and re.fullmatch(r'(?:那|所以|接著|然後|牠|它|這隻|該動物|的|\s)*(?:下一步|接下來)(?:呢|要怎麼做|該怎麼辦|怎麼做|要做什麼)?[?？。]*',q):
+        if active and not PRONOUN.search(q):q='牠'+q
+        return health_flow()
     if how and re.search(r'生病|受傷|傷病|健康異常|身體不適|身體不好|異常|嘔吐|拉肚子|沒精神|不吃|流血|呼吸困難',q) and not re.search(r'刪除|刪掉|撤銷|復原|收回|撤回|結案|更正|為什麼|為何',q):
         return health_flow()
     if not how and not GROUP.search(q) and not re.search(r'回報|修改|設定|改成|[:：=]|[?？]|是否|沒有|沒|不確定|可能|如果|假設',q) and re.search(r'(?:生病|受傷|嘔吐|拉肚子|沒精神|不吃東西|流血|呼吸困難)(?:了|了。|。)?$',q):
         return health_flow()
     if not manager and re.search(r'替|幫|代',q) and re.search(r'其他員工|同事|別人',q) and '回報' in q:
         return role_denied()
+    # Explicit requests for unsupported mutations should give the correct page, not silently query.
+    direct=not how and bool(re.search(r'^(?:請|幫我|請幫我|我要|我想|直接幫我|可以幫我)',q)) and not bool(re.search(r'查詢|查看|列出|哪些|多少|[?？]',q))
+    if (how or direct) and re.search(r'手動指派|指派給|安排給|(?:指派|派工|分配).*(?:員工|人員)|(?:員工|人員).*(?:指派|派工)|直接.*派工|幫.*指派',q) and not re.search(r'建立.*任務|新增.*任務|請假|排班|出勤',q):
+        if not manager:return role_denied()
+        return reply('請到資源配置的待指派任務池，選擇指定任務；在任務詳細資料選擇員工、日期及開始時間，按「儲存指派」。系統會驗證員工技能、工時及時間衝突。聊天不會直接更動指派。',[link('/resources','資源配置')])
+    if direct and re.search(r'結案|標記已解決|解除異常',q):
+        if not manager:return role_denied()
+        return reply('請在資源配置找出相應已回報任務，確認實際問題已解決，再按「標記已解決」。聊天尚不直接結案。',[link('/resources','資源配置')])
     if how:
         if re.search(r'飼料|庫存',q) and re.search(r'修改|更新|設定|補貨|盤點',q):
             if not manager:return role_denied()
@@ -143,7 +154,7 @@ def guide(db,uid,q,active,current,resolve,resource_totals):
             return reply('個人工作台 → 選擇自己的日期與任務 → 依任務選項回報實際結果；異常填寫備註及必要照片。確認後查看已回報狀態；未執行不得回報完成。',[link('/','個人工作台')],[prompt('查看今天待辦','我今天有哪些未完成任務？')])
         if re.search(r'任務|照護|工作',q):
             return reply('管理者：在資源配置檢查待指派任務池，建立或選擇任務、指派員工並確認排程。' if manager else '照護人員：在個人工作台選日期，開啟自己的任務、查看照護重點，執行後回報實際結果。',[link('/resources' if manager else '/','資源配置' if manager else '個人工作台')])
-    if re.search(r'^(?:你|助理|Chatbot|AI)?\s*(?:可以|能)(?:幫我)?(?:做什麼|做哪些事|幫什麼)|^使用說明$|^怎麼使用(?:這個|本)?(?:程式|系統|網站|助理)',q,re.I):
+    if re.search(r'我有什麼權限|我的權限|我能操作什麼|^(?:你|助理|Chatbot|AI)?\s*(?:可以|能)(?:幫我)?(?:做什麼|做哪些事|幫什麼)|^使用說明$|^怎麼使用(?:這個|本)?(?:程式|系統|網站|助理)',q,re.I):
         return reply('你可以查詢動物、健康及醫療紀錄、任務與員工工時，也可建立動物資料修改或照護任務草案。確認才會執行。' if manager else '你可以查詢自己的班表、待辦及已完成任務、獲授權的動物紀錄，並回報自己的任務。不能修改其他員工的任務或管理者資料。',[link('/resources' if manager else '/','資源配置' if manager else '個人工作台')],[prompt('動物生病後怎麼做','某動物生病了之後要怎麼做？'),prompt('今天有哪些未完成任務','今天有哪些未完成任務？')])
     if not how and re.search(r'飼料|食物',q) and re.search(r'庫存|剩|多少|夠|需求',q) and not re.search(r'提醒|通知|修改|設定|更新|新增|昨天|明天|上週|下週|未來|過去|歷史|統計|報表|分布|比較',q):
         if not manager:return role_denied()
@@ -157,26 +168,87 @@ def guide(db,uid,q,active,current,resolve,resource_totals):
         lines.append('庫存為系統登錄值，實際存量仍需盤點；不代表每日消耗已自動扣除。')
         return reply('\n'.join(lines),[link('/','總覽')],sources=['收容所資源設定 #1','在所動物需求設定'])
     if not how and re.search(r'疫苗.*(?:到期|逾期)|(?:到期|逾期).*疫苗',q) and not re.search(r'提醒|通知|修改|更新|設定|任務|報表|統計|已施打日期',q):
-        m=re.search(r'(\d{1,3})\s*天',q)
-        days=int(m[1]) if m else 0 if '逾期' in q or '已到期' in q else 30
+        m=re.search(r'(\d{1,4})\s*天',q)
+        days=int(m[1]) if m else 30
         if days>366:return reply('請指定 366 天以內的到期查詢期間。')
         end=(current+timedelta(days=days)).isoformat()
         a=select_target()
         if a is None and re.search(r'[A-Za-z]{2,}',q):
             return reply('找不到指定動物，請提供正確名稱或 #編號。',target=None)
-        args=[end]
+        args=[]
         sql="""SELECT a.id,a.name,v.vaccine_type,v.next_due_date FROM vaccination_records v JOIN animals a ON a.id=v.animal_id
-            WHERE a.is_active=1 AND v.next_due_date<=? AND NOT EXISTS(
+            WHERE a.is_active=1 AND NOT EXISTS(
               SELECT 1 FROM vaccination_records n WHERE n.animal_id=v.animal_id AND n.vaccine_type=v.vaccine_type
               AND (n.administered_date>v.administered_date OR (n.administered_date=v.administered_date AND n.id>v.id)))"""
+        exact=bool(a and not m and not re.search(r'逾期|已到期|即將|未來|近期|快到期|最近|哪些',q))
+        if exact:
+            scope='最新疫苗到期日期'
+        elif '逾期' in q:
+            sql+=' AND v.next_due_date<?';args.append(current.isoformat());scope='今日以前已逾期'
+        elif '已到期' in q:
+            sql+=' AND v.next_due_date<=?';args.append(current.isoformat());scope='截至今日已到期'
+        else:
+            sql+=' AND v.next_due_date BETWEEN ? AND ?';args.extend([current.isoformat(),end]);scope=f'{current.isoformat()} 至 {end} 即將到期（不含逾期）'
         if a:sql+=' AND a.id=?';args.append(a['id'])
         if not manager:sql+=" AND EXISTS(SELECT 1 FROM weekly_tasks t WHERE t.animal_id=a.id AND t.staff_id=? AND t.state!='cancelled')";args.append(staff)
         rows=list(db.execute(sql+' ORDER BY v.next_due_date,a.id',args))
-        lines=[f'截至 {end}（含已逾期），可查看的疫苗到期紀錄共 {len(rows)} 筆、{len({r["id"] for r in rows})} 隻動物。']
+        prefix=(f"{a['name']} #{a['id']}｜" if a else '')
+        lines=[prefix+f'{scope}，可查看的疫苗紀錄共 {len(rows)} 筆、{len({r["id"] for r in rows})} 隻動物。']
         lines += [f"{r['name']} #{r['id']} · {r['vaccine_type']} · 到期 {r['next_due_date']}" for r in rows[:20]]
         if len(rows)>20:lines.append('僅列前 20 筆。')
+        if not rows:lines.append('沒有符合條件的具日期疫苗紀錄。')
         lines.append('沒有日期的疫苗登錄無法推算到期；請依實際醫療紀錄核對。')
         return reply('\n'.join(lines),[link('/health' if manager else '/','健康行政核對' if manager else '個人工作台')],sources=['疫苗紀錄（每隻動物、每類型最新一筆）'],target=a['id'] if a else None)
+    if not how and re.search(r'逾期|過期|超過期限',q) and re.search(r'任務|工作|待辦',q) and not re.search(r'提醒|通知|取消|建立|新增|修改|統計|報表|昨天|明天|上週|下週',q):
+        args=[current.isoformat()]
+        sql="""SELECT t.task_id,t.label,t.day,t.start,t.state,t.priority,t.due,t.staff_id,s.name AS staff_name,a.name,a.id
+            FROM weekly_tasks t JOIN animals a ON a.id=t.animal_id LEFT JOIN staff s ON s.id=t.staff_id
+            WHERE a.is_active=1 AND t.state IN ('pending','in_progress') AND t.due<?"""
+        if not manager:sql+=' AND t.staff_id=?';args.append(staff)
+        a=select_target()
+        if a:sql+=' AND t.animal_id=?';args.append(a['id'])
+        rows=list(db.execute(sql+' ORDER BY t.due,t.priority,t.task_id',args))
+        lines=[f'截至 {current.isoformat()}，期限早於今日且未完成的任務共 {len(rows)} 項。']
+        if not re.search(r'幾項|多少',q):
+            lines.extend(f"{r['name']} #{r['id']} · {task_line(r)} · 期限 {r['due']}" for r in rows[:20])
+        if len(rows)>20:lines.append('僅列前 20 項。')
+        return reply('\n'.join(lines),[link('/resources' if manager else '/','資源配置' if manager else '個人工作台')],sources=['任務期限及狀態'],target=a['id'] if a else None)
+    if not how and re.search(r'異常|問題',q) and re.search(r'未結案|還沒結案|尚未結案|待處理|未解決|還沒解決',q) and not re.search(r'任務|建立|新增|回報|更正|修改|提醒|通知|報表|統計|昨天|明天|上週|下週',q):
+        sql="""SELECT i.task_id,i.animal_id,i.note,a.name,t.label,r.reported_at
+            FROM weekly_issues i JOIN animals a ON a.id=i.animal_id JOIN weekly_tasks t ON t.task_id=i.task_id
+            LEFT JOIN weekly_reports r ON r.task_id=i.task_id WHERE i.resolved_at IS NULL AND a.is_active=1"""
+        args=[]
+        if not manager:sql+=' AND t.staff_id=?';args.append(staff)
+        a=select_target()
+        if a:sql+=' AND a.id=?';args.append(a['id'])
+        rows=list(db.execute(sql+' ORDER BY r.reported_at DESC,i.task_id',args))
+        lines=[f'可查看的未結案異常共 {len(rows)} 筆。']
+        if not re.search(r'多少|幾筆',q):
+            for r in rows[:20]:lines.append(f"{r['name']} #{r['animal_id']} · {r['label']} · {(r['reported_at'] or '')[:10]} · {r['note'] or '無備註'}")
+        if len(rows)>20:lines.append('僅列前 20 筆。')
+        return reply('\n'.join(lines),[link('/resources' if manager else '/','資源配置' if manager else '個人工作台')],sources=['未結案照護異常'],target=a['id'] if a else None)
+    if not how and re.search(r'在所|收容|入所|待在',q) and re.search(r'超過|至少|大於',q) and re.search(r'哪些|多少|幾隻|列出|名單',q) and not re.search(r'提醒|通知|任務|統計|報表|新增|修改',q):
+        match=re.search(r'(?:超過|至少|大於)\s*(\d{1,5})\s*天',q)
+        if match:
+            n=int(match[1]);cutoff=(current-timedelta(days=n)).isoformat();op='<=' if '至少' in q else '<'
+            args=[cutoff];sql='SELECT id,name,intake_date FROM animals WHERE is_active=1 AND intake_date'+op+'?'
+            if not manager:sql+=" AND EXISTS(SELECT 1 FROM weekly_tasks t WHERE t.animal_id=animals.id AND t.staff_id=? AND t.state!='cancelled')";args.append(staff)
+            rows=list(db.execute(sql+' ORDER BY intake_date,id',args))
+            lines=[f'以 {current.isoformat()} 計算，符合在所{"至少" if op=="<=" else "超過"} {n} 天的動物共 {len(rows)} 隻。']
+            if not re.search(r'多少|幾隻',q):
+                lines += [f"{r['name']} #{r['id']} · 入所 {r['intake_date']}" for r in rows[:20]]
+            if len(rows)>20:lines.append('僅列前 20 隻。')
+            return reply('\n'.join(lines),[link('/animals','動物列表')],sources=['在所動物入所日期'],target=None)
+    if not how and re.search(r'已接種|已施打',q) and re.search(r'缺少日期|沒有日期|無日期|缺日期',q) and re.search(r'哪些|多少|幾隻|列出|名單',q):
+        sql="""SELECT id,name FROM animals WHERE is_active=1 AND vaccinated='yes'
+            AND NOT EXISTS(SELECT 1 FROM vaccination_records v WHERE v.animal_id=animals.id AND v.administered_date IS NOT NULL AND v.administered_date!='')"""
+        args=[]
+        if not manager:sql+=" AND EXISTS(SELECT 1 FROM weekly_tasks t WHERE t.animal_id=animals.id AND t.staff_id=? AND t.state!='cancelled')";args.append(staff)
+        rows=list(db.execute(sql+' ORDER BY id',args))
+        lines=[f'疫苗登錄為已接種，但沒有具日期紀錄的在所動物共 {len(rows)} 隻。']
+        if not re.search(r'多少|幾隻',q):lines.extend(f"{r['name']} #{r['id']}" for r in rows[:20])
+        lines.append('不能由登錄狀態推算日期，請核對原始紀錄。')
+        return reply('\n'.join(lines),[link('/health' if manager else '/','健康行政核對' if manager else '個人工作台')],sources=['疫苗登錄及日期紀錄'],target=None)
     if not how and re.search(r'任務|工作|待辦',q) and re.search(r'哪些|有什麼|有沒有|多少|幾項|清單|列出|還有',q) and not re.search(r'安排|指派|建立|新增|回報紀錄|員工|工時|報表|統計|緊急|優先|下一|最急',q):
         a=select_target()
         if a:
@@ -184,8 +256,9 @@ def guide(db,uid,q,active,current,resolve,resource_totals):
             tasks=own_tasks(a['id'],True)
             if re.search(r'未完成|還沒|尚未|待辦|待完成|沒做',q):tasks=[t for t in tasks if t['state'] in ('pending','in_progress')]
             elif re.search(r'已完成|做完|完成了',q):tasks=[t for t in tasks if t['state']=='done']
-            else:tasks=[t for t in tasks if t['state'] in ('pending','in_progress')]
             if explicit:tasks=[t for t in tasks if (t['day'] or t['due']) and temporal['start']<=(t['day'] or t['due'])<=temporal['end']]
+            if temporal['period']!='all_day':
+                tasks=[t for t in tasks if t['start'] is not None and (t['start']<48 if temporal['period']=='morning' else t['start']>=48)]
             lines=[f"{a['name']} #{a['id']}：可查看的符合條件任務共 {len(tasks)} 項。"]
             if not re.search(r'多少|幾項',q):lines.extend(task_line(t) for t in tasks[:12])
             if len(tasks)>12:lines.append('僅列前 12 項。')
