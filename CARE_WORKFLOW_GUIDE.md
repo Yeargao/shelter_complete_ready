@@ -105,7 +105,7 @@
 - 四大流程全部正向結果和共用逆向操作均需使用隔離 SQLite 測試；分別檢查未指派、已指派、共用來源、已開始、已完成、跨日、結案、離所、原始資料與其他有效回報衝突、重報去重。
 - 員工只能查看自己回報的可收回狀態；管理者可以核對全所回報。前端以後端回傳的 `withdrawal`（allowed、reason、requires_review、can_correct）為準，不能只看前端日期猜測。
 - Chatbot 應先分辨查詢／教學、正向回報草案、已送出回報的收回、未確認草案取消。逆向操作涉及實際醫療紀錄時，指向正確角色頁面與按鈕，不直接寫入；必要時查詢該回報的後端狀態。
-- 使用 `python tests/test_weekly_schedule.py`、`python tests/test_care_workflow_dialogue.py`、`python tests/test_chat_workflows.py` 及 `python tests/test_chat_workflow_followups.py`，前端 `npm run build`。CI 成功不代替實際手機觸控操作、既有資料庫遷移備份檢查和真實 Gemini 驗收。本文描述設計與程式實作，不是已通過測試的證明。
+- 使用 `python -m unittest discover -s tests -p test_weekly_schedule.py -v`、`python tests/test_care_workflow_dialogue.py`、`python tests/test_chat_workflows.py` 及 `python tests/test_chat_workflow_followups.py`，前端 `npm run build`。CI 成功不代替實際手機觸控操作、既有資料庫遷移備份檢查和真實 Gemini 驗收。本文描述設計與程式實作，不是已通過測試的證明。
 
 ## 驗收
 
