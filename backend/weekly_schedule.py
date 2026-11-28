@@ -765,6 +765,7 @@ def mount(legacy):
                 item = {**as_task(task), 'report': reports.get(tid), 'is_new': tid in new_tasks or generated,
                         'is_derived': generated or (task['animal_id'],task['label']) in derived,
                         'photos': photos[tid], 'issue': issues.get(tid)}
+                item['care_revision'] = db.execute('SELECT COALESCE(MAX(id),0) FROM weekly_events WHERE animal_id=?',(task['animal_id'],)).fetchone()[0]
                 if item['report']:
                     item['withdrawal'] = reversal.status(db,{**item['report'],'animal_id':task['animal_id'],
                         'is_active':task['is_active']},sid,today().isoformat())
@@ -1160,10 +1161,11 @@ def mount(legacy):
                     earliest=today().isoformat()
                     if result in ('failed','defer','improving','not_recovered') and retry_label==label:
                         earliest=(today()+timedelta(days=1)).isoformat()
+                    child_id=reversal.child_id(db,task_id)
                     db.execute("""INSERT INTO weekly_tasks(task_id,animal_id,label,skill,priority,quarters,earliest,due,note)
-                        VALUES (?,?,?,?,?,?,?,?,?)""",(f'followup:{task_id}',animal_id,retry_label,skill,
+                        VALUES (?,?,?,?,?,?,?,?,?)""",(child_id,animal_id,retry_label,skill,
                         0 if urgent else 3,quarters(hours),earliest,earliest,body.note))
-                    reversal.link(db,task_id,f'followup:{task_id}',created=True)
+                    reversal.link(db,task_id,child_id,created=True)
             if label=='更新疫苗紀錄' and result=='done':
                 latest=db.execute("""SELECT next_due_date FROM vaccination_records WHERE animal_id=? AND vaccine_type='general'
                     AND next_due_date IS NOT NULL ORDER BY administered_date DESC,id DESC LIMIT 1""",(animal_id,)).fetchone()
@@ -1175,9 +1177,10 @@ def mount(legacy):
                     if retained or existing:
                         reversal.link(db,task_id,retained or existing['task_id'])
                     else:
+                        child_id=reversal.child_id(db,task_id)
                         db.execute("""INSERT INTO weekly_tasks(task_id,animal_id,label,skill,priority,quarters,earliest,due)
-                            VALUES (?,?, '疫苗施打',?,3,?,?,?)""",(f'followup:{task_id}',animal_id,skill,quarters(hours),max(due,today().isoformat()),due))
-                        reversal.link(db,task_id,f'followup:{task_id}',created=True)
+                            VALUES (?,?, '疫苗施打',?,3,?,?,?)""",(child_id,animal_id,skill,quarters(hours),max(due,today().isoformat()),due))
+                        reversal.link(db,task_id,child_id,created=True)
             reversal.save_effects(db,task_id,before_effects,reversal.snapshot(db,animal_id))
             if label in care.RULES:
                 db.execute('INSERT INTO weekly_events(animal_id,event) VALUES (?,?)',(animal_id,'task_report'))
@@ -1231,7 +1234,7 @@ def mount(legacy):
                     # reuses this downstream record instead of creating another.
                     db.execute('INSERT OR IGNORE INTO weekly_retained_dependencies VALUES (?,?,?)',
                                (task_id,group['root'],record['result']))
-                elif group['exclusive']:
+                elif group['exclusive'] and not (body.mode=='completion' and group['root'].startswith('health-event:')):
                     for child in group['tasks']:
                         if child['state']=='pending':
                             audit_task(db,child,request.state.user_id,'withdraw_derived_task')
@@ -1293,9 +1296,13 @@ def mount(legacy):
                 return {'ok': True}
             if not task or task['state'] != 'pending':
                 raise HTTPException(409, '此任務已開始、已結束或不存在')
-            if body.event == 'start' and task['day'] == today().isoformat():
+            if not db.execute('SELECT 1 FROM animals WHERE id=? AND is_active=1',(task['animal_id'],)).fetchone():
+                raise HTTPException(409, '動物已離所')
+            if body.event == 'start' and task['day'] == today().isoformat() and task['staff_id'] is not None:
+                audit_task(db,task,request.state.user_id,'start')
                 db.execute("UPDATE weekly_tasks SET state='in_progress' WHERE task_id=?", (task_id,))
             elif body.event == 'delay' and body.earliest and body.earliest >= today() and not task['recurring'] and not task['locked']:
+                audit_task(db,task,request.state.user_id,'delay')
                 db.execute("""UPDATE weekly_tasks SET earliest=?,
                     reason='任務延遲' WHERE task_id=?""",
                     (body.earliest.isoformat(),task_id))
@@ -1305,9 +1312,15 @@ def mount(legacy):
         return {'ok':True}
 
     @router.post('/tasks/{task_id}/resolve')
-    def resolve(task_id: str):
-        with legacy.connect() as db:
+    def resolve(task_id: str, request: Request):
+        with legacy.lock, legacy.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
             migrate(db)
+            task=db.execute('SELECT * FROM weekly_tasks WHERE task_id=?',(task_id,)).fetchone()
+            issue=db.execute('SELECT * FROM weekly_issues WHERE task_id=?',(task_id,)).fetchone()
+            if not task or not issue or issue['resolved_at']:
+                raise HTTPException(404, '找不到未解決異常')
+            audit_task(db,task,request.state.user_id,'resolve_issue',{'issue':dict(issue)})
             changed = db.execute('UPDATE weekly_issues SET resolved_at=? WHERE task_id=? AND resolved_at IS NULL',
                                  (datetime.now(TAIPEI).isoformat(),task_id)).rowcount
             if changed != 1:

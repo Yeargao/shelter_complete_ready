@@ -4,6 +4,7 @@ The weekly report transaction is the only writer of report effects. Legacy
 reports lack reliable before-images; they may be reviewed but never guessed.
 """
 import json
+from uuid import uuid4
 import care_workflow as care
 
 FIELDS = ('health_status', 'vaccinated', 'dewormed', 'sterilized')
@@ -57,6 +58,11 @@ def root(task_id):
     return task_id
 
 
+def child_id(db, parent):
+    base='followup:'+parent
+    return base if not db.execute('SELECT 1 FROM weekly_tasks WHERE task_id=?',(base,)).fetchone() else base+':'+uuid4().hex
+
+
 def link(db, parent, child, created=False):
     child=root(child)
     if created:
@@ -93,7 +99,9 @@ def dependencies(db, record):
     roots={r[0] for r in db.execute('SELECT child_id FROM weekly_report_dependencies WHERE parent_id=?',(task_id,))}
     # Include historical explicit follow-up IDs and carry descendants. For old
     # reports, missing provenance prevents automatic cancellation when uncertain.
-    roots.add('followup:'+task_id)
+    has_effects=db.execute('SELECT 1 FROM weekly_report_effects WHERE task_id=?',(task_id,)).fetchone()
+    if not has_effects:
+        roots.add('followup:'+task_id)
     baseline=db.execute('SELECT event_id FROM weekly_health_report_baseline WHERE task_id=?',(task_id,)).fetchone()
     if baseline:
         roots.add('health-event:'+str(baseline[0]))
@@ -104,7 +112,6 @@ def dependencies(db, record):
         if key in roots:
             groups.setdefault(key,[]).append(child)
     result=[]
-    has_effects=db.execute('SELECT 1 FROM weekly_report_effects WHERE task_id=?',(task_id,)).fetchone()
     for key,children in groups.items():
         other=db.execute("""SELECT 1 FROM weekly_report_dependencies d
             JOIN weekly_reports r ON r.task_id=d.parent_id
@@ -112,7 +119,8 @@ def dependencies(db, record):
         manual=any(db.execute('SELECT 1 FROM weekly_new_tasks WHERE task_id=?',(c['task_id'],)).fetchone() for c in children)
         owned=db.execute('SELECT 1 FROM weekly_report_owned_tasks WHERE task_id=?',(key,)).fetchone()
         # Legacy source reconstruction is deliberately conservative.
-        exclusive=bool(owned and has_effects and not other and not manual)
+        exclusive=bool((owned or (baseline and key=='health-event:'+str(baseline[0])))
+                       and has_effects and not other and not manual)
         started=any(c['state'] in ('in_progress','done') for c in children)
         result.append({'root':key,'tasks':children,'exclusive':exclusive,'started':started,
                        'uncertain':not bool(has_effects) and not other and not manual})
@@ -133,7 +141,9 @@ def status(db, record, sid, today):
     if any(c['uncertain'] for c in children):reasons.append('舊回報的衍生來源無法確認')
     return {'allowed':bool(record['is_active'] and (sid is None or not reasons)),
             'reason':'；'.join(reasons) if reasons else None,'requires_review':bool(reasons),
-            'can_correct':bool(effects)}
+            'can_correct':bool(effects),
+            'cancel_count':sum(c['exclusive'] and not c['started'] for c in children),
+            'retain_count':sum(c['started'] or not c['exclusive'] for c in children)}
 
 
 def restore_clinical(db, record):

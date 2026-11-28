@@ -177,7 +177,7 @@ class WeeklyTests(unittest.TestCase):
         self.assertEqual(restored['staff_id'],1)
         self.assertEqual(restored['start_time'],'11:15')
         self.assertTrue(restored['locked'])
-        self.place(task,None,expected=409)
+        self.request('PATCH',f'/api/schedule/tasks/{task}/placement',{'staff_id':None},headers=self.staff,expected=403)
         for calendar in (self.week(),self.week(self.staff)):
             current = next(t for t in calendar['tasks'] if t['task_id']==task)
             self.assertEqual(current['staff_id'],1)
@@ -278,7 +278,7 @@ class WeeklyTests(unittest.TestCase):
             self.assertEqual((row['state'],row['staff_id'],row['day'],row['start'],row['locked']),
                              ('pending',None,None,None,0))
             events = [r[0] for r in db.execute('SELECT operation FROM weekly_task_operation_history WHERE task_id=? ORDER BY id',(task,))]
-            self.assertEqual(events,['assign','reset_start','unassign'])
+            self.assertEqual(events,['assign','start','reset_start','unassign'])
         self.place(task,1,start='10:00')
         self.request('POST',path+'/report',{'result':'injured'},self.staff)
         self.request('POST',path+'/resolve')
@@ -318,6 +318,67 @@ class WeeklyTests(unittest.TestCase):
         self.request('POST',path+'/withdraw-report',{'mode':'completion'},self.other)
         with self.main.connect() as db:
             self.assertEqual(db.execute('SELECT count(*) FROM vaccination_records').fetchone()[0],1)
+
+    def test_shared_dependency_is_not_removed_by_one_withdrawal(self):
+        one=self.add('健康狀態待確認')
+        two=self.add('術後健康追蹤')
+        self.place(one,1,start='10:00')
+        self.place(two,2,start='10:00')
+        self.request('POST',f'/api/schedule/tasks/{one}/report',{'result':'sick'},self.staff)
+        self.request('POST',f'/api/schedule/tasks/{two}/report',{'result':'abnormal'},self.other)
+        child='followup:'+one
+        self.request('POST',f'/api/schedule/tasks/{one}/withdraw-report',{'mode':'correction','reason':'誤報'},self.staff)
+        with self.main.connect() as db:
+            self.assertEqual(db.execute('SELECT state FROM weekly_tasks WHERE task_id=?',(child,)).fetchone()[0],'pending')
+            self.assertEqual(db.execute('SELECT health_status FROM animals WHERE id=1').fetchone()[0],'sick')
+            self.assertIsNotNone(db.execute('SELECT 1 FROM weekly_report_dependencies WHERE parent_id=? AND child_id=?',(two,child)).fetchone())
+        self.request('POST',f'/api/schedule/tasks/{two}/withdraw-report',{'mode':'completion'},self.other)
+        with self.main.connect() as db:
+            self.assertIsNone(db.execute('SELECT 1 FROM weekly_tasks WHERE task_id=?',(child,)).fetchone())
+
+    def test_started_child_requires_manager_and_is_reused(self):
+        task=self.add('健康狀態待確認')
+        self.place(task,1,start='10:00')
+        path=f'/api/schedule/tasks/{task}'
+        self.request('POST',path+'/report',{'result':'injured'},self.staff)
+        child='followup:'+task
+        self.place(child,2,start='10:00')
+        self.request('POST',f'/api/schedule/tasks/{child}/event',{'event':'start'})
+        self.request('POST',path+'/withdraw-report',{'mode':'completion'},self.staff,409)
+        self.request('POST',path+'/withdraw-report',{'mode':'completion','reason':'核對後續'},expected=409)
+        self.request('POST',path+'/withdraw-report',{'mode':'completion','reason':'核對後續','acknowledge_downstream':True})
+        self.request('POST',path+'/report',{'result':'injured'},self.staff)
+        with self.main.connect() as db:
+            self.assertEqual(db.execute('SELECT state FROM weekly_tasks WHERE task_id=?',(child,)).fetchone()[0],'in_progress')
+            self.assertEqual(db.execute("SELECT count(*) FROM weekly_tasks WHERE animal_id=1 AND label='優先確認健康狀況' AND state IN ('pending','in_progress')").fetchone()[0],1)
+
+    def test_all_care_outcomes_support_reverse_and_rereport(self):
+        import care_workflow as care
+        for i,(label,result) in enumerate((label,result) for label in care.RULES for result in care.allowed(label),start=100):
+            with self.subTest(label=label,result=result):
+                task=f'inverse-{i}'
+                with self.main.connect() as db:
+                    db.execute("""INSERT INTO animals(id,name,species,health_status,vaccinated,dewormed,sterilized,intake_date)
+                        VALUES (?,?,'dog','healthy','no','no','no','2026-11-01')""",(i,task))
+                    _,skill,hours,_=self.main.TASK_CATALOG[label]
+                    db.execute("""INSERT INTO weekly_tasks(task_id,animal_id,label,skill,priority,quarters,earliest,due,day,staff_id,start)
+                        VALUES (?,?,?,?,3,?,?,?,?,1,40)""",(task,i,label,skill,int(hours*4),MONDAY,MONDAY,MONDAY))
+                path=f'/api/schedule/tasks/{task}'
+                payload={'result':result}
+                if label=='更新疫苗紀錄':payload['administered_date']=MONDAY
+                self.request('POST',path+'/report',payload,self.staff)
+                self.request('POST',path+'/withdraw-report',{'mode':'correction','reason':'測試誤報'},self.staff)
+                with self.main.connect() as db:
+                    self.assertEqual(db.execute('SELECT state FROM weekly_tasks WHERE task_id=?',(task,)).fetchone()[0],'pending')
+                    self.assertIsNone(db.execute('SELECT 1 FROM weekly_reports WHERE task_id=?',(task,)).fetchone())
+                    self.assertIsNone(db.execute('SELECT 1 FROM weekly_issues WHERE task_id=?',(task,)).fetchone())
+                    self.assertEqual(db.execute('SELECT health_status,vaccinated,dewormed,sterilized FROM animals WHERE id=?',(i,)).fetchone()[:],('healthy','no','no','no'))
+                    for table in ('vaccination_records','deworming_events'):
+                        self.assertEqual(db.execute(f'SELECT count(*) FROM {table} WHERE animal_id=?',(i,)).fetchone()[0],0)
+                self.request('POST',path+'/report',payload,self.staff)
+                with self.main.connect() as db:
+                    self.assertEqual(db.execute('SELECT count(*) FROM weekly_reports WHERE task_id=?',(task,)).fetchone()[0],1)
+                    self.assertLessEqual(db.execute('SELECT count(*) FROM weekly_report_dependencies WHERE parent_id=?',(task,)).fetchone()[0],1)
 
     def test_manual_placement_rejects_date_before_task_earliest(self):
         task = self.request('POST','/api/schedule/tasks',{'label':'確認驅蟲紀錄','animal_id':1,

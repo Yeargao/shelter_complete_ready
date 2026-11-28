@@ -33,6 +33,9 @@ export default function ResourcePage() {
  const plan=plans[day];
  const setPlan=(value:Plan|undefined)=>setPlans(p=>{const next={...p};if(value)next[day]=value;else delete next[day];return next});
  const [selected,setSelected]=useState<WeeklyTask>();
+ const [mobile,setMobile]=useState(()=>window.matchMedia('(max-width:680px)').matches);
+ useEffect(()=>{const media=window.matchMedia('(max-width:680px)');const changed=()=>setMobile(media.matches);
+  media.addEventListener('change',changed);return()=>media.removeEventListener('change',changed);},[]);
  const [destination,setDestination]=useState({staff_id:0,day:'',start_time:'09:00',locked:true});
  const [shift,setShift]=useState<WeeklyShift>();
  const [staffSettings,setStaffSettings]=useState<Staff>();
@@ -42,12 +45,14 @@ export default function ResourcePage() {
  const [notice,setNotice]=useState('');
  const [dropIssue,setDropIssue]=useState('');
  const detailRef=useRef<HTMLElement>(null);
- useEffect(()=>{if(selected)detailRef.current?.focus();},[selected]);
+ useEffect(()=>{if(selected)detailRef.current?.focus({preventScroll:mobile});},[selected?.task_id,mobile]);
  const week=useQuery({queryKey:['schedule-week',day],queryFn:()=>api.week(day),refetchInterval:dragged?false:15000,refetchOnWindowFocus:!dragged});
- const refresh=async()=>{await qc.invalidateQueries({queryKey:['schedule-week']});await qc.invalidateQueries({queryKey:['resource-overview']});};
+ useEffect(()=>{if(!selected||!week.data)return;const latest=week.data.tasks.find(t=>t.task_id===selected.task_id);
+  if(latest!==selected)setSelected(latest);},[week.data,selected?.task_id]);
+ const refresh=async()=>{await qc.invalidateQueries({queryKey:['schedule-week']});await qc.invalidateQueries({queryKey:['resource-overview']});await qc.invalidateQueries({queryKey:['tasks']});await qc.invalidateQueries({queryKey:['animal-photos']});};
  const preview=useMutation({mutationFn:()=>api.previewWeek(day),onSuccess:setPlan});
  const apply=useMutation({mutationFn:api.applyWeek,onSuccess:async(_,id)=>{setSavedPlans(p=>({...p,[id]:true}));await refresh();}});
- const move=useMutation({mutationFn:({id,body}:{id:string;body:Parameters<typeof api.place>[1]})=>api.place(id,body),onSuccess:async()=>{setNotice('已儲存指派');setSelected(undefined);await refresh();}});
+ const move=useMutation({mutationFn:({id,body}:{id:string;body:Parameters<typeof api.place>[1]})=>api.place(id,body),onSuccess:async(_,variables)=>{setNotice(variables.body.staff_id===null?'已取消指派，工時已釋放':'已儲存指派');setSelected(undefined);await refresh();}});
  const create=useMutation({mutationFn:async(body:Parameters<typeof api.createWeeklyTask>[0])=>{const check=await smartRequest<Check>('/check',body);if(!check.ok)throw Error(check.issues.join('；'));return api.createWeeklyTask(body)},onSuccess:async()=>{setPoolTab('pending');await refresh();}});
  const resolve=useMutation({mutationFn:api.resolveIssue,onSuccess:async()=>{setSelected(undefined);await refresh();}});
  const adminWithdraw=useMutation({mutationFn:({id,mode,reason}:{id:string;mode:'completion'|'correction';reason:string})=>api.withdrawReport(id,{mode,reason,acknowledge_downstream:true}),onSuccess:async(data)=>{setSelected(undefined);setNotice(data.preserved.length?'已收回，其他有效資料已保留：'+data.preserved.join('、'):'已收回回報，請核對待辦及排程');await refresh();}});
@@ -72,7 +77,7 @@ export default function ResourcePage() {
  const completedPool=tasks.filter(t=>t.state==='done'&&[t.label,displayTaskLabel(t.label),t.animal_name,t.animal_id].join(' ').toLowerCase().includes(search.toLowerCase()));
  const visiblePool=(poolTab==='done'?completedPool:pool.filter(t=>poolTab==='derived'?t.is_derived:!t.is_derived))
   .filter(t=>!eligibleOnly||focusedWorker?.skills.includes(t.skill));
- const choose=(t:WeeklyTask)=>{setSelected(t);setDestination({staff_id:t.staff_id??sid??0,day:t.day??[day,taipeiToday(),t.earliest].sort()[2],start_time:t.start_time??'09:00',locked:t.staff_id===null||Boolean(t.locked)});};
+ const choose=(t:WeeklyTask)=>{setSelected(t);setDestination({staff_id:t.staff_id??sid??0,day:t.day??[day,taipeiToday(),t.earliest].sort()[2],start_time:t.start_time??(mobile?'':'09:00'),locked:t.staff_id===null||Boolean(t.locked)});};
  const drop=(id:string,staff_id:number,date?:string,start_time?:string)=>{
   if(id&&!move.isPending)move.mutate({id,body:{staff_id,day:date,start_time,locked:true}});
  };
@@ -103,11 +108,15 @@ export default function ResourcePage() {
   if(task.hours*4+assigned.reduce((total,t)=>total+t.hours*4,0)>available)return '超出每日可用工時';
   return '';
  };
+ const mobileSlots=mobile&&selected?Array.from({length:96},(_,i)=>i)
+  .filter(i=>!dropReason(selected,ranges.find(s=>s.id===destination.staff_id&&s.day===destination.day),destination.day,i))
+  .map(gridTime):[];
+ const mobileDates=days.filter(d=>d>=taipeiToday()&&(!selected||d>=selected.earliest));
  const placement=(p:Placement)=>{
   if(p[0]===null)return '任務池';
   return [workers.find(w=>w.id===p[0])?.name??p[0],p[1],p[2]===null?'':gridTime(p[2])].join(' ');
  };
- const navigating=preview.isPending||apply.isPending||move.isPending;
+ const navigating=preview.isPending||apply.isPending||move.isPending||adminWithdraw.isPending||reverse.isPending;
  const planRows=plan?.changes??[];
  const activeUnassigned=tasks.filter(t=>!t.staff_id&&t.state==='pending'&&t.is_active);
  return <section className="space-y-4">
@@ -183,7 +192,7 @@ export default function ResourcePage() {
     </section>}
     {selected&&<section ref={detailRef} tabIndex={-1} aria-label="任務詳細資料" className="weekly-task-detail">
      <div className="weekly-detail-heading"><h3>{selected.animal_name} · {displayTaskLabel(selected.label)}</h3>
-      <button type="button" className="secondary" onClick={()=>setSelected(undefined)}>關閉</button></div>
+      <button type="button" className="secondary" onClick={()=>setSelected(undefined)}>{mobile?'取消選取':'關閉'}</button></div>
      <p className="muted">{selected.day??'待指派'}　{selected.start_time??''} {selected.end_time?`– ${selected.end_time}`:''}
       {selected.state==='done'?' · 已完成':selected.state==='in_progress'?' · 執行中':''}</p>
      {selected.note&&<p>{selected.note}</p>}
@@ -196,16 +205,21 @@ export default function ResourcePage() {
       {selected.state==='in_progress'&&<button type="button" className="secondary" disabled={reverse.isPending} onClick={()=>{if(window.confirm('確認任務尚未實際開始，恢復待辦？'))reverse.mutate({id:selected.task_id,action:'reset_start'});}}>恢復待辦</button>}
      {selected.state==='done'&&<TaskPhotos task={selected}/>}
      {selected.state==='pending'&&(!selected.day||selected.day>=taipeiToday())&&<form className="weekly-toolbar" onSubmit={e=>{e.preventDefault();move.mutate({id:selected.task_id,body:destination});}}>
-     <select aria-label="指派員工" value={destination.staff_id} onChange={e=>setDestination({...destination,staff_id:Number(e.target.value)})}>{workers.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</select>
+     <select aria-label="指派員工" value={destination.staff_id} onChange={e=>setDestination({...destination,staff_id:Number(e.target.value),start_time:mobile?'':destination.start_time})}>{workers.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</select>
+     {mobile?<><select aria-label="指派日期" value={destination.day} required onChange={e=>setDestination({...destination,day:e.target.value,start_time:''})}>{mobileDates.map(d=><option key={d} value={d}>{d}</option>)}</select>
+      <select aria-label="可用時段" value={mobileSlots.includes(destination.start_time)?destination.start_time:''} required onChange={e=>setDestination({...destination,start_time:e.target.value})}>
+       <option value="">{mobileSlots.length?'選擇可用時段':'沒有符合條件的時段'}</option>{mobileSlots.map(s=><option key={s} value={s}>{s}–{gridTime(timeGrid(s)+selected.hours*4)}</option>)}</select>
+      {!mobileSlots.length&&<small>請選擇其他日期或具備技能且出勤的員工。</small>}</>:<>
      <input aria-label="指派日期" type="date" value={destination.day} required onChange={e=>setDestination({...destination,day:e.target.value})}/>
-     <input aria-label="開始時間" type="time" step={900} value={destination.start_time} required onChange={e=>setDestination({...destination,start_time:e.target.value})}/>
+     <input aria-label="開始時間" type="time" step={900} value={destination.start_time} required onChange={e=>setDestination({...destination,start_time:e.target.value})}/></>}
      <label className="weekly-checkbox"><input type="checkbox" checked={destination.locked} onChange={e=>setDestination({...destination,locked:e.target.checked})}/>鎖定</label>
-     <button disabled={move.isPending}>儲存指派</button>
+     <button disabled={move.isPending||(mobile&&!mobileSlots.includes(destination.start_time))}>儲存指派</button>
      {selected.staff_id&&<button type="button" className="secondary" disabled={move.isPending} onClick={()=>{if(window.confirm('取消此任務指派並釋放工時？'))move.mutate({id:selected.task_id,body:{staff_id:null}});}}>取消指派</button>}
      {!selected.locked&&<button type="button" className="secondary" disabled={event.isPending} onClick={()=>event.mutate({id:selected.task_id,date:destination.day})}>延遲至所選日期</button>}
      {selected.staff_id&&selected.day===taipeiToday()&&<button type="button" className="secondary"
       onClick={()=>event.mutate({id:selected.task_id})}>標記執行中</button>}
      </form>}
+     {mobile&&[move.error,event.error,resolve.error,reverse.error,adminWithdraw.error].filter(Boolean).map((error,i)=><ErrorView key={i} error={error}/>)}
     </section>}
     {week.data&&<ScheduleCalendar columns={columns} shifts={ranges} tasks={tasks} onTask={choose} selectedId={selected?.task_id}
      drag={{start:beginDrag,end:endDrag,

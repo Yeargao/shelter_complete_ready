@@ -40,8 +40,9 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
  const addPhoto=(photo:string)=>{setCaptured(prev=>prev.length<4?[...prev,photo]:prev);setAnalysis(undefined);setPhotoError('');setInlinePhoto(true);};
  const [upload,setUpload]=useState<number>();
  const [summaryOpen,setSummaryOpen]=useStored('care-open:'+t.task_id,false);
- const [cachedSummary,setCachedSummary]=useStored<Awaited<ReturnType<typeof api.taskSummary>>|null>('care-result:'+t.task_id,null);
- const summary=useMutation({mutationFn:()=>api.taskSummary(t.task_id),onSuccess:setCachedSummary});
+ const [summaryRecord,setCachedSummary]=useStored<{revision:number;summary:Awaited<ReturnType<typeof api.taskSummary>>}|null>('care-result-v2:'+t.task_id,null);
+ const cachedSummary=summaryRecord?.revision===(t.care_revision??0)?summaryRecord?.summary:null;
+ const summary=useMutation({mutationFn:async()=>({revision:t.care_revision??0,summary:await api.taskSummary(t.task_id)}),onSuccess:setCachedSummary});
  const care=cachedSummary??t.summary;
  const follow=false;
  const [dose,setDose]=useState('');
@@ -59,7 +60,8 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
  const canWithdraw=Boolean(t.withdrawal?.allowed);
  const undo=(mode:'completion'|'correction')=>{
   if(mode==='completion'){
-   if(window.confirm('僅收回任務完成紀錄，保留已登錄的醫療資料？'))withdraw.mutate({mode});
+   if(window.confirm('僅收回任務完成紀錄，保留已登錄的醫療資料？'+
+    ' 預計取消 '+(t.withdrawal?.cancel_count??0)+' 組尚未執行的專屬衍生任務，保留 '+(t.withdrawal?.retain_count??0)+' 組有其他來源或已執行的任務。'))withdraw.mutate({mode});
   }else{
    const reason=window.prompt('確認原回報為誤報，請填寫更正原因（其他有效醫療紀錄不會被覆蓋）');
    if(reason?.trim())withdraw.mutate({mode,reason});

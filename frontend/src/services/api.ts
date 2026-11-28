@@ -53,7 +53,8 @@ export type WeeklyTask = {
  species:string; breed:string|null; age_months:number|null; health_status:string; photo_url:string|null;
  is_active:number; is_new?:boolean; is_derived?:boolean; display_priority?:number; photos:string[]; issue:{resolved_at:string|null}|null; report:{result:string;note:string;reported_at:string}|null;
  summary?:CareSummary;
- withdrawal?:{allowed:boolean;reason:string|null;requires_review:boolean;can_correct:boolean};
+ care_revision?:number;
+ withdrawal?:{allowed:boolean;reason:string|null;requires_review:boolean;can_correct:boolean;cancel_count?:number;retain_count?:number};
 };
 export type Placement = [number|null,string|null,number|null];
 export type WeeklyShift = Staff & {day:string;assignable_hours?:number;daily_capacity_hours?:number;break_windows?:[string,string][]};
