@@ -43,8 +43,19 @@ class FollowupDialogueTests(fixture.DialogueTests):
         yesterday=(date.fromisoformat(self.day)-timedelta(days=1)).isoformat()
         with self.main.connect() as db:
             db.executemany('UPDATE weekly_tasks SET due=? WHERE task_id=?',[(yesterday,self.tids[0]),(yesterday,self.tids[1])])
-        r=self.answer('有哪些逾期任務？');self.assertIn(self.names[0],r);self.assertIn(self.names[1],r)
-        r=self.answer('我有哪些逾期任務？',self.staff);self.assertIn(self.names[0],r);self.assertNotIn(self.names[1],r)
+        with self.main.connect() as db:
+            sql="""SELECT COUNT(*) FROM weekly_tasks t JOIN animals a ON a.id=t.animal_id
+                WHERE a.is_active=1 AND t.state IN ('pending','in_progress') AND t.due<?"""
+            total=db.execute(sql,(self.day,)).fetchone()[0]
+            own=db.execute(sql+' AND t.staff_id=?',(self.day,self.sid)).fetchone()[0]
+        r=self.answer('有哪些逾期任務？');self.assertIn(f'共 {total} 項',r)
+        if total>20:self.assertIn('縮小範圍',r)
+        r=self.answer(self.names[0]+' 有哪些逾期任務？');self.assertIn(self.names[0],r);self.assertNotIn(self.names[1],r)
+        r=self.answer(self.names[1]+' 有哪些逾期任務？');self.assertIn(self.names[1],r)
+        r=self.answer('我有哪些逾期任務？',self.staff);self.assertIn(f'共 {own} 項',r);self.assertNotIn(self.names[1],r)
+        r=self.answer(self.names[0]+' 有哪些逾期任務？',self.staff);self.assertIn(self.names[0],r)
+        r=self.send(self.names[1]+' 有哪些逾期任務？',self.staff);self.assertEqual(r['command']['type'],'clarify')
+        self.assertNotIn(self.names[1],r['command']['message'])
     def test_open_issue_notes_scope(self):
         with self.main.connect() as db:
             for aid,tid,note in zip(self.ids,self.tids,['測試自己的異常','測試他人的異常','已處理']):

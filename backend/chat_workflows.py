@@ -211,8 +211,9 @@ def guide(db,uid,q,active,current,resolve,resource_totals,topic=None):
         lines=[f'截至 {current.isoformat()}，期限早於今日且未完成的任務共 {len(rows)} 項。']
         if not re.search(r'幾項|多少',q):
             lines.extend(f"{r['name']} #{r['id']} · {task_line(r)} · 期限 {r['due']}" for r in rows[:20])
-        if len(rows)>20:lines.append('僅列前 20 項。')
-        return reply('\n'.join(lines),[link('/resources' if manager else '/','資源配置' if manager else '個人工作台')],sources=['任務期限及狀態'],target=a['id'] if a else None)
+        if len(rows)>20:lines.append('僅列最早逾期的前 20 項；可輸入「動物 #編號 有哪些逾期任務？」縮小範圍，或到工作頁面查看完整任務。')
+        suggestions=[prompt('只看逾期任務總數','目前有多少項逾期任務？')] if not a and len(rows)>20 else []
+        return reply('\n'.join(lines),[link('/resources' if manager else '/','資源配置' if manager else '個人工作台')],suggestions,sources=['任務期限及狀態'],target=a['id'] if a else None)
     if not how and re.search(r'異常|問題',q) and re.search(r'未結案|還沒結案|尚未結案|待處理|未解決|還沒解決',q) and not re.search(r'任務|建立|新增|回報|更正|修改|提醒|通知|報表|統計|昨天|明天|上週|下週',q):
         sql="""SELECT i.task_id,i.animal_id,i.note,a.name,t.label,r.reported_at
             FROM weekly_issues i JOIN animals a ON a.id=i.animal_id JOIN weekly_tasks t ON t.task_id=i.task_id
