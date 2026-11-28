@@ -2,7 +2,7 @@ import {useEffect, useRef, useState} from 'react';
 import {MessageCircle, X} from 'lucide-react';
 import {api,type ChatAnswer} from '../../services/api';
 import {useQueryClient} from '@tanstack/react-query';
-import {Link} from 'react-router-dom';
+import {Link,useLocation} from 'react-router-dom';
 import {useStored,executeCommand,type Command,type Report,type Check} from './smartState';
 import {CommandPreview,SmartChart} from './SmartPanels';
 import './ShelterChat.css';
@@ -31,6 +31,9 @@ async function agentRequest<T>(path:string,body?:object,signal?:AbortSignal):Pro
 }
 export default function ShelterChat({manager}:{manager:boolean}) {
  const qc=useQueryClient();
+ const {pathname}=useLocation();
+ const animalId=pathname.match(/^\/animals\/(\d+)$/)?.[1];
+ const contextualQuestion=animalId?`查詢動物 #${animalId} 的健康狀況`:pathname==='/resources'?'哪些員工還有剩餘工時？':manager?'今天有哪些緊急任務？':'我的下一項任務是什麼？';
  const confirming=useRef(new Set<string>());
  const [actions,setActions]=useState<Record<string,boolean>>({});
  const [prompts,setPrompts]=useStored('chat-prompts',false);
@@ -113,7 +116,8 @@ export default function ShelterChat({manager}:{manager:boolean}) {
      <button type="button" className="secondary" onClick={()=>dialog.current?.close()} aria-label="關閉聊天"><X size={20}/></button>
     </header>
     <div className="chat-stream" ref={scroll} role="log" aria-label="對話訊息">
-     {!turns.length&&<div className="chat-empty space-y-2"><p>第一次使用？可以詢問照護流程、動物資料及任務，也能依權限建立操作草案。</p><div className="smart-inline"><button type="button" className="secondary" disabled={pending} onClick={()=>void send('第一次使用')}>新手入門</button><button type="button" className="secondary" disabled={pending} onClick={()=>void send(manager?'待指派照護任務':'我的照護任務回報選項')}>{manager?'查看待指派照護任務':'查看我的照護任務'}</button></div></div>}
+     <div className="ux-chat-context"><span>{animalId?'目前查看動物 #'+animalId:pathname==='/resources'?'目前頁面：資源配置':pathname==='/health'?'目前頁面：健康行政核對':manager?'管理者工作空間':'照護工作空間'}</span><button type="button" className="secondary" disabled={pending||Object.values(actions).some(Boolean)} onClick={()=>void send(contextualQuestion)}>{contextualQuestion}</button></div>
+    {!turns.length&&<div className="chat-empty space-y-2"><p>第一次使用？可以詢問照護流程、動物資料及任務，也能依權限建立操作草案。</p><div className="smart-inline"><button type="button" className="secondary" disabled={pending} onClick={()=>void send('第一次使用')}>新手入門</button><button type="button" className="secondary" disabled={pending} onClick={()=>void send(manager?'待指派照護任務':'我的照護任務回報選項')}>{manager?'查看待指派照護任務':'查看我的照護任務'}</button></div></div>}
      {turns.map(t=><div className="chat-turn" key={t.id}>
       <p className="chat-question">{t.question}</p>
       {t.answer&&<article className="chat-answer">

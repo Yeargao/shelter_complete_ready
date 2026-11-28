@@ -1,6 +1,7 @@
 import {useStored,smartRequest,type Check} from '../components/common/smartState';
 
 import { useEffect, useRef, useState } from 'react';
+import {useSearchParams} from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Placement, type Plan, type Staff, type WeeklyShift, type WeeklyTask } from '../services/api';
 import { ErrorView } from '../components/common/States';
@@ -16,6 +17,11 @@ const skills = [
 
 export default function ResourcePage() {
  const qc = useQueryClient();
+ const [params]=useSearchParams();
+ const initialAnimal=params.get('animal')??'';
+ const [animalSearch,setAnimalSearch]=useState('');
+ const [animalChoice,setAnimalChoice]=useState(initialAnimal);
+ const animalOptions=useQuery({queryKey:['animals','resource-picker',animalSearch],queryFn:()=>api.animals(animalSearch,'','',0,100),enabled:animalSearch.trim().length>0});
  const [day,setDay]=useStored('resource-day',taipeiToday());
  const [view,setView]=useState<'day'|'week'>('week');
  const [worker,setWorker]=useState<number>();
@@ -94,17 +100,23 @@ export default function ResourcePage() {
   return [workers.find(w=>w.id===p[0])?.name??p[0],p[1],p[2]===null?'':gridTime(p[2])].join(' ');
  };
  const navigating=preview.isPending||apply.isPending||move.isPending;
+ const planRows=plan?.changes??[];
+ const activeUnassigned=tasks.filter(t=>!t.staff_id&&t.state==='pending'&&t.is_active);
  return <section className="space-y-4">
   <h1>資源配置</h1>
+  {week.data&&<div className="ux-stats ux-progress-panel"><span>未指派 <b>{activeUnassigned.length}</b></span><span className="ux-danger">優先處理未指派 <b>{activeUnassigned.filter(t=>(t.display_priority??t.priority)===0).length}</b></span><span>檢視日期 <b>{day}</b></span></div>}
   {[week.error,create.error,saveShift.error,resolve.error,saveStaff.error].filter(Boolean).map((error,i)=><ErrorView key={i} error={error}/>)}
   <div className="weekly-board">
    <aside className="panel weekly-board-panel weekly-pool-panel" onDragOver={e=>{if(dragged?.staff_id){e.preventDefault();e.dataTransfer.dropEffect='none';}}} onDrop={e=>{e.preventDefault();e.stopPropagation();if(dragged?.staff_id)setDropIssue('已指派任務只能透過七天最佳化派工重新移回任務池');endDrag();}}>
     <h2>待指派任務池</h2>
-    <details><summary>建立任務</summary><form className="space-y-2" onSubmit={e=>{
+    <details open={initialAnimal?true:undefined}><summary>建立任務</summary><form className="space-y-2" onSubmit={e=>{
      e.preventDefault();const f=new FormData(e.currentTarget);
      create.mutate({...Object.fromEntries(f),animal_id:Number(f.get('animal_id')),priority:Number(f.get('priority'))});
     }}>
-     <label>動物編號<input name="animal_id" type="number" min="1" required/></label>
+     <label>搜尋動物名稱或編號<input value={animalSearch} onChange={e=>setAnimalSearch(e.target.value)} placeholder="輸入名稱或編號"/></label>
+     {animalOptions.isFetching&&<p role="status">搜尋動物中…</p>}{animalOptions.error&&<ErrorView error={animalOptions.error}/>}
+     {!!animalOptions.data?.length&&<label>搜尋結果<select value="" onChange={e=>setAnimalChoice(e.target.value)}><option value="">選擇動物</option>{animalOptions.data.map(a=><option value={a.id} key={a.id}>{a.name} #{a.id}</option>)}</select></label>}
+     <label>動物編號<input name="animal_id" type="number" min="1" required value={animalChoice} onChange={e=>setAnimalChoice(e.target.value)}/></label>
      <label>任務<select name="label">{healthTaskLabels.filter(l=>!['疫苗紀錄待確認','補做驅蟲'].includes(l)).map(l=><option key={l} value={l}>{displayTaskLabel(l)}</option>)}</select></label>
      <label>最早日期<input name="earliest" type="date" min={taipeiToday()} defaultValue={taipeiToday()} required/></label>
      <label>期限<input name="due" type="date" min={taipeiToday()} defaultValue={taipeiToday()} required/></label>
@@ -114,9 +126,9 @@ export default function ResourcePage() {
     </form></details>
     <input aria-label="搜尋任務" placeholder="搜尋動物或任務" value={search} onChange={e=>setSearch(e.target.value)}/>
     <div className="weekly-pool-tabs" aria-label="任務類別">
-     <button type="button" aria-pressed={poolTab==='pending'} className={poolTab==='pending'?'':'secondary'} onClick={()=>setPoolTab('pending')}>未指派</button>
-     <button type="button" aria-pressed={poolTab==='derived'} className={poolTab==='derived'?'':'secondary'} onClick={()=>setPoolTab('derived')}>衍生任務</button>
-     <button type="button" aria-pressed={poolTab==='done'} className={poolTab==='done'?'':'secondary'} onClick={()=>setPoolTab('done')}>已完成</button>
+     <button type="button" aria-pressed={poolTab==='pending'} className={poolTab==='pending'?'':'secondary'} onClick={()=>setPoolTab('pending')}>未指派（{pool.filter(t=>!t.is_derived).length}）</button>
+     <button type="button" aria-pressed={poolTab==='derived'} className={poolTab==='derived'?'':'secondary'} onClick={()=>setPoolTab('derived')}>衍生任務（{pool.filter(t=>t.is_derived).length}）</button>
+     <button type="button" aria-pressed={poolTab==='done'} className={poolTab==='done'?'':'secondary'} onClick={()=>setPoolTab('done')}>已完成（{completedPool.length}）</button>
     </div>
     <label className="weekly-checkbox"><input type="checkbox" checked={eligibleOnly} disabled={!focusedWorker} onChange={e=>setEligibleOnly(e.target.checked)}/>只顯示{focusedWorker? ` ${focusedWorker.name} `:'所選員工'}技能符合的任務</label>
     <div className="weekly-pool">{visiblePool.map(t=><button key={t.task_id} className="weekly-task" data-priority={t.display_priority??t.priority} draggable={t.state==='pending'}
@@ -130,9 +142,9 @@ export default function ResourcePage() {
    <div className="panel weekly-board-panel space-y-3 min-w-0">
     <h2>員工日曆</h2>
     <div className="weekly-toolbar">
-     <button className="secondary" disabled={navigating} onClick={()=>go(addDays(day,-7))}>上一週</button>
+     <button className="secondary" disabled={navigating} onClick={()=>go(addDays(day,view==='day'?-1:-7))}>{view==='day'?'前一天':'上一週'}</button>
      <button className="secondary" disabled={navigating} onClick={()=>go(taipeiToday())}>今天</button>
-     <button className="secondary" disabled={navigating} onClick={()=>go(addDays(day,7))}>下一週</button>
+     <button className="secondary" disabled={navigating} onClick={()=>go(addDays(day,view==='day'?1:7))}>{view==='day'?'後一天':'下一週'}</button>
      <input aria-label="排程日期" type="date" disabled={navigating} value={day} onChange={e=>{if(e.target.value)go(e.target.value);}}/>
      <select aria-label="日曆檢視" value={view} onChange={e=>setView(e.target.value==='day'?'day':'week')}><option value="day">日檢視</option><option value="week">週檢視</option></select>
      <select aria-label="員工" value={sid??''} onChange={e=>setWorker(Number(e.target.value))}>{workers.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</select>
@@ -143,14 +155,19 @@ export default function ResourcePage() {
     {historical&&<p>歷史週只供查閱</p>}
     {notice&&<p role="status">{notice}</p>}
     {[preview.error,apply.error,move.error,event.error].filter(Boolean).map((error,i)=><ErrorView key={i} error={error}/>)}
-    {workers.length>0&&<details><summary>全員每日工時</summary><ul>
+    {workers.length>0&&<details open><summary>全員每日工時 · {day}</summary><ul className="ux-workload">
      {workers.map(w=>{
       const assigned=tasks.filter(t=>t.staff_id===w.id&&t.day===day&&t.state!=='cancelled').reduce((total,t)=>total+t.hours,0);
       const shift=ranges.find(s=>s.id===w.id&&s.day===day);
-      return <li key={w.id}>{w.name} · 已排 {assigned}h · 可派 {shift?.assignable_hours??'—'}h</li>;
+      const remaining=shift?.assignable_hours;
+      const total=remaining===undefined?undefined:assigned+remaining;
+      return <li key={w.id}><div className="ux-heading"><strong>{w.name}</strong><span>已排 {assigned.toFixed(2)}h · 尚可派 {remaining?.toFixed(2)??'—'}h</span></div>{total!==undefined&&total>0&&<progress aria-label={w.name+'工時使用比例'} value={assigned} max={total}/>}</li>;
      })}
     </ul></details>}
     {plan&&<section className="weekly-plan space-y-2"><h3>調整方案 · CP-SAT {plan.solver_status}</h3>
+     <p className="muted">以下依本次變更清單計算，不代表全部任務的排程成效。</p>
+     <div className="ux-stats ux-progress-panel"><span>新指派 <b>{planRows.filter(c=>c.before[0]===null&&c.after[0]!==null).length}</b></span><span>移回任務池 <b>{planRows.filter(c=>c.before[0]!==null&&c.after[0]===null).length}</b></span><span>重新安排 <b>{planRows.filter(c=>c.before[0]!==null&&c.after[0]!==null).length}</b></span></div>
+     <div className="ux-comparison"><span>變更任務中未指派數</span><strong>{planRows.filter(c=>c.before[0]===null).length} → {planRows.filter(c=>c.after[0]===null).length}</strong></div>
      <ul>{plan.changes.map(c=><li key={c.task_id}>{c.animal_name} · {displayTaskLabel(c.label)}　{placement(c.before)} → {placement(c.after)} {c.adjustment_reason}</li>)}</ul>
      {!plan.changes.length&&<p>沒有排程變動</p>}
      <button disabled={apply.isPending||!plan.plan_id||!!savedPlans[plan.plan_id]} onClick={()=>{if(plan.plan_id)apply.mutate(plan.plan_id);}}>{plan.plan_id&&savedPlans[plan.plan_id]?'已儲存':'確認儲存'}</button>{' '}

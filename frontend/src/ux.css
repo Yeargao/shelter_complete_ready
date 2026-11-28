@@ -1,0 +1,14 @@
+/* Scoped UX improvements; retain calendar geometry and workflow permissions. */
+.ux-progress-panel{display:grid;gap:8px;padding:12px 14px;border:1px solid #dbe4ec;border-radius:12px;background:#fff}
+.ux-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:14px}
+.ux-progress-panel progress,.ux-workload progress{width:100%;height:9px;accent-color:#0f766e;display:block}
+.ux-stats{display:flex;gap:12px 22px;flex-wrap:wrap;align-items:center;font-size:14px}.ux-stats b{font-size:17px;margin-left:4px;font-variant-numeric:tabular-nums}
+.ux-success{color:#166534}.ux-warning{color:#92400e}.ux-danger{color:#b91c1c}
+.ux-tabs{display:flex;flex-wrap:wrap;gap:6px}.ux-tabs button{min-height:40px;font-size:14px}
+.ux-workload{list-style:none;padding:0;display:grid;gap:10px;margin-top:8px}.ux-workload li{display:grid;gap:5px}
+.ux-comparison{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px;border:1px solid #dbe4ec;border-radius:8px}
+.ux-alert-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ux-alert{display:grid;gap:4px;padding:14px;border:1px solid currentColor;border-radius:12px;background:#fff}.ux-alert b{font-size:24px}.ux-alert span{font-size:13px}.ux-alert.ux-danger{color:#b91c1c;background:#fff7f7}.ux-alert.ux-warning{color:#92400e;background:#fffbeb}
+.ux-list-controls{display:flex;align-items:end;flex-wrap:wrap;gap:10px}.ux-list-controls label{min-width:180px}.ux-animal-id{display:flex;align-items:center;gap:6px}.ux-animal-id img{width:38px;height:38px;border-radius:6px;object-fit:cover}
+.ux-animal-cards{display:none}.ux-profile-photo{max-width:min(100%,280px);max-height:220px;object-fit:cover;border-radius:12px}.ux-chat-context{display:grid;gap:6px;padding:10px;border:1px solid #dbe4ec;border-radius:10px;font-size:13px}.ux-chat-context button{text-align:left;white-space:normal}
+.ux-alert:focus-visible,.ux-animal-card a:focus-visible,.ux-tabs button:focus-visible{outline:2px solid #0d9488;outline-offset:3px}
+@media(max-width:680px){.ux-animal-table{display:none}.ux-animal-cards{display:grid;gap:10px}.ux-animal-card{border:1px solid #dbe4ec;border-radius:12px;padding:10px}.ux-animal-card>a{display:flex;align-items:center;gap:12px;min-height:60px;color:#172b40}.ux-animal-card>a>div{flex:1;min-width:0;overflow-wrap:anywhere}.ux-animal-card>a strong{font-size:16px}.ux-animal-card>a p{font-size:13px;margin:3px 0}.ux-animal-card img,.ux-animal-placeholder{width:56px;height:56px;object-fit:cover;border-radius:9px;flex:none}.ux-animal-placeholder{display:grid;place-items:center;background:#e8f3f1;font-size:22px}.ux-animal-card details{margin-top:6px}.ux-tabs button{min-height:44px}.ux-stats{gap:8px 14px}.ux-alert-grid{gap:8px}.ux-alert{padding:10px}.ux-alert b{font-size:20px}}

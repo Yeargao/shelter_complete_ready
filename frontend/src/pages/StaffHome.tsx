@@ -144,6 +144,7 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
 export default function StaffHome({userId}:{userId:number}) {
  const [day,setDay]=useState(taipeiToday);
  const [weekly,setWeekly]=useState(false);
+ const [taskFilter,setTaskFilter]=useState<'all'|'pending'|'done'>('all');
  const [mobile,setMobile]=useState(()=>window.matchMedia('(max-width: 680px)').matches);
  useEffect(()=>{const media=window.matchMedia('(max-width: 680px)');const update=()=>{setMobile(media.matches);setSelectedId(undefined)};media.addEventListener('change',update);return()=>media.removeEventListener('change',update)},[]);
  const [selectedId,setSelectedId]=useState<string>();
@@ -154,12 +155,23 @@ export default function StaffHome({userId}:{userId:number}) {
  const tasks=query.data?.tasks??[];
  const worker=query.data?.workers[0];
  const days=weekly?(query.data?.days??[]):[day];
- const selected=tasks.find(task=>task.task_id===selectedId&&days.includes(task.day??''));
+ const periodTasks=tasks.filter(t=>days.includes(t.day??'')&&t.state!=='cancelled');
+ const doneCount=periodTasks.filter(t=>t.state==='done').length;
+ const visibleTasks=tasks.filter(t=>taskFilter==='all'||(taskFilter==='done'?t.state==='done':t.state!=='done'&&t.state!=='cancelled'));
+ const nextTask=periodTasks.filter(t=>t.state!=='done'&&t.day===today&&t.start_time).sort((a,b)=>(a.start_time??'').localeCompare(b.start_time??''))[0];
+ const selected=visibleTasks.find(task=>task.task_id===selectedId&&days.includes(task.day??''));
  const go=(date:string)=>{setDay(date);setSelectedId(undefined);};
  return <section className="space-y-4">
   <h1>照護人員工作台</h1>
   <section className="panel weekly-board-panel space-y-3" data-personal-calendar-user={userId}>
    <h2>個人日曆</h2>
+   {worker&&!query.isLoading&&<div className="ux-progress-panel">
+    <div className="ux-heading"><strong>{weekly?'本週':day===today?'今日':'當日'}任務進度</strong><span>{doneCount}/{periodTasks.length} 已完成</span></div>
+    <progress aria-label="任務完成進度" value={doneCount} max={periodTasks.length||1}/>
+    <div className="ux-stats"><span>全部 <b>{periodTasks.length}</b></span><span className="ux-success">已完成 <b>{doneCount}</b></span><span className="ux-warning">待完成 <b>{periodTasks.length-doneCount}</b></span></div>
+    {nextTask&&<p><strong>今日最早未完成：</strong>{nextTask.start_time} · {nextTask.animal_name} · {displayTaskLabel(nextTask.label)}</p>}
+    <div className="ux-tabs" aria-label="篩選照護任務">{([['all','全部'],['pending','待完成'],['done','已完成']] as const).map(([value,label])=><button type="button" key={value} aria-pressed={taskFilter===value} className={taskFilter===value?'':'secondary'} onClick={()=>{setTaskFilter(value);setSelectedId(undefined)}}>{label}</button>)}</div>
+   </div>
    <div className="weekly-toolbar">
     <button type="button" className="secondary" onClick={()=>go(addDays(day,weekly?-7:-1))}>{weekly?'上一週':'前一天'}</button>
     <button type="button" className="secondary" onClick={()=>go(today)}>今天</button>
@@ -176,10 +188,10 @@ export default function StaffHome({userId}:{userId:number}) {
      <button type="button" className="secondary" onClick={()=>setSelectedId(undefined)}>關閉</button></div>
     <TaskCard key={selected.task_id} task={selected}/>
    </section>}
-   {worker&&mobile&&<div className="mobile-task-list">{days.map(d=><section key={d}><h3>{d}</h3>{tasks.filter(t=>t.day===d&&t.state!=='cancelled').sort((a,b)=>(a.start_time??'').localeCompare(b.start_time??'')).map(t=><TaskCard key={t.task_id} task={t}/>)}{!tasks.some(t=>t.day===d&&t.state!=='cancelled')&&<p className="muted">本日無任務</p>}</section>)}</div>}
+   {worker&&mobile&&<div className="mobile-task-list">{days.map(d=><section key={d}><h3>{d}</h3>{visibleTasks.filter(t=>t.day===d&&t.state!=='cancelled').sort((a,b)=>(a.start_time??'').localeCompare(b.start_time??'')).map(t=><TaskCard key={t.task_id} task={t}/>)}{!visibleTasks.some(t=>t.day===d&&t.state!=='cancelled')&&<p className="muted">本日無任務</p>}</section>)}</div>}
    {worker&&!mobile&&<ScheduleCalendar columns={days.map(date=>({day:date,sid:worker.id,title:date.slice(5)}))}
-    shifts={query.data?.shifts??[]} tasks={tasks} onTask={task=>setSelectedId(task.task_id)} selectedId={selectedId} renderInline={weekly?undefined:task=><TaskCard task={task}/>}/>}
-   {worker&&!tasks.some(task=>task.day&&days.includes(task.day)&&task.state!=='cancelled')&&<p className="muted">這段期間沒有指派任務</p>}
+    shifts={query.data?.shifts??[]} tasks={visibleTasks} onTask={task=>setSelectedId(task.task_id)} selectedId={selectedId} renderInline={weekly?undefined:task=><TaskCard task={task}/>}/>}
+   {worker&&!visibleTasks.some(task=>task.day&&days.includes(task.day)&&task.state!=='cancelled')&&<p className="muted">這段期間沒有符合篩選的任務</p>}
   </section>
  </section>;
 }
