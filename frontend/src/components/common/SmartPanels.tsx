@@ -1,3 +1,4 @@
+import CameraCapture,{photoFile} from './CameraCapture';
 import {displayTaskLabel} from './taskPresentation';
 import {useEffect,useRef,useState,type ReactNode} from 'react';
 import {Link} from 'react-router-dom';
@@ -108,15 +109,15 @@ export function PhotoComparison({cacheId,currentPhoto,animalId,embedded=false}:{
  const [result,setResult]=useStored<Awaited<ReturnType<typeof api.comparePhotos>>|null>('photo:'+cacheId,null);
  const [filename,setFilename]=useStored('photo-name:'+cacheId,'');
  const [open,setOpen]=useStored('photo-open:'+cacheId,false);
- const input=useRef<HTMLInputElement>(null);const a=useActions();
+ const a=useActions();
  useEffect(()=>{if(!file){setPreview('');return}const url=URL.createObjectURL(file);setPreview(url);return()=>URL.revokeObjectURL(url)},[file]);
  const dataPhoto=currentPhoto?.startsWith('data:image/')&&currentPhoto.includes(';base64,')?currentPhoto.split(';base64,')[1]:null;
  const matches=result?.results.filter(r=>r.animal_id!==animalId)??[];
  return <details className={embedded?'md:col-span-2 smart-section space-y-3':'panel smart-section space-y-3'} open={open} onToggle={e=>{if(e.currentTarget.open!==open)setOpen(e.currentTarget.open)}}><summary>動物照片比對</summary>
-  <div className="ai-form"><label>選擇照片<input ref={input} type="file" accept="image/jpeg,image/png,image/webp" disabled={a.busy.compare} onChange={e=>setFile(e.target.files?.[0])}/></label><label>手機拍照<input type="file" accept="image/*" capture="environment" disabled={a.busy.compare} onChange={e=>setFile(e.target.files?.[0])}/></label>
+  <div className="ai-form"><CameraCapture disabled={a.busy.compare} onPhoto={data=>{setFile(photoFile(data));setResult(null);setFilename('');}}/>
    {preview&&<img src={preview} className="ai-preview" alt="待比對照片"/>}
    {a.button('compare',result?'重新比對':'比對既有照片',async()=>{if(!file&&!dataPhoto)return;if(file&&file.size>15*1024*1024)throw Error('原始圖片最多 15 MB');const r=await api.comparePhotos(file?await encodePhoto(file):dataPhoto!);setResult(r);setFilename(file?.name??'目前動物照片')},!file&&!dataPhoto)}
-   <button type="button" className="secondary" disabled={a.busy.compare||(!file&&!result)} onClick={()=>{setFile(undefined);setResult(null);setFilename('');if(input.current)input.current.value=''}}>清除</button>
+   <button type="button" className="secondary" disabled={a.busy.compare||(!file&&!result)} onClick={()=>{setFile(undefined);setResult(null);setFilename('')}}>清除</button>
   </div>{a.error('compare')}
   {result&&<><p>{filename} · {result.mode==='clip_embedding'?'CLIP':'影像特徵'} · 比對 {result.processed} 張</p>{result.warning&&<p className="muted">{result.warning}</p>}{(result.skipped>0||result.remote_skipped>0)&&<small>無法讀取 {result.skipped} 張；外部網址略過 {result.remote_skipped} 張</small>}
    {matches.length===0?<p>無可比對結果</p>:<div className="ai-results">{matches.map(r=><Result key={r.animal_id}><div className="ai-photo-result"><Thumb item={r}/><div><Link to={'/animals/'+r.animal_id}>#{r.animal_id} {r.name}</Link><p>{r.is_active?'目前在所':'已離所'}</p><p>相似分數 {r.score.toFixed(3)}（非身分確認）</p></div></div></Result>)}</div>}

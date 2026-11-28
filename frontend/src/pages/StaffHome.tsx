@@ -10,7 +10,7 @@ import ScheduleCalendar from '../components/common/ScheduleCalendar';
 
 import {displayTaskLabel,taskChoices} from '../components/common/taskPresentation';
 import TaskPhotos from '../components/common/TaskPhotos';
-import CameraCapture,{preparePhoto} from '../components/common/CameraCapture';
+import CameraCapture,{preparePhoto,photoFile} from '../components/common/CameraCapture';
 import './StaffHome.css';
 
 const directChoices:Record<string,[string,string][]>=Object.fromEntries(Object.entries(taskChoices).filter(([label])=>['確認驅蟲紀錄','基礎驅蟲','確認疫苗紀錄','疫苗施打','評估絕育安排','更新驅蟲狀態','更新驅蟲紀錄','更新絕育狀態','絕育手術'].includes(label)));
@@ -142,8 +142,7 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
      {t.label==='更新疫苗紀錄'&&<label>實際施打日期（已有可信紀錄可留空）<input type="date" max={taipeiToday()} value={dose} onChange={e=>setDose(e.target.value)}/></label>}
      {(needsNote(result)||photoTask)&&<label>情況說明（選填）<textarea value={note} onChange={e=>setNote(e.target.value)}/></label>}
      {(needsNote(result)||photoTask)&&<>
-      <label>選擇照片<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>setFiles(Array.from(e.target.files??[]))}/></label>
-      <label>手機拍照<input type="file" accept="image/*" capture="environment" onChange={e=>setFiles([...files,...Array.from(e.target.files??[])])}/></label>
+      <CameraCapture disabled={report.isPending||files.length>=4} onPhoto={data=>setFiles(prev=>prev.length<4?[...prev,photoFile(data)]:prev)}/>
       <div className="flex flex-wrap gap-2">{files.map((file,i)=><PhotoPreview key={file.name+i} file={file}/>)}</div>
       {files.length>0&&<button type="button" className="secondary" onClick={()=>setFiles([])}>清除照片</button>}
      </>}
