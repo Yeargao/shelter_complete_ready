@@ -1,4 +1,3 @@
-import {StaffHandover} from '../components/common/SmartPanels';
 import {useStored} from '../components/common/smartState';
 
 import { useEffect, useRef, useState } from 'react';
@@ -166,7 +165,6 @@ export default function StaffHome({userId}:{userId:number}) {
  const go=(date:string)=>{setDay(date);setSelectedId(undefined);};
  return <section className="space-y-4">
   <h1>照護人員工作台</h1>
-  <StaffHandover staffId={worker?.id} day={day} tasks={tasks}/>
   <section className="panel weekly-board-panel space-y-3" data-personal-calendar-user={userId}>
    <h2>個人日曆</h2>
    <div className="weekly-toolbar">

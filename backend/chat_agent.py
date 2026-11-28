@@ -20,7 +20,7 @@ DISPLAY={**{v:k for k,v in HEALTH.items()},'yes':'是','no':'否','unknown':'未
 DATE_KEYS={'vaccination_date':'疫苗日期','deworming_date':'驅蟲日期'}
 UNDO=re.compile(r'^(?:請|幫我)?(?:改回來|改回去|復原|撤銷|撤回|還原|取消上次修改)[。！!？?]*$')
 CANCEL=re.compile(r'^(?:算了|取消|不要改|算了不要改|取消修改|取消草案)[。！!]*$')
-QUERY=re.compile(r'[?？]|(?:嗎|呢)[。！!]*$|^(?:請|幫我)?(?:查詢|查一下|查|查看|想知道|請問)')
+QUERY=re.compile(r'[?？]|(?:嗎|呢|如何|什麼|多少|幾隻|幾項|哪隻|哪些|有沒有|是否|何時|哪天|怎麼樣)[。！!\s]*$|^(?:請|幫我)?(?:查詢|查一下|查|查看|想知道|請問|列出|顯示|搜尋|找出|有哪些|哪隻|哪些|統計)')
 FIELD_WORDS=r'健康(?:登錄|狀況|狀態)?|疫苗(?:紀錄|狀態|接種日期|施打日期|日期)?|驅蟲(?:紀錄|狀態|日期)?'
 VALS='|'.join(sorted(set(HEALTH)|set(TRI),key=len,reverse=True))
 FIELD_RE=re.compile(r'('+FIELD_WORDS+r')\s*(?:為|是|改成|改為|設為|更新為|[:：=])\s*[「"“]?\s*('+VALS+r')(?=[」"”\s，,。；;、！!]|$)')
@@ -62,7 +62,7 @@ def parse_edit(text,current):
     q=norm(text)
     if QUERY.search(q) or re.search(r'(?:已驅蟲|已接種|已施打|未驅蟲)的(?:資料|日期|紀錄)',q):return None
     if re.search(r'診斷|劑量|開藥|用藥|給藥|不要|不用|不是|假設|如果|是否|可能|好像|應該|尚未確定|不確定',q):return None
-    if re.search(r'任務|工作流程|提醒|通知|報表|統計',q):return None
+    if re.search(r'任務|工作流程|提醒|通知|報表|統計|回報|完成|哪些|有沒有|哪天|何時|多少|幾隻|幾個|所有|全部|清單|列表|名單|查詢|查看',q):return None
     changes={}
     dates={}
     def put(key,value):
@@ -134,7 +134,8 @@ def resolve(db,q,active=None,allow_active=False):
         return name in q.casefold()
     named=[a for a in animals if name_matches(a)]
     named=[a for a in named if not any(a['name']!=b['name'] and a['name'].casefold() in b['name'].casefold() for b in named)]
-    ids=re.findall(r'(?:動物\s*#?|#)\s*(\d{1,18})(?!\d)',q)
+    animal_q=re.sub(r'(?:員工|照顧人員|照護人員)\s*#?\s*\d{1,6}(?!\d)','',q)
+    ids=re.findall(r'(?:動物\s*#?|#)\s*(\d{1,18})(?!\d)',animal_q)
     if len(set(ids))>1:raise ValueError('請指定單一動物編號')
     if ids:
         a=next((a for a in animals if a['id']==int(ids[0])),None)
@@ -183,7 +184,7 @@ def draft(db,uid,sid,aid,payload,current,kind='edit',undo_of=None):
         changes=describe_edit(before,payload)
     else:
         changes=payload['display']
-    db.execute("UPDATE ai_action_history SET status='cancelled' WHERE user_id=? AND session_id=? AND status='pending'",(uid,sid))
+    db.execute("UPDATE ai_action_history SET status='cancelled' WHERE user_id=? AND session_id=? AND animal_id=? AND status='pending'",(uid,sid,aid))
     aid_action=uuid4().hex
     db.execute("INSERT INTO ai_action_history VALUES (?,?,?,?,?,?,?,NULL,'pending',?,NULL,?)",
                (aid_action,uid,sid,aid,kind,dump(payload),dump(before),stamp(),undo_of))
@@ -293,6 +294,8 @@ def mount(legacy,read_chat,smart_command,smart_check):
             q=re.sub(r'^(並且|並|再|另外)','',q).strip()
             if not q:continue
             try:
+                if re.search(r'自訂自動化|工作流程|智慧提醒|(?:建立|設定|新增|自動).*提醒|(?:提醒|通知)我',q):
+                    result.append(message(q,'此功能已移除，可直接查詢目前資料或建立照護任務'));continue
                 if UNDO.fullmatch(q) or CANCEL.fullmatch(q):
                     if uid!=1:raise HTTPException(403,'此操作需要管理者權限')
                     with legacy.lock,legacy.connect() as db:
@@ -314,6 +317,36 @@ def mount(legacy,read_chat,smart_command,smart_check):
                                 display.append({'field':label,'before':'、'.join(r[field] for r in current[key]) or '無日期紀錄','after':'、'.join(r[field] for r in previous[key]) or '無日期紀錄'})
                         cmd=draft(db,uid,sid,old['animal_id'],{'display':display},today(),'undo',old['action_id'])
                         result.append(turn(q,command=cmd));continue
+                if re.search(r'回報|我(?:已經|已|剛剛)?完成|我做完',q) and not QUERY.search(q) and not re.search(r'哪些|多少|幾項|紀錄|清單',q.replace('確認疫苗紀錄','').replace('確認驅蟲紀錄','')):
+                    if uid==1:
+                        result.append(message(q,'管理者不可代替員工回報；請使用照護人員帳號'));continue
+                    with legacy.connect() as db:
+                        account=db.execute('SELECT a.staff_id FROM weekly_staff_accounts a JOIN staff s ON s.id=a.staff_id WHERE a.user_id=? AND s.profile_id=1',(uid,)).fetchone()
+                        if not account:raise HTTPException(403,'帳號未連結員工')
+                        own=[dict(r) for r in db.execute("""SELECT t.task_id,t.animal_id,t.label,t.day,t.state,t.staff_id,a.name
+                            FROM weekly_tasks t JOIN animals a ON a.id=t.animal_id
+                            WHERE t.staff_id=? AND t.day=? AND t.state IN ('pending','in_progress') AND a.is_active=1""",(account[0],today().isoformat()))]
+                        ids=re.findall(r'#\s*(\d{1,18})(?!\d)',q)
+                        exact=[r for r in own if re.search(r'(?<![A-Za-z0-9_:-])'+re.escape(r['task_id'])+r'(?![A-Za-z0-9_:-])',q)]
+                        candidates=exact if exact else [r for r in own if r['label'] in q and (str(r['animal_id']) in ids if ids else r['name'] and r['name'].casefold() in q.casefold())]
+                    if len(candidates)!=1:
+                        result.append(message(q,'請指定今天自己的動物名稱和完整任務名稱，或任務 ID'));continue
+                    t=candidates[0]
+                    if re.search(r'照片|圖片|施打日期|接種日期|驅蟲日期',q):
+                        result.append(turn(q,command={'type':'link','path':'/','message':'請到個人工作台回報日期或上傳照片'}));continue
+                    choices={'確認驅蟲紀錄':('yes','no'),'基礎驅蟲':('done','failed'),'補做驅蟲':('done','failed'),
+                             '健康狀態待確認':('healthy','sick','injured'),'優先確認健康狀況':('healthy','sick','injured'),
+                             '確認疫苗紀錄':('yes','no'),'疫苗紀錄待確認':('yes','no'),'疫苗施打':('done','failed'),'健康問題追蹤':('reported',)}
+                    note=re.search(r'(?:備註|說明)\s*[:：]\s*(.+)$',q)
+                    text=(q[:note.start()] if note else q).replace(t['label'],'').replace(t['name'],'').replace(t['task_id'],'')
+                    if re.search(r'不要|取消|尚未|還沒|沒完成|未完成|可能|如果|假設|不確定',text):
+                        result.append(message(q,'請明確提供本次回報結果'));continue
+                    opts=[]
+                    for words,value in [(r'未驅蟲|未接種|未施打|結果\s*[:：]\s*(?:否|無)','no'),(r'已驅蟲|已接種|已施打|結果\s*[:：]\s*(?:是|有)','yes'),(r'健康','healthy'),(r'生病','sick'),(r'受傷','injured'),(r'失敗','failed'),(r'完成|成功','done'),(r'已回報|已追蹤','reported')]:
+                        if re.search(words,text) and value in choices.get(t['label'],('done',)):opts.append(value)
+                    if len(set(opts))!=1:
+                        result.append(message(q,'請提供明確結果；也可在個人工作台完成回報'));continue
+                    result.append(turn(q,command={'type':'staff_report','task_id':t['task_id'],'name':t['name'],'label':t['label'],'day':t['day'],'result':opts[0],'note':note[1] if note else ''}));continue
                 q_for_entity=q
                 date_missing=re.search(r'(驅蟲|疫苗(?:接種|施打)?)日期\s*(?:(?:為|是|改成|改為|[:：=])\s*)?$',q)
                 if date_missing and not QUERY.search(q) and re.search(r'[:：=]|修改|更正|登錄|更新|改成|改為',q):
@@ -354,6 +387,25 @@ def mount(legacy,read_chat,smart_command,smart_check):
                                         raise ValueError('醫療日期與狀態矛盾，請先取消舊草案再修改')
                             cmd=draft(db,uid,sid,aid,edit,today())
                             result.append(turn(q,command=cmd));continue
+                # Current group queries are factual, role-scoped and do not need a model.
+                if re.search(r'哪些|多少|幾隻|列出|名單|清單|所有|全部',q) and re.search(r'動物|犬|狗|貓|貓咪|隻',q) and not re.search(r'任務|工作|排程|班表|統計|報表|昨天|明天|上週|下週|過去|最近|未來',q):
+                    cond=None
+                    for words,field,value in [(r'未驅蟲','dewormed','no'),(r'已驅蟲','dewormed','yes'),(r'未接種|未施打','vaccinated','no'),(r'已接種|已施打','vaccinated','yes'),(r'疫苗.*(?:未確認|待確認)','vaccinated','unknown'),(r'驅蟲.*(?:未確認|待確認)','dewormed','unknown'),(r'健康.*(?:未確認|待確認)','health_status','unknown'),(r'生病','health_status','sick'),(r'受傷','health_status','injured')]:
+                        if re.search(words,q):cond=(field,value);break
+                    if cond:
+                        with legacy.connect() as db:
+                            field,value=cond
+                            query=f"SELECT id,name FROM animals WHERE is_active=1 AND {field}=?"
+                            args=[value]
+                            if uid!=1:
+                                query+=" AND EXISTS(SELECT 1 FROM weekly_tasks t JOIN weekly_staff_accounts s ON s.staff_id=t.staff_id WHERE t.animal_id=animals.id AND s.user_id=? AND t.state!='cancelled')";args.append(uid)
+                            if re.search(r'狗|犬',q) and '貓' not in q:query+=" AND species='dog'"
+                            if '貓' in q and not re.search(r'狗|犬',q):query+=" AND species='cat'"
+                            found=list(db.execute(query+' ORDER BY id',args))
+                        lines=[f'目前符合條件且可查看的在所動物共 {len(found)} 隻。']
+                        if not re.search(r'多少|幾隻',q):lines.extend(f"{r['name']} #{r['id']}" for r in found[:20])
+                        if len(found)>20 and not re.search(r'多少|幾隻',q):lines.append('顯示前 20 隻，完整資料請至動物列表。')
+                        result.append(turn(q,answer={'answer':'\n'.join(lines),'source':'db','sources':['在所動物登錄'],'context':None,'fallback_reason':None,'queried_at':stamp()}));continue
                 if uid==1 and SMART.search(q) and (not QUERY.search(q) or re.search(r'統計|報表|分布|完成率',q)):
                     # Legacy tools use signed read context. Inject the selected subject only for explicit pronouns.
                     smart_q=q
@@ -364,7 +416,9 @@ def mount(legacy,read_chat,smart_command,smart_check):
                     out=turn(q,command=c)
                     if c['type']=='report':
                         with legacy.connect() as db:out['report']=report(db,c['kind'],c['start'],c['end'])
-                    if c['type']=='task':out['check']=smart_check(Check(animal_id=c['animal_id'],label=c['label']),request)
+                    if c['type']=='task':
+                        out['check']=smart_check(Check(animal_id=c['animal_id'],label=c['label']),request)
+                        active=c['animal_id']
                     result.append(out);continue
                 if re.search(r'修改|更正|改成|改為|更新|登錄|設定|[:：=]',q) and not QUERY.search(q) and re.search(FIELD_WORDS,q):
                     result.append(message(q,'請提供要修改的欄位與數值，例如「健康：健康」'));continue
@@ -383,8 +437,11 @@ def mount(legacy,read_chat,smart_command,smart_check):
                         if re.fullmatch(r'.*?(?:資料|詳細資料|基本資料)[。?？]*',q):read_q=q+' 健康狀況'
                     elif active and re.fullmatch(r'(?:那|所以|另外|他|她|牠|它|這隻|的|請問|\s)*(?:健康(?:狀況|狀態|登錄)?|疫苗(?:紀錄|日期)?|驅蟲(?:紀錄|日期)?|資料)[呢嗎?？。]*',q):
                         read_q=q+' 動物 #'+str(active)
+                    elif re.search(r'[A-Za-z]{2,}',q) and re.search(r'健康|疫苗|驅蟲|資料',q):
+                        active=None;ctx=None
+                        result.append(message(q,'找不到指定動物，請提供正確名稱或 #編號'));continue
                 answer=read_chat(Question(question=read_q,context=ctx),request)
-                ctx=answer.get('context') or ctx
+                ctx=answer.get('context')
                 decoded=ci.decode_context(legacy.AUTH_SECRET,request.headers.get('Authorization',''),answer.get('context'))
                 if answer.get('sources') and decoded and decoded.get('animal_id'):active=decoded['animal_id']
                 result.append(turn(q,answer=answer))

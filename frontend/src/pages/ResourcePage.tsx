@@ -1,4 +1,3 @@
-import {WorkflowPanel,QualityPanel,HandoverPanel} from '../components/common/SmartPanels';
 import {useStored,smartRequest,type Check} from '../components/common/smartState';
 
 import { useEffect, useRef, useState } from 'react';
@@ -212,8 +211,5 @@ export default function ResourcePage() {
     <button disabled={saveShift.isPending||day<taipeiToday()}>儲存班表</button>
    </form>}
   </details>
-  <WorkflowPanel/>
-  <QualityPanel scope="resources"/>
-  <HandoverPanel day={day}/>
  </section>;
 }

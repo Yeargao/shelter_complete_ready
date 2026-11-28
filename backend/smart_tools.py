@@ -134,10 +134,10 @@ def report(db, kind, start, end):
         note='完成率＝已完成／期間已排定且未取消任務（含未來日期）。'
     else:
         result=rows(db,"""SELECT event label,count(*) value FROM (
-            SELECT '入所' event FROM animal_stay_history WHERE intake_date BETWEEN ? AND ?
-            UNION ALL SELECT '離所' FROM animal_stay_history WHERE exit_date BETWEEN ? AND ?
-            UNION ALL SELECT '入所' FROM animals WHERE intake_date BETWEEN ? AND ?
-            UNION ALL SELECT '離所' FROM animals WHERE exit_date BETWEEN ? AND ?) GROUP BY event""",args*4)
+            SELECT '入所' event,animal_id,intake_date day FROM animal_stay_history WHERE intake_date BETWEEN ? AND ?
+            UNION SELECT '離所',animal_id,exit_date FROM animal_stay_history WHERE exit_date BETWEEN ? AND ?
+            UNION SELECT '入所',id,intake_date FROM animals WHERE intake_date BETWEEN ? AND ?
+            UNION SELECT '離所',id,exit_date FROM animals WHERE exit_date BETWEEN ? AND ?) GROUP BY event""",args*4)
         note='依入離所紀錄計數。'
     return {'title':REPORTS[kind],'rows':result,'note':note,'start':start,'end':end,'unit':'%' if kind=='staff' else '筆'}
 

@@ -152,11 +152,13 @@ def execute(legacy, db, plan, sid, shifts_for, daily_limit, tasks_for, task_answ
         name=title+' 待指派任務'
     else:
         selected=[t for t in dated if t['state']!='cancelled']
-        if intent!='staff_schedule' and intent!='assignment_reason':
+        if intent=='completed_tasks':
+            selected=[t for t in selected if t['state']=='done']
+        elif intent not in ('staff_schedule','assignment_reason'):
             selected=[t for t in selected if t['state'] in ACTIVE and t['is_active']]
         if intent in ('pending_tasks','urgent_tasks','assignment_reason') and sid is None and staff_id is None and period=='all_day':
             selected.extend(t for t in tasks if not t['day'] and t['earliest']<=days[-1] and t['state'] in ACTIVE and t['is_active'])
-        name=title+' '+{'staff_schedule':'排定任務','pending_tasks':'待完成任務','urgent_tasks':'需優先留意的照護任務','next_task':'下一項排定任務','leave_impact':'請假時需核對的任務','assignment_reason':'排程原因'}.get(intent,'任務')
+        name=title+' '+{'staff_schedule':'排定任務','pending_tasks':'待完成任務','completed_tasks':'已完成任務','urgent_tasks':'需優先留意的照護任務','next_task':'下一項排定任務','leave_impact':'請假時需核對的任務','assignment_reason':'排程原因'}.get(intent,'任務')
     if animal_id is not None:
         selected=[t for t in selected if t['animal_id']==animal_id]
     if task_id:

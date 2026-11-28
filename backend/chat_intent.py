@@ -11,7 +11,7 @@ from datetime import date, timedelta
 
 INTENTS = (
     'staff_workload', 'staff_availability', 'workload_balance', 'staff_schedule',
-    'pending_tasks', 'urgent_tasks', 'next_task', 'unassigned_tasks',
+    'pending_tasks', 'completed_tasks', 'urgent_tasks', 'next_task', 'unassigned_tasks',
     'assignment_reason', 'schedule_changes', 'leave_impact', 'capacity',
     'animal_health', 'vaccination', 'deworming', 'open_issues', 'unknown',
 )
@@ -41,6 +41,7 @@ period: all_day/morning/afternoon；sort: most/least/none；count_only: boolean�
 「上午下午的工作有沒有平均」 workload_balance, all_day, none, false
 「某員工明天要做什麼」 staff_schedule, all_day, none, false
 「還有幾件事情沒做」 pending_tasks, all_day, none, true
+「今天完成哪些任務」 completed_tasks, all_day, none, false
 「哪些事情比較急」 urgent_tasks, all_day, none, false
 「接下來要做什麼」 next_task, all_day, none, false
 「哪些工作還沒有人負責」 unassigned_tasks, all_day, none, false
@@ -173,10 +174,12 @@ def local_intent(text, *, animal=False, staff=False, task=False):
         intent = 'staff_workload'
     elif has(q,'下一','接下來要做','接著要做'):
         intent = 'next_task'
+    elif has(q,'已完成','完成了','做完','做了哪些','已做','完成哪些','完成幾','完成多少','完成的任務') and not has(q,'未完成','沒完成','還沒','尚未','沒有完成','未做'):
+        intent = 'completed_tasks'
     elif has(q,'緊急','優先','最急','比較急','重要任務'):
         intent = 'urgent_tasks'
     elif animal and has(q,'資料','健康','近況','身體','怎麼樣','如何','狀況','整理','總結','注意','疫苗','打針','預防針','打過針','驅蟲','除蟲') and not has(q,'任務','班表','排程','派工','指派','工作'):
-        intent = 'deworming' if has(q,'驅蟲','除蟲') else 'vaccination' if has(q,'疫苗','打針','預防針','打過針') else 'animal_health'
+        intent = 'animal_health' if has(q,'資料','整理','總結','摘要') or sum((has(q,'健康','近況','身體'),has(q,'驅蟲','除蟲'),has(q,'疫苗','打針','預防針')))>1 else 'deworming' if has(q,'驅蟲','除蟲') else 'vaccination' if has(q,'疫苗','打針','預防針','打過針') else 'animal_health'
     elif has(q,'疫苗','打針','預防針','打過針') and not has(q,'任務','工作','排程','班表'):
         intent = 'vaccination'
     elif has(q,'驅蟲','除蟲') and not has(q,'任務','工作','排程','班表'):

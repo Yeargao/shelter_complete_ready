@@ -919,6 +919,7 @@ def mount(legacy):
         note: str = Field(default='', max_length=4000)
         administered_date: date | None = None
         photos: list[str] = Field(default_factory=list, max_length=4)
+        expected_day: date | None = None
 
 
     @router.post('/tasks/{task_id}/report')
@@ -933,8 +934,13 @@ def mount(legacy):
                 raise HTTPException(404, '找不到任務')
             if staff_id is None or staff_id != task['staff_id']:
                 raise HTTPException(403, '只能回報自己的任務')
-            if db.execute('SELECT 1 FROM weekly_reports WHERE task_id=?', (task_id,)).fetchone():
+            prior=db.execute('SELECT result,note FROM weekly_reports WHERE task_id=?',(task_id,)).fetchone()
+            if prior:
+                if prior['result']!=body.result or prior['note']!=body.note:
+                    raise HTTPException(409,'已有不同回報，請先核對原紀錄')
                 return {'ok': True}
+            if body.expected_day is not None and (task['day']!=body.expected_day.isoformat() or body.expected_day!=today()):
+                raise HTTPException(409,'任務日期已變動，請重新查詢')
             if db.execute('SELECT 1 FROM weekly_tasks WHERE task_id=?', (f'carry:{task_id}',)).fetchone():
                 raise HTTPException(409, '逾期任務已重新入池，請使用新的指派回報')
             if (not task['is_active'] or not task['day'] or task['day'] > today().isoformat()

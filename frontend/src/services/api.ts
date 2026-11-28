@@ -17,7 +17,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     }
     throw new Error(message);
   }
-  return response.json();
+  const data=await response.json();
+  if(options?.method&&['POST','PATCH','PUT','DELETE'].includes(options.method.toUpperCase())&&!/\/summary|\/photos|\/preview|\/answer/.test(path))window.dispatchEvent(new Event('shelter-data-changed'));
+  return data;
 }
 
 export type ShelterProfile = {
@@ -60,7 +62,7 @@ export type Plan = {plan_id:string|null;solver_status:string;changes:{task_id:st
 export type AuditFinding={animal_id:number;name:string;kind:string;detail:string;source:string};
 export type PhotoMatch={animal_id:number;name:string;is_active:number;source:string;task_id:string|null;photo_id:string|null;score:number};
 export const api = {
-  auditData:(scope:'all'|'health'|'resources'='all',animalId?:number)=>request<{findings:AuditFinding[];model_groups:number;warning:string|null}>('/api/ai-tools/quality?'+new URLSearchParams({scope,...(animalId===undefined?{}:{animal_id:String(animalId)})})),
+  auditData:(scope:'all'|'health'|'resources'='all',animalId?:number)=>request<{findings:AuditFinding[];model_groups:number;warning:string|null;checked_count:number;checked_at:string|null;initial:boolean}>('/api/ai-tools/quality?'+new URLSearchParams({scope,...(animalId===undefined?{}:{animal_id:String(animalId)})})),
   comparePhotos:(photo:string)=>request<{mode:string;warning:string|null;results:PhotoMatch[];processed:number;skipped:number;remote_skipped:number;limit:number}>('/api/ai-tools/photos',{method:'POST',body:JSON.stringify({photo})}),
   withdrawReport:(id:string)=>request<{ok:boolean}>(`/api/schedule/tasks/${encodeURIComponent(id)}/withdraw-report`,{method:'POST'}),
   chat:(question:string,context:string|null,signal:AbortSignal)=>request<ChatAnswer>('/api/chat',

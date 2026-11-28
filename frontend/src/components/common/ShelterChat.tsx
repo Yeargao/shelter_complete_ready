@@ -1,6 +1,6 @@
 import {useEffect, useRef, useState} from 'react';
 import {MessageCircle, X} from 'lucide-react';
-import type {ChatAnswer} from '../../services/api';
+import {api,type ChatAnswer} from '../../services/api';
 import {useQueryClient} from '@tanstack/react-query';
 import {useStored,executeCommand,type Command,type Report,type Check} from './smartState';
 import {CommandPreview,SmartChart} from './SmartPanels';
@@ -9,7 +9,7 @@ import './ShelterChat.css';
 
 const managerQuestions = [
  '今天有哪些緊急任務？', '哪些員工還有剩餘工時？', '這週有哪些任務尚未安排？',
- '目前收容所還能容納多少動物？', '統計這週各員工的任務完成率', '飼料低於30公斤提醒我', '建立工作流程，動物入所後確認疫苗紀錄',
+ '目前收容所還能容納多少動物？', '統計這週各員工的任務完成率', '查詢今天已完成哪些任務', '開啟健康行政核對',
 ];
 const staffQuestions = [
  '我今天有哪些任務？', '我的下一項任務是什麼？', '這隻動物最近的健康狀況？',
@@ -18,7 +18,8 @@ const staffQuestions = [
 const origins = {db:'資料庫即時查詢',rules:'規則式回答',gemini:'Gemini AI'};
 
 type AnimalAction={type:'animal_action';action_id:string;animal_id:number;name:string;kind:'edit'|'undo';changes:{field:string;before:string;after:string}[]};
-type Turn={id:string;question:string;answer?:ChatAnswer;command?:Command|AnimalAction;report?:Report;check?:Check;applied?:string;error?:string;actionStatus?:string};
+type StaffReport={type:'staff_report';task_id:string;name:string;label:string;day:string;result:string;note:string};
+type Turn={id:string;question:string;answer?:ChatAnswer;command?:Command|AnimalAction|StaffReport;report?:Report;check?:Check;applied?:string;error?:string;actionStatus?:string};
 const newId=()=>crypto.randomUUID();
 async function agentRequest<T>(path:string,body?:object,signal?:AbortSignal):Promise<T>{
  const res=await fetch((import.meta.env.VITE_API_URL||'').replace(/\/+$/,'')+'/api/agent'+path,{method:body?'POST':'GET',cache:'no-store',signal,headers:{'Content-Type':'application/json',Authorization:'Bearer '+sessionStorage.getItem('shelter_token')},...(body?{body:JSON.stringify(body)}:{})});
@@ -73,13 +74,16 @@ export default function ShelterChat({manager}:{manager:boolean}) {
   finally{if(active.current===controller){active.current=undefined;setPending(false)}}
  }
  async function confirm(turn:Turn,decision:'confirm'|'cancel'='confirm'){
-  if(!manager||!turn.command||turn.applied||active.current||confirming.current.size||(turn.actionStatus&&turn.actionStatus!=='pending'))return;
+  if(!turn.command||(!manager&&turn.command.type!=='staff_report')||turn.applied||active.current||confirming.current.size||(turn.actionStatus&&turn.actionStatus!=='pending'))return;
   confirming.current.add(turn.id);setActions(p=>({...p,[turn.id]:true}));
   try{
    let outcome:string;
    if(turn.command.type==='animal_action'){
     const r=await agentRequest<{message:string;status:string}>('/actions/'+turn.command.action_id,{session_id:sessionId,decision});
     outcome=r.message;
+   }else if(turn.command.type==='staff_report'){
+    if(decision==='cancel')outcome='已取消';
+    else{await api.reportWeekly(turn.command.task_id,{result:turn.command.result,note:turn.command.note,photos:[],expected_day:turn.command.day});outcome='已回報';}
    }else{
     if(decision==='cancel')outcome='已取消';
     else outcome=await executeCommand(turn.command);
@@ -87,6 +91,7 @@ export default function ShelterChat({manager}:{manager:boolean}) {
    setTurns(p=>p.map(t=>t.id===turn.id?{...t,applied:outcome,error:undefined}:t));
    await syncStatuses();
    if(decision==='confirm'){
+    window.dispatchEvent(new Event('shelter-data-changed'));
     for(const key of ['smart-monitor','schedule-week','tasks','animal','animals','summary','resource-overview','health'])
      await qc.invalidateQueries({queryKey:[key]});
    }
@@ -116,10 +121,10 @@ export default function ShelterChat({manager}:{manager:boolean}) {
         {t.answer.sources.length>0&&<ul>{t.answer.sources.map(source=><li key={source}>{source}</li>)}</ul>}
        </details>
       </article>}
-      {t.command&&<article className="chat-answer space-y-2">{t.command.type==='animal_action'?<><strong>{t.command.name} #{t.command.animal_id} · {t.command.kind==='undo'?'復原草案':'資料修改草案'}</strong><table className="data-table"><thead><tr><th>欄位</th><th>修改前</th><th>修改後</th></tr></thead><tbody>{t.command.changes.map((c,i)=><tr key={i}><td>{c.field}</td><td>{c.before}</td><td>{c.after}</td></tr>)}</tbody></table></>:<CommandPreview command={t.command} onNavigate={()=>dialog.current?.close()}/>}
+      {t.command&&<article className="chat-answer space-y-2">{t.command.type==='animal_action'?<><strong>{t.command.name} #{t.command.animal_id} · {t.command.kind==='undo'?'復原草案':'資料修改草案'}</strong><table className="data-table"><thead><tr><th>欄位</th><th>修改前</th><th>修改後</th></tr></thead><tbody>{t.command.changes.map((c,i)=><tr key={i}><td>{c.field}</td><td>{c.before}</td><td>{c.after}</td></tr>)}</tbody></table></>:t.command.type==='staff_report'?<><strong>{t.command.name} · {t.command.label} · {t.command.day}</strong><p>回報結果：{({yes:'是',no:'否',healthy:'健康',sick:'生病',injured:'受傷',done:'完成',failed:'失敗',reported:'已回報'} as Record<string,string>)[t.command.result]??t.command.result}</p>{t.command.note&&<p>備註：{t.command.note}</p>}</>:<CommandPreview command={t.command} onNavigate={()=>dialog.current?.close()}/>}
        {t.report&&<SmartChart report={t.report}/>}
        {t.check&&!t.check.ok&&<div className="text-red-700">{t.check.issues.map(x=><p key={x}>{x}</p>)}</div>}
-       {['rule','workflow','task','animal_action'].includes(t.command.type)&&<div className="smart-inline"><button type="button" disabled={!!t.applied||pending||Object.values(actions).some(Boolean)||(t.actionStatus!==undefined&&t.actionStatus!=='pending')||(t.command.type==='task'&&!t.check?.ok)} onClick={()=>void confirm(t)}>{t.actionStatus==='undone'?'已復原':t.actionStatus==='cancelled'?'已取消':t.applied??(t.actionStatus==='applied'?'已執行':actions[t.id]?'處理中…':'確認執行')}</button>{!t.applied&&(!t.actionStatus||t.actionStatus==='pending')&&<button type="button" className="secondary" disabled={pending||Object.values(actions).some(Boolean)} onClick={()=>void confirm(t,'cancel')}>取消</button>}</div>}
+       {['task','animal_action','staff_report'].includes(t.command.type)&&<div className="smart-inline"><button type="button" disabled={!!t.applied||pending||Object.values(actions).some(Boolean)||(t.actionStatus!==undefined&&t.actionStatus!=='pending')||(t.command.type==='task'&&!t.check?.ok)} onClick={()=>void confirm(t)}>{t.actionStatus==='undone'?'已復原':t.actionStatus==='cancelled'?'已取消':t.applied??(t.actionStatus==='applied'?'已執行':actions[t.id]?'處理中…':'確認執行')}</button>{!t.applied&&(!t.actionStatus||t.actionStatus==='pending')&&<button type="button" className="secondary" disabled={pending||Object.values(actions).some(Boolean)} onClick={()=>void confirm(t,'cancel')}>取消</button>}</div>}
       </article>}
       {t.error&&<p role="alert" className="text-red-700">{t.error}</p>}
      </div>)}

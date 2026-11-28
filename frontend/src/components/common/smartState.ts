@@ -41,8 +41,7 @@ export type Handover={name:string;day:string;done:number;pending:number;tasks:{t
 export function isSmartCommand(text:string){return /提醒|通知|統計|報表|分布|完成率|開啟|前往|我要(?:修改|編輯|新增|處理|看)|工作流程|自動化流程|(?:新增|建立|安排|加一個|加一項).*任務/.test(text)}
 export function splitCommands(text:string){return text.split(/[；;\n]+|(?:，|,)\s*(?=並|再|另外)|(?:並且|並)(?=幫|安排|新增|建立|統計|開啟)/).map(s=>s.trim().replace(/^(並且|並|再|另外)/,'')).filter(Boolean)}
 export async function executeCommand(command:Command){
- if(command.type==='rule'){await smartRequest('/rules',{metric:command.metric,threshold:command.threshold});return '已建立提醒'}
- if(command.type==='workflow'){await smartRequest('/workflows',{event:command.event,labels:command.labels});return '已建立工作流程'}
+ if(command.type==='rule'||command.type==='workflow')throw Error('此功能已移除');
  if(command.type==='task'){const r=await smartRequest<{message:string}>('/task',{animal_id:command.animal_id,label:command.label,earliest:command.earliest,due:command.due});return r.message}
  throw Error('此操作無法執行');
 }

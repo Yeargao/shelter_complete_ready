@@ -148,20 +148,12 @@ def mount(legacy):
         manager(request)
         if scope not in ('all','health','resources'):
             raise HTTPException(422,'無效核對範圍')
-        from smart_tools import audit as consistency_audit
-        with legacy.connect() as db:
-            findings,groups=audit(db)
-            for item in consistency_audit(db):
-                if item['kind'] in ('已離所仍有未完成任務','員工當日未出勤仍有未完成指派'):
-                    findings.append({'animal_id':item['animal_id'],'name':item['name'],'kind':'排程待核對','detail':item['kind'],'source':'weekly_tasks:'+item['source']})
-            records=collect_notes(db,open_only=True)
-            health={r['id']:r['health_status'] for r in db.execute('SELECT id,health_status FROM animals WHERE is_active=1')}
-            candidates=[{**r,'health_status':health[r['animal_id']]} for r in records if health.get(r['animal_id'])=='healthy' and (animal_id is None or r['animal_id']==animal_id)][:20]
-        extra,warning=note_conflicts(legacy.connect,candidates) if scope!='resources' else ([],None)
-        def keep(r):
-            resource=r['kind'] in ('排程待核對','資源待核對','統計異常候選')
-            return (animal_id is None or r['animal_id']==animal_id) and (scope=='all' or resource==(scope=='resources'))
-        return {'findings':[r for r in findings+extra if keep(r)],'model_groups':groups,'warning':warning}
+        from consistency_audit import refresh,result
+        with legacy.lock,legacy.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            stats=refresh(db)
+            findings=result(db,animal_id) if scope!='resources' else []
+        return {'findings':findings,'model_groups':0,'warning':None,**stats}
 
     @router.post('/photos')
     def photos(body:PhotoInput,request:Request):

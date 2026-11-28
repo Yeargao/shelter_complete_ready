@@ -44,9 +44,9 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
 
     def animal_scope(db, sid, question, context):
         if sid is None:
-            animals = db.execute('SELECT id,name,health_status,vaccinated,dewormed,intake_date FROM animals ORDER BY id')
+            animals = db.execute('SELECT id,name,health_status,vaccinated,dewormed,intake_date,species,breed,age_months,sex,is_active FROM animals ORDER BY id')
         else:
-            animals = db.execute("""SELECT id,name,health_status,vaccinated,dewormed,intake_date FROM animals WHERE EXISTS (
+            animals = db.execute("""SELECT id,name,health_status,vaccinated,dewormed,intake_date,species,breed,age_months,sex,is_active FROM animals WHERE EXISTS (
                 SELECT 1 FROM weekly_tasks t WHERE t.animal_id=animals.id AND t.staff_id=?
                 AND t.state!='cancelled') ORDER BY id""", (sid,))
         allowed = list(animals)
@@ -84,7 +84,11 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
             ORDER BY r.reported_at DESC,r.task_id LIMIT 4""", (aid, sid, sid)))
         issues = db.execute("""SELECT COUNT(*) FROM weekly_issues i JOIN weekly_tasks t ON t.task_id=i.task_id
             WHERE i.animal_id=? AND i.resolved_at IS NULL AND (? IS NULL OR t.staff_id=?)""", (aid, sid, sid)).fetchone()[0]
-        lines = [f'{name}的健康登錄為「{HEALTH.get(health, "未確認")}」。',
+        species={'dog':'犬','cat':'貓','other':'其他'}.get(animal['species'],animal['species'])
+        age=f"{animal['age_months']} 個月" if animal['age_months'] is not None else '未登錄'
+        lines = [f"{name} #{aid} · {species} · {animal['breed'] or '品種未登錄'} · 年齡 {age} · {'在所' if animal['is_active'] else '已離所'}。",
+                 f"入所日期：{animal['intake_date']}。",
+                 f'{name}的健康登錄為「{HEALTH.get(health, "未確認")}」。',
                  f'疫苗登錄：'+{'yes':'已接種','no':'未接種','unknown':'未確認'}.get(animal['vaccinated'],'未確認')+'。',
                  f'驅蟲登錄：'+{'yes':'已驅蟲','no':'未驅蟲','unknown':'未確認'}.get(animal['dewormed'],'未確認')+'。',
                  f'目前可查看的待處理異常共 {issues} 筆。',
@@ -118,7 +122,8 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
                     if task['day'] and start is not None else f"待指派，期限 {task['due'] or '未設定'}")
             assignee = workers.get(task['staff_id'])
             detail = f'，{assignee["name"]}' if assignee else ''
-            lines.append(f'{when} · {animal} · {label}{detail}。')
+            status={'done':'已完成','in_progress':'執行中','pending':'待完成'}.get(task['state'],task['state'])
+            lines.append(f'{when} · {animal} #{task["animal_id"]} · {label}{detail} · {status}。')
             sources.append(f'任務 {task["task_id"]}')
         if not count_only and len(tasks) > 12:
             lines.append('顯示前 12 項，完整清單請查看排程。')
@@ -247,18 +252,25 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
         staff = list(db.execute('SELECT id,name FROM staff WHERE profile_id=1 ORDER BY id'))
         q = ci.normalize(question)
         def matches(rows):
-            found=[r for r in rows if r['name'] and ci.normalize(r['name']) in q]
+            def matches_name(r):
+                name=ci.normalize(r['name'] or '').casefold()
+                if not name:return False
+                if re.fullmatch(r'[a-z0-9 ]+',name):
+                    return bool(re.search(r'(?<![a-z0-9])'+re.escape(name)+r'(?![a-z0-9])',q.casefold()))
+                return name in q.casefold()
+            found=[r for r in rows if matches_name(r)]
             if found:
                 # Ignore a shorter name only when it is contained in another matched name.
                 found=[r for r in found if not any(r['name']!=other['name'] and r['name'] in other['name'] for other in found)]
             return found
         am,sm = matches(animals),matches(staff)
-        aid_match=re.search(r'(?:動物\s*#?|#)\s*([0-9]{1,18})(?!\d)',q)
         staff_match=re.search(r'(?:員工|照顧人員|照護人員)\s*#?\s*(\d{1,6})(?!\d)',q)
+        animal_q=q if not staff_match else q[:staff_match.start()]+q[staff_match.end():]
+        aid_match=re.search(r'(?:動物\s*#?|#)\s*([0-9]{1,18})(?!\d)',animal_q)
         aid=int(aid_match[1]) if aid_match else am[0]['id'] if len(am)==1 else None
         staff_id=sm[0]['id'] if len(sm)==1 else None
         if staff_match and not sm:
-            row=db.execute('SELECT staff_id FROM weekly_staff_accounts WHERE user_id=?',(int(staff_match[1]),)).fetchone()
+            row=db.execute('SELECT id FROM staff WHERE id=? AND profile_id=1',(int(staff_match[1]),)).fetchone()
             staff_id=row[0] if row else None
         tids=[r for r in db.execute("""SELECT task_id,staff_id FROM weekly_tasks
             WHERE length(task_id)>4 AND instr(?,task_id)>0""",(q,))
@@ -275,7 +287,7 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
             return {},'目前沒有可查看的任務紀錄。',q
         redacted=q
         for name in sorted({ci.normalize(r['name']) for r in [*animals,*staff] if r['name']},key=len,reverse=True):
-            redacted=redacted.replace(name,'某對象')
+            redacted=re.sub(re.escape(name),'某對象',redacted,flags=re.I)
         redacted=re.sub(r'(?:動物|員工|照顧人員|照護人員)\s*#?\s*\d+|#\s*\d+','某對象',redacted)
         for item in tids:
             redacted=redacted.replace(item['task_id'],'某任務')
@@ -300,7 +312,8 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
                 previous={'intent':'animal_health','animal_id':old_animal,'start':current.isoformat(),
                           'end':current.isoformat(),'period':'all_day','sort':'none'}
             entities,problem,redacted=resolve_entities(db,sid,question)
-        follow = bool(previous and ci.followup(question))
+        animal_follow=bool(re.fullmatch(r'(?:那|所以|另外|他|她|牠|它|這隻|的|請問|\s)*(?:健康(?:狀況|狀態|登錄)?|疫苗(?:紀錄|日期)?|驅蟲(?:紀錄|日期)?|資料)[呢嗎?？。]*',question))
+        follow = bool(previous and (ci.followup(question) or (animal_follow and previous.get('animal_id'))))
         prior = previous if follow else None
         if any(word in question for word in ('劑量','診斷','開藥','用藥','給藥')):
             lines,sources=['我可以查詢照護及醫療紀錄。診斷與用藥請由獸醫確認。'],[]
@@ -320,6 +333,8 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
                                       staff=entities['staff_id'] is not None,task=entities['task_id'] is not None)
                 blocked=ci.blocked(question)
                 continuation = re.fullmatch(r'(?:那|所以|另外|請問|他|她|牠|它|這隻|這個|該員工|該動物|大後天|大前天|今天|明天|後天|昨天|前天|明日|今日|上午|下午|早上|本週|下週|上週|全天|整天|的|呢|嗎|[\s?？。！!])*',question)
+                if local['intent']=='unknown' and animal_follow and prior and prior.get('animal_id'):
+                    local={'intent':'animal_health','period':'all_day','sort':'none','count_only':False}
                 if local['intent']=='unknown' and follow and not blocked and continuation:
                     local={'intent':prior['intent'],'period':'all_day','sort':prior.get('sort','none'),'count_only':prior.get('count_only',False)}
                 routed_by='local'
@@ -341,7 +356,7 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
                 if intent in ci.STAFF_INTENTS and plan['staff_id'] is None and prior:
                     if not ci.has(question,'誰','哪些員工','所有員工','全體','哪個','哪位'):
                         plan['staff_id']=prior.get('staff_id')
-                if intent in ('pending_tasks','staff_schedule','urgent_tasks','leave_impact','assignment_reason','next_task') and prior:
+                if intent in ('pending_tasks','completed_tasks','staff_schedule','urgent_tasks','leave_impact','assignment_reason','next_task') and prior:
                     if (continuation or ci.has(question,'他','她','該員工')) and plan['staff_id'] is None:
                         plan['staff_id']=prior.get('staff_id')
                     if (continuation or ci.has(question,'牠','它','這隻','該動物')) and plan['animal_id'] is None:
@@ -401,7 +416,7 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
                         source='rules'
                     else:
                         lines,sources,extra=cq.execute(legacy,db,plan,sid,shifts_for,daily_limit,tasks_for,task_answer)
-                if source!='rules' and intent!='unknown' and sources:
+                if source!='rules' and intent!='unknown' and (sources or intent not in ci.ANIMAL_INTENTS):
                     state={key:plan[key] for key in ('intent','start','end','period','sort','count_only','explicit_date','animal_id','staff_id','task_id','species','labels')}
                     state.update(extra)
                     token=ci.encode_context(legacy.AUTH_SECRET,auth,state)

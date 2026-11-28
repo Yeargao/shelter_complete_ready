@@ -1,4 +1,3 @@
-import {ReminderPanel} from '../components/common/SmartPanels';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import ResourceOverview from '../components/common/ResourceOverview';
@@ -17,7 +16,6 @@ export default function Dashboard() {
     <strong>{title}</strong><span>{action}<ArrowRight size={16} aria-hidden="true"/></span>
    </Link>)}
   </div>
-  <ReminderPanel/>
   <LlmUsage/>
  </section>;
 }
