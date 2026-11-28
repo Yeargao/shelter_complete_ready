@@ -3,26 +3,20 @@ import {useStored} from '../components/common/smartState';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type WeeklyTask } from '../services/api';
+import { api, type WeeklyTask, type PhotoObservation } from '../services/api';
 import { ErrorView } from '../components/common/States';
 import { addDays, taipeiToday } from '../components/common/scheduleDates';
 import ScheduleCalendar from '../components/common/ScheduleCalendar';
 
 import {displayTaskLabel,taskChoices} from '../components/common/taskPresentation';
 import TaskPhotos from '../components/common/TaskPhotos';
+import CameraCapture,{preparePhoto} from '../components/common/CameraCapture';
 import './StaffHome.css';
 
 const directChoices:Record<string,[string,string][]>=Object.fromEntries(Object.entries(taskChoices).filter(([label])=>['確認驅蟲紀錄','基礎驅蟲','確認疫苗紀錄','疫苗施打','評估絕育安排','更新驅蟲狀態','更新驅蟲紀錄','更新絕育狀態','絕育手術'].includes(label)));
 const choices=taskChoices;
 
-function encodePhoto(file:File) {
- return new Promise<string>((resolve,reject)=>{
-  const reader=new FileReader();
-  reader.onload=()=>resolve(String(reader.result).split(',')[1]);
-  reader.onerror=()=>reject(Error('無法讀取圖片'));
-  reader.readAsDataURL(file);
- });
-}
+async function encodePhoto(file:File) { return (await preparePhoto(file)).split(',')[1]; }
 
 function PhotoPreview({file}:{file:File}) {
  const [url,setUrl]=useState('');
@@ -36,6 +30,14 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
  const [choice,setChoice]=useState('');
  const [note,setNote]=useState('');
  const [files,setFiles]=useState<File[]>([]);
+ const [captured,setCaptured]=useState<string[]>([]);
+ const [inlinePhoto,setInlinePhoto]=useState(false);
+ const [analysis,setAnalysis]=useState<PhotoObservation>();
+ const [analyzing,setAnalyzing]=useState(false);
+ const [photoError,setPhotoError]=useState('');
+ const photoTask=['健康狀態待確認','優先確認健康狀況','健康問題追蹤','術後健康追蹤'].includes(t.label);
+ const resetPhoto=()=>{setCaptured([]);setInlinePhoto(false);setAnalysis(undefined);setPhotoError('');};
+ const addPhoto=(photo:string)=>{setCaptured(prev=>prev.length<4?[...prev,photo]:prev);setAnalysis(undefined);setPhotoError('');setInlinePhoto(true);};
  const [upload,setUpload]=useState<number>();
  const [summaryOpen,setSummaryOpen]=useStored('care-open:'+t.task_id,false);
  const [cachedSummary,setCachedSummary]=useStored<Awaited<ReturnType<typeof api.taskSummary>>|null>('care-result:'+t.task_id,null);
@@ -47,23 +49,25 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
  const needsNote=(result:string)=>['reported','sick','injured','failed','not_recovered','improving','worsening','abnormal'].includes(result);
  const result=choice;
  const displayPriority=t.display_priority??t.priority;
- const refresh=async()=>{await qc.invalidateQueries({queryKey:['schedule-week']});await qc.invalidateQueries({queryKey:['resource-overview']});await qc.invalidateQueries({queryKey:['tasks']});};
+ const refresh=async()=>{await qc.invalidateQueries({queryKey:['schedule-week']});await qc.invalidateQueries({queryKey:['resource-overview']});await qc.invalidateQueries({queryKey:['tasks']});await qc.invalidateQueries({queryKey:['animal-photos',t.animal_id]});};
  const withdraw=useMutation({mutationFn:()=>api.withdrawReport(t.task_id),onSuccess:async()=>{
-  setReportOpen(false);setChoice('');setNote('');setFiles([]);setDose('');await refresh();
+  setReportOpen(false);setChoice('');setNote('');setFiles([]);resetPhoto();setDose('');await refresh();
  }});
  const canWithdraw=t.is_active&&t.report?.reported_at.slice(0,10)===taipeiToday()&&!t.issue?.resolved_at;
  const report=useMutation({
   mutationFn:async(value:string)=>{
    setUpload(undefined);
-   const photos=needsNote(value)?files:[];
-   if(photos.length>4||photos.some(f=>f.size>5*1024*1024))throw Error('最多四張，每張最多 5 MB');
+   const photos=(needsNote(value)||photoTask)?files:[];
+   const extra=photoTask?captured:[];
+   if(photos.length+extra.length>4)throw Error('最多四張照片');
+   const encoded=[...extra.map(p=>p.split(',')[1]),...await Promise.all(photos.map(encodePhoto))];
    return api.reportWeekly(t.task_id,{result:value,note,administered_date:dose||null,
-    photos:await Promise.all(photos.map(encodePhoto))},photos.length?setUpload:undefined);
+    photos:encoded},encoded.length?setUpload:undefined);
   },
-  onSuccess:async()=>{setReportOpen(false);setChoice('');setNote('');setFiles([]);setDose('');setUpload(undefined);await refresh();}
+  onSuccess:async()=>{setReportOpen(false);setChoice('');setNote('');setFiles([]);resetPhoto();setDose('');setUpload(undefined);await refresh();}
  });
- const cancelReport=()=>{setReportOpen(false);setChoice('');setNote('');setFiles([]);setDose('');setUpload(undefined);report.reset();withdraw.reset();};
- const openReport=()=>{setChoice(follow?'reported':'');setReportOpen(true);};
+ const cancelReport=()=>{setReportOpen(false);setChoice('');setNote('');setFiles([]);resetPhoto();setDose('');setUpload(undefined);report.reset();withdraw.reset();};
+ const openReport=()=>{resetPhoto();setChoice(follow?'reported':'');setReportOpen(true);};
  const canReport=Boolean(t.day&&t.day<=taipeiToday()&&t.is_active&&['pending','in_progress'].includes(t.state));
  return <><article className="staff-care-card weekly-task" data-priority={displayPriority} data-done={t.state==='done'}>
   <div className="staff-care-copy">
@@ -96,12 +100,26 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
    <div className="staff-report-actions"><button type="button" className="secondary" onClick={openReport}>查看回報</button></div>):
    canReport?(direct?<div className="staff-report-actions">{direct.map(([value,label])=>
     <button type="button" key={value} className="secondary" disabled={report.isPending} onClick={()=>report.mutate(value)}>{label}</button>)}</div>:
-    <div className="staff-report-actions"><button type="button" className="secondary" onClick={openReport}>{follow?'填寫追蹤回報':'填寫回報'}</button></div>):null}
+    <div className="staff-report-actions"><button type="button" className="secondary" disabled={inlinePhoto||analyzing||report.isPending} onClick={openReport}>{follow?'填寫追蹤回報':'填寫回報'}</button></div>):null}
+  {photoTask&&canReport&&!reportOpen&&!inlinePhoto&&<CameraCapture cameraOnly label="拍照回報" disabled={report.isPending} onPhoto={addPhoto}/>}
   {direct&&report.error&&<ErrorView error={report.error}/>}
   {direct&&withdraw.error&&<ErrorView error={withdraw.error}/>}
   {direct&&report.isPending&&<p role="status">正在儲存回報…</p>}
   </div>
  </article>
+ {inlinePhoto&&canReport&&!reportOpen&&<form className="panel space-y-3" onSubmit={e=>{e.preventDefault();if(result&&!report.isPending&&!analyzing)report.mutate(result);}}>
+  <h3>拍照回報：{t.animal_name} #{t.animal_id}</h3>
+  <div className="flex flex-wrap gap-2">{captured.map((photo,i)=><div key={i}><img className="care-image" src={photo} alt={`回報照片 ${i+1}`}/><button type="button" className="secondary" disabled={analyzing||report.isPending} onClick={()=>{setCaptured(v=>v.filter((_,index)=>index!==i));setAnalysis(undefined);}}>移除</button></div>)}</div>
+  <CameraCapture onPhoto={addPhoto} disabled={captured.length>=4||analyzing||report.isPending}/>
+  <button type="button" className="secondary" disabled={!captured.length||analyzing||report.isPending} onClick={async()=>{setAnalyzing(true);setAnalysis(undefined);setPhotoError('');try{setAnalysis(await api.analyzePhoto(captured[captured.length-1].split(',')[1],t.task_id));}catch(e){setPhotoError(e instanceof Error?e.message:String(e));}finally{setAnalyzing(false);}}}>{analyzing?'分析中…':'Gemini 分析最新照片'}</button>
+  {photoError&&<p role="alert">{photoError}</p>}
+  {analysis&&<div className="rounded-lg border p-3"><strong>AI 影像觀察（非診斷）</strong><p>{analysis.observation}</p><p>照片品質：{analysis.image_quality}</p><button type="button" className="secondary" disabled={report.isPending||analysis.image_quality==='unusable'} onClick={()=>setNote(v=>[v,'AI 輔助觀察（人工確認）：'+analysis.observation].filter(Boolean).join('\n'))}>採用觀察文字</button></div>}
+  <div className="flex flex-wrap gap-2">{(choices[t.label]??[]).map(([value,label])=><button type="button" key={value} disabled={report.isPending} className={choice===value?'':'secondary'} aria-pressed={choice===value} onClick={()=>setChoice(value)}>{label}</button>)}</div>
+  <label>情況說明（人工確認）<textarea maxLength={4000} value={note} disabled={report.isPending} onChange={e=>setNote(e.target.value)}/></label>
+  <div className="flex gap-2"><button type="submit" disabled={!result||report.isPending||analyzing}>確認並送出回報</button><button type="button" className="secondary" disabled={report.isPending||analyzing} onClick={cancelReport}>取消回報</button></div>
+  {report.error&&<ErrorView error={report.error}/>}
+  {report.isPending&&<p role="status">{upload===undefined?'正在準備回報…':`照片上傳 ${upload}%`}</p>}
+ </form>}
  {!direct&&reportOpen&&(t.report||canReport)&&createPortal(
   <div role="presentation" style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,.48)',display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
    <form role="dialog" aria-modal="true" aria-label="任務回報" className="panel space-y-3" style={{width:'min(100%,480px)',maxHeight:'90vh',overflowY:'auto'}} onSubmit={e=>{e.preventDefault();if(!t.report&&result&&!report.isPending)report.mutate(result);}}>
@@ -122,8 +140,8 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
       <button type="button" key={value} disabled={report.isPending} className={choice===value?'':'secondary'} aria-pressed={choice===value} onClick={()=>setChoice(value)}>{label}</button>)}
      </div>}
      {t.label==='更新疫苗紀錄'&&<label>實際施打日期（已有可信紀錄可留空）<input type="date" max={taipeiToday()} value={dose} onChange={e=>setDose(e.target.value)}/></label>}
-     {needsNote(result)&&<label>情況說明（選填）<textarea value={note} onChange={e=>setNote(e.target.value)}/></label>}
-     {needsNote(result)&&<>
+     {(needsNote(result)||photoTask)&&<label>情況說明（選填）<textarea value={note} onChange={e=>setNote(e.target.value)}/></label>}
+     {(needsNote(result)||photoTask)&&<>
       <label>選擇照片<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>setFiles(Array.from(e.target.files??[]))}/></label>
       <label>手機拍照<input type="file" accept="image/*" capture="environment" onChange={e=>setFiles([...files,...Array.from(e.target.files??[])])}/></label>
       <div className="flex flex-wrap gap-2">{files.map((file,i)=><PhotoPreview key={file.name+i} file={file}/>)}</div>

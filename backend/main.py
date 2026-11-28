@@ -75,7 +75,7 @@ async def auth_guard(request:Request,call_next):
  if uid!=1 and (path=='/api/tasks' or path.startswith('/api/staff/assignments')):
   return JSONResponse(status_code=403,content={'detail':'請在個人工作台查看與回報任務'})
  task_action=path.removeprefix('/api/schedule/tasks/').split('/') if path.startswith('/api/schedule/tasks/') else []
- own_task_action=request.method=='POST' and len(task_action)==2 and task_action[1] in {'report','summary','withdraw-report'}
+ own_task_action=request.method=='POST' and len(task_action)==2 and task_action[1] in {'report','summary','withdraw-report','photo-analysis'}
  if uid!=1 and request.method in ('POST','PATCH','DELETE','PUT') and path not in ('/api/stage2/answer','/api/chat','/api/agent/chat','/api/smart/handover') and not own_task_action:
   return JSONResponse(status_code=403,content={'detail':'此操作僅管理者可執行'})
  request.state.user_id=uid
@@ -1232,6 +1232,13 @@ def stage2_answer(body:Stage2Question):
 
 from weekly_schedule import mount as mount_weekly_schedule
 app.include_router(mount_weekly_schedule(sys.modules[__name__]))
+from photo_analysis import PhotoAnalysisInput, analyze_input
+
+@app.post('/api/photos/analysis')
+def analyze_animal_photo(body:PhotoAnalysisInput, request:Request):
+ if request.state.user_id!=1:raise HTTPException(403,'僅管理者可辨識建檔照片')
+ return analyze_input(connect,body,'intake')
+
 from ai_tools import mount as mount_ai_tools
 app.include_router(mount_ai_tools(sys.modules[__name__]))
 

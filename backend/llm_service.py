@@ -171,14 +171,14 @@ def gemini_call(instruction, content, schema, maximum, model=None):
         return result.model_dump(mode='json', by_alias=True, exclude_none=True)
 
 
-def generate(connect, kind, instruction, data, schema, validate):
+def generate(connect, kind, instruction, data, schema, validate, images=()):
     """Try approved alternatives for model/request errors, retaining all quota and privacy gates."""
-    output, error = _generate(connect, kind, instruction, data, schema, validate)
+    output, error = _generate(connect, kind, instruction, data, schema, validate, images=images)
     for alternate in APPROVED_MODELS:
         if error not in ('configuration_400', 'configuration_404'):
             break
         if alternate != model_name():
-            output, error = _generate(connect, kind, instruction, data, schema, validate, alternate)
+            output, error = _generate(connect, kind, instruction, data, schema, validate, alternate, images=images)
     return output, error
 
 
@@ -188,7 +188,7 @@ def generate_tool(connect, instruction, data, schema, validate, function_name='q
                      {**schema, 'x_function_name': function_name}, validate)
 
 
-def _generate(connect, kind, instruction, data, schema, validate, model=None):
+def _generate(connect, kind, instruction, data, schema, validate, model=None, images=()):
     """Charge a separate quota reservation before each external attempt."""
     error = settings_error()
     if error:
@@ -198,7 +198,10 @@ def _generate(connect, kind, instruction, data, schema, validate, model=None):
     from google.genai import errors as genai_errors
     content = canonical(data)
     maximum = max(1, limit('MAX_OUTPUT_TOKENS', 512))
-    estimated = len(canonical([instruction, content, schema]).encode('utf-8')) + 256
+    estimated = len(canonical([instruction, content, schema]).encode('utf-8')) + 256 + 2048 * len(images)
+    if images:
+        from google.genai import types
+        content = [content, *(types.Part.from_bytes(data=image, mime_type='image/jpeg') for image in images)]
     attempt, error = reserve(connect, kind, estimated, model) if model else reserve(connect, kind, estimated)
     if error:
         return None, error

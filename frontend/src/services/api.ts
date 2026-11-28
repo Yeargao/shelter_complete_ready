@@ -18,7 +18,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     throw new Error(message);
   }
   const data=await response.json();
-  if(options?.method&&['POST','PATCH','PUT','DELETE'].includes(options.method.toUpperCase())&&!/\/summary|\/photos|\/preview|\/answer/.test(path))window.dispatchEvent(new Event('shelter-data-changed'));
+  if(options?.method&&['POST','PATCH','PUT','DELETE'].includes(options.method.toUpperCase())&&!/\/summary|\/photos|\/preview|\/answer|\/photo-analysis|\/photo-compare/.test(path))window.dispatchEvent(new Event('shelter-data-changed'));
   return data;
 }
 
@@ -61,7 +61,12 @@ export type Week = {days:string[]; event_id:number; workers:Staff[]; shifts:Week
 export type Plan = {plan_id:string|null;solver_status:string;changes:{task_id:string;animal_name:string;label:string;before:Placement;after:Placement;reason:string|null;adjustment_reason:string}[]};
 export type AuditFinding={animal_id:number;name:string;kind:string;detail:string;source:string};
 export type PhotoMatch={animal_id:number;name:string;is_active:number;source:string;task_id:string|null;photo_id:string|null;score:number};
+export type PhotoObservation={species:'dog'|'cat'|'other'|'unknown';breed:string;coat_color:string;visible_features:string[];observation:string;image_quality:'clear'|'limited'|'unusable'};
+export type CarePhoto={photo_id:string;task_id:string;staff_id:number;uploaded_at:string;label:string;note:string;result:string};
 export const api = {
+  analyzePhoto:(photo:string,taskId?:string)=>request<PhotoObservation>(taskId?'/api/schedule/tasks/'+encodeURIComponent(taskId)+'/photo-analysis':'/api/photos/analysis',{method:'POST',body:JSON.stringify({photo})}),
+  animalPhotos:(id:number)=>request<CarePhoto[]>(`/api/schedule/animals/${id}/photos`),
+  compareCarePhotos:(id:number,previous_id:string,current_id:string)=>request<PhotoObservation>(`/api/schedule/animals/${id}/photo-compare`,{method:'POST',body:JSON.stringify({previous_id,current_id})}),
   auditData:(scope:'all'|'health'|'resources'='all',animalId?:number)=>request<{findings:AuditFinding[];model_groups:number;warning:string|null;checked_count:number;checked_at:string|null;initial:boolean}>('/api/ai-tools/quality?'+new URLSearchParams({scope,...(animalId===undefined?{}:{animal_id:String(animalId)})})),
   comparePhotos:(photo:string)=>request<{mode:string;warning:string|null;results:PhotoMatch[];processed:number;skipped:number;remote_skipped:number;limit:number}>('/api/ai-tools/photos',{method:'POST',body:JSON.stringify({photo})}),
   withdrawReport:(id:string)=>request<{ok:boolean}>(`/api/schedule/tasks/${encodeURIComponent(id)}/withdraw-report`,{method:'POST'}),

@@ -964,6 +964,54 @@ def mount(legacy):
         return {'task_id': task_id}
 
 
+    from photo_analysis import PhotoAnalysisInput, analyze_input, analyze, HEALTH_LABELS
+
+    @router.post('/tasks/{task_id}/photo-analysis')
+    def task_photo_analysis(task_id: str, body: PhotoAnalysisInput, request: Request):
+        with legacy.connect() as db:
+            migrate(db)
+            sid = staff_identity(db, request)
+            task = db.execute("""SELECT t.*,a.is_active FROM weekly_tasks t
+                JOIN animals a ON a.id=t.animal_id WHERE t.task_id=?""", (task_id,)).fetchone()
+            if not task or (sid is not None and task['staff_id'] != sid):
+                raise HTTPException(404, '找不到可分析的任務')
+            if (task['label'] not in HEALTH_LABELS or not task['is_active'] or
+                task['state'] not in ('pending','in_progress') or not task['day'] or
+                task['day'] > today().isoformat()):
+                raise HTTPException(409, '此任務目前不可分析照片')
+        return analyze_input(legacy.connect, body, 'care')
+
+    @router.get('/animals/{animal_id}/photos')
+    def animal_photos(animal_id: int, request: Request):
+        with legacy.connect() as db:
+            migrate(db)
+            sid = staff_identity(db, request)
+            records = db.execute("""SELECT p.photo_id,p.task_id,p.staff_id,p.uploaded_at,t.label,r.note,r.result
+                FROM task_photos p JOIN weekly_tasks t ON t.task_id=p.task_id
+                JOIN weekly_reports r ON r.task_id=p.task_id
+                WHERE p.animal_id=? AND (? IS NULL OR p.staff_id=?)
+                ORDER BY p.uploaded_at DESC,p.photo_id LIMIT 100""", (animal_id,sid,sid)).fetchall()
+            return [dict(r) for r in records]
+
+    class PhotoCompareInput(BaseModel):
+        previous_id: str = Field(min_length=1, max_length=100)
+        current_id: str = Field(min_length=1, max_length=100)
+
+    @router.post('/animals/{animal_id}/photo-compare')
+    def compare_animal_photos(animal_id: int, body: PhotoCompareInput, request: Request):
+        from care_photos import read
+        if body.previous_id == body.current_id:
+            raise HTTPException(422, '請選擇兩張不同照片')
+        with legacy.connect() as db:
+            migrate(db)
+            if staff_identity(db, request) is not None:
+                raise HTTPException(403, '僅管理者可比較歷史照片')
+            records = [db.execute('SELECT storage_key FROM task_photos WHERE animal_id=? AND photo_id=?',
+                (animal_id, photo_id)).fetchone() for photo_id in (body.previous_id,body.current_id)]
+            if not all(records):
+                raise HTTPException(404, '找不到照片')
+        return analyze(legacy.connect, [read(r['storage_key']) for r in records], 'compare_old_new')
+
     class ReportInput(BaseModel):
         result: str
         note: str = Field(default='', max_length=4000)

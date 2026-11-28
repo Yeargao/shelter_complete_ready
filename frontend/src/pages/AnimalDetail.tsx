@@ -3,6 +3,7 @@ import {useState} from 'react';
 import {Link,useParams,useLocation} from 'react-router-dom';
 import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
 import AnimalForm from '../components/animals/AnimalForm';
+import CarePhotoHistory from '../components/common/CarePhotoHistory';
 import {api} from '../services/api';
 import {ErrorView,Loading} from '../components/common/States';
 import type {Animal,AnimalInput} from '../types';
@@ -30,6 +31,7 @@ export default function AnimalDetail(){
  {manager&&editing&&<AnimalForm initial={input} photoCacheId={'detail:'+id} animalId={id} onSubmit={async v=>{await save.mutateAsync(v)}}/>}{save.error&&<ErrorView error={save.error}/>}
  <div className="panel space-y-3"><h2>需要注意的事項</h2>{tasks.length? <div className="grid md:grid-cols-2 gap-2">{tasks.map(t=><div className="rounded-xl border border-amber-200 bg-amber-50 p-3" key={t}>{t}</div>)}</div>:<p className="muted">目前沒有依登錄資料產生的待辦事項。</p>}</div>
  {manager&&<div className="panel space-y-3"><h2>健康行政核對</h2><div className="grid md:grid-cols-2 gap-2">{(healthTasks.data||[]).filter(t=>t.animal_id===id).map(t=><div key={t.id} className="rounded-xl bg-slate-50 p-3">{t.label} · {t.state==='done'?'已完成':'待處理'}</div>)}</div>{!healthTasks.data?.some(t=>t.animal_id===id)&&<p className="muted">目前沒有待核對工作。</p>}</div>}
+ <CarePhotoHistory key={id} animalId={id} manager={manager}/>
  {manager&&<><RecommendationPanel key={'r'+id} animalId={id}/><QualityPanel key={'q'+id} animalId={id}/>{!editing&&<PhotoComparison key={'p'+id} cacheId={'detail:'+id} currentPhoto={a.photo_url} animalId={id}/>}</>}
  </section>;
 }
