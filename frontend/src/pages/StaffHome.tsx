@@ -110,7 +110,7 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
  {inlinePhoto&&canReport&&!reportOpen&&<form className="panel space-y-3" onSubmit={e=>{e.preventDefault();if(result&&!report.isPending&&!analyzing)report.mutate(result);}}>
   <h3>拍照回報：{t.animal_name} #{t.animal_id}</h3>
   <div className="flex flex-wrap gap-2">{captured.map((photo,i)=><div key={i}><img className="care-image" src={photo} alt={`回報照片 ${i+1}`}/><button type="button" className="secondary" disabled={analyzing||report.isPending} onClick={()=>{setCaptured(v=>v.filter((_,index)=>index!==i));setAnalysis(undefined);}}>移除</button></div>)}</div>
-  <CameraCapture onPhoto={addPhoto} disabled={captured.length>=4||analyzing||report.isPending}/>
+  <CameraCapture albumLimit={4-captured.length} onPhoto={addPhoto} disabled={captured.length>=4||analyzing||report.isPending}/>
   <button type="button" className="secondary" disabled={!captured.length||analyzing||report.isPending} onClick={async()=>{setAnalyzing(true);setAnalysis(undefined);setPhotoError('');try{setAnalysis(await api.analyzePhoto(captured[captured.length-1].split(',')[1],t.task_id));}catch(e){setPhotoError(e instanceof Error?e.message:String(e));}finally{setAnalyzing(false);}}}>{analyzing?'分析中…':'Gemini 分析最新照片'}</button>
   {photoError&&<p role="alert">{photoError}</p>}
   {analysis&&<div className="rounded-lg border p-3"><strong>AI 影像觀察（非診斷）</strong><p>{analysis.observation}</p><p>照片品質：{analysis.image_quality}</p><button type="button" className="secondary" disabled={report.isPending||analysis.image_quality==='unusable'} onClick={()=>setNote(v=>{const line='AI 輔助觀察（人工確認）：'+analysis.observation;return v.includes(line)?v:[v,line].filter(Boolean).join('\n').slice(0,4000);})}>採用觀察文字</button></div>}
@@ -142,7 +142,7 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
      {t.label==='更新疫苗紀錄'&&<label>實際施打日期（已有可信紀錄可留空）<input type="date" max={taipeiToday()} value={dose} onChange={e=>setDose(e.target.value)}/></label>}
      {(needsNote(result)||photoTask)&&<label>情況說明（選填）<textarea value={note} onChange={e=>setNote(e.target.value)}/></label>}
      {(needsNote(result)||photoTask)&&<>
-      <CameraCapture disabled={report.isPending||files.length>=4} onPhoto={data=>setFiles(prev=>prev.length<4?[...prev,photoFile(data)]:prev)}/>
+      <CameraCapture albumLimit={4-files.length} disabled={report.isPending||files.length>=4} onPhoto={data=>setFiles(prev=>prev.length<4?[...prev,photoFile(data)]:prev)}/>
       <div className="flex flex-wrap gap-2">{files.map((file,i)=><PhotoPreview key={file.name+i} file={file}/>)}</div>
       {files.length>0&&<button type="button" className="secondary" onClick={()=>setFiles([])}>清除照片</button>}
      </>}

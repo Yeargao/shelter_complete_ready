@@ -32,7 +32,7 @@ function cameraError(e:unknown):string{
  if(name==='NotReadableError'||name==='AbortError')return '相機無法啟動，可能被其他 App 使用，請關閉後重試。';
  return '無法開啟相機，請重試或使用備用拍照方式。';
 }
-export default function CameraCapture({onPhoto,disabled=false,cameraOnly=false,label='手機拍照'}:{onPhoto:(photo:string)=>void;disabled?:boolean;cameraOnly?:boolean;label?:string}){
+export default function CameraCapture({onPhoto,disabled=false,cameraOnly=false,label='手機拍照',albumLimit=1}:{onPhoto:(photo:string)=>void;disabled?:boolean;cameraOnly?:boolean;label?:string;albumLimit?:number}){
  const camera=useRef<HTMLInputElement>(null),album=useRef<HTMLInputElement>(null),video=useRef<HTMLVideoElement>(null);
  const stream=useRef<MediaStream|null>(null),generation=useRef(0),alive=useRef(true);
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
@@ -79,13 +79,15 @@ export default function CameraCapture({onPhoto,disabled=false,cameraOnly=false,l
   }catch(e){setCameraMessage(e instanceof Error?e.message:String(e));}
  }
  async function select(input:HTMLInputElement){
-  const file=input.files?.[0];input.value='';if(!file)return;
+  const files=Array.from(input.files??[]);input.value='';if(!files.length)return;
+  const limit=input===album.current?albumLimit:1;
+  if(files.length>limit){setError('最多可再選擇 '+limit+' 張照片');return;}
   setBusy(true);setError('');
-  try{const data=await preparePhoto(file);if(alive.current)onPhoto(data);}catch(e){if(alive.current)setError(e instanceof Error?e.message:String(e));}finally{if(alive.current)setBusy(false);}
+  try{const photos=await Promise.all(files.map(preparePhoto));if(alive.current)photos.forEach(onPhoto);}catch(e){if(alive.current)setError(e instanceof Error?e.message:String(e));}finally{if(alive.current)setBusy(false);}
  }
  return <div className="space-y-1">
   <input hidden style={{display:'none'}} ref={camera} type="file" accept="image/*" capture="environment" onChange={e=>void select(e.currentTarget)}/>
-  {!cameraOnly&&<input hidden style={{display:'none'}} ref={album} type="file" accept="image/*" onChange={e=>void select(e.currentTarget)}/>}
+  {!cameraOnly&&<input hidden style={{display:'none'}} ref={album} type="file" accept="image/*" multiple={albumLimit>1} onChange={e=>void select(e.currentTarget)}/>}
   <div className="flex flex-wrap gap-2">
    <button type="button" className="secondary" disabled={disabled||busy||open} onClick={()=>void startCamera()}>{busy?'處理照片…':label}</button>
    {!cameraOnly&&<button type="button" className="secondary" disabled={disabled||busy||open} onClick={()=>album.current?.click()}>選擇相簿</button>}
