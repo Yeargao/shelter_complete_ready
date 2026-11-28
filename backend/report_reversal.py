@@ -27,6 +27,13 @@ def migrate(db):
     db.execute("""CREATE TABLE IF NOT EXISTS weekly_clinical_versions (
         animal_id INTEGER NOT NULL, field TEXT NOT NULL, version INTEGER NOT NULL,
         PRIMARY KEY(animal_id,field))""")
+    db.execute("""CREATE TRIGGER IF NOT EXISTS weekly_report_provenance_cleanup
+        AFTER DELETE ON weekly_tasks BEGIN
+          DELETE FROM weekly_report_effects WHERE task_id=OLD.task_id;
+          DELETE FROM weekly_report_dependencies WHERE parent_id=OLD.task_id OR child_id=OLD.task_id;
+          DELETE FROM weekly_report_owned_tasks WHERE task_id=OLD.task_id;
+          DELETE FROM weekly_retained_dependencies WHERE parent_id=OLD.task_id OR child_id=OLD.task_id;
+        END""")
     for field in FIELDS:
         # Count even a same-value write: another valid report may affirm it.
         db.execute(f"""CREATE TRIGGER IF NOT EXISTS weekly_clinical_version_{field}
@@ -127,10 +134,33 @@ def dependencies(db, record):
     return result
 
 
+def independent_clinical_source(db, group, record):
+    """Check current, transaction-local facts, not a second connection's stale view."""
+    aid=record['animal_id']
+    animal=db.execute('SELECT * FROM animals WHERE id=?',(aid,)).fetchone()
+    for child in group['tasks']:
+        label=child['label']
+        if db.execute('SELECT 1 FROM generated_tasks WHERE animal_id=? AND label=?',(aid,label)).fetchone():
+            return True
+        if label=='優先確認健康狀況' and animal['health_status'] in ('sick','injured','serious'):
+            return True
+        if label=='疫苗施打' and child['due']:
+            latest=db.execute("""SELECT next_due_date FROM vaccination_records WHERE animal_id=?
+                AND vaccine_type='general' ORDER BY administered_date DESC,id DESC LIMIT 1""",(aid,)).fetchone()
+            if latest and latest[0]==child['due']:
+                return True
+        if label=='基礎驅蟲' and db.execute('SELECT 1 FROM animal_stay_history WHERE animal_id=?',(aid,)).fetchone():
+            if not db.execute('SELECT 1 FROM deworming_events WHERE animal_id=? AND intake_date=?',(aid,animal['intake_date'])).fetchone():
+                return True
+    return False
+
+
 def status(db, record, sid, today):
     if not record or (sid is not None and record['staff_id']!=sid):
         return {'allowed':False,'reason':'找不到可收回的本人回報','requires_review':False,'can_correct':False}
-    effects=db.execute('SELECT 1 FROM weekly_report_effects WHERE task_id=?',(record['task_id'],)).fetchone()
+    effects=db.execute('SELECT after_payload FROM weekly_report_effects WHERE task_id=?',(record['task_id'],)).fetchone()
+    current_intake=db.execute('SELECT intake_date FROM animals WHERE id=?',(record['animal_id'],)).fetchone()[0]
+    can_correct=bool(effects and json.loads(effects[0])['intake_date']==current_intake)
     issue=db.execute('SELECT resolved_at FROM weekly_issues WHERE task_id=?',(record['task_id'],)).fetchone()
     children=dependencies(db,record)
     reasons=[]
@@ -139,11 +169,12 @@ def status(db, record, sid, today):
     if issue and issue['resolved_at']:reasons.append('問題已結案')
     if any(c['started'] for c in children):reasons.append('衍生任務已開始或完成')
     if any(c['uncertain'] for c in children):reasons.append('舊回報的衍生來源無法確認')
-    return {'allowed':bool(record['is_active'] and (sid is None or not reasons)),
+    cancellable=[c for c in children if c['exclusive'] and not c['started'] and not independent_clinical_source(db,c,record)]
+    return {'allowed':sid is None or (bool(record['is_active']) and not reasons),
             'reason':'；'.join(reasons) if reasons else None,'requires_review':bool(reasons),
-            'can_correct':bool(effects),
-            'cancel_count':sum(c['exclusive'] and not c['started'] for c in children),
-            'retain_count':sum(c['started'] or not c['exclusive'] for c in children)}
+            'can_correct':can_correct,
+            'cancel_count':len(cancellable),
+            'retain_count':len(children)-len(cancellable)}
 
 
 def restore_clinical(db, record):
@@ -156,13 +187,37 @@ def restore_clinical(db, record):
     if current['intake_date']!=after['intake_date']:
         raise ValueError('動物入所期間已變更，須人工核對醫療紀錄')
     preserved=[]
+    other_effects=[]
+    for row in rows(db,"""SELECT e.* FROM weekly_report_effects e JOIN weekly_reports r ON r.task_id=e.task_id
+        JOIN weekly_tasks t ON t.task_id=e.task_id WHERE t.animal_id=? AND e.task_id!=?""",(aid,record['task_id'])):
+        other_effects.append((row['task_id'],json.loads(row['before_payload']),json.loads(row['after_payload'])))
     for field in FIELDS:
-        if before['fields'][field]==after['fields'][field]:
+        previous_version=before['versions'][field]
+        report_version=after['versions'][field]
+        if previous_version==report_version:
             continue
-        if current['versions'][field]!=after['versions'][field] or current['fields'][field]!=after['fields'][field]:
+        if current['versions'][field]!=report_version or current['fields'][field]!=after['fields'][field]:
+            # Do not overwrite a subsequent valid write. Rebase only a directly
+            # linked successor's before-image, so a later correction of that
+            # successor cannot resurrect the now-invalid value.
+            successors=[(tid,b,a) for tid,b,a in other_effects if
+                        b['versions'][field]==report_version and a['versions'][field]>report_version]
+            if len(successors)==1:
+                tid,b,a=successors[0]
+                b['fields'][field]=before['fields'][field]
+                b['versions'][field]=previous_version
+                save_effects(db,tid,b,a)
             preserved.append(field)
         else:
-            db.execute(f'UPDATE animals SET {field}=? WHERE id=?',(before['fields'][field],aid))
+            if current['fields'][field]!=before['fields'][field]:
+                db.execute(f'UPDATE animals SET {field}=? WHERE id=?',(before['fields'][field],aid))
+            new_version=db.execute('SELECT version FROM weekly_clinical_versions WHERE animal_id=? AND field=?',(aid,field)).fetchone()[0]
+            predecessors=[(tid,b,a) for tid,b,a in other_effects if
+                          a['versions'][field]==previous_version and b['versions'][field]<previous_version]
+            if len(predecessors)==1:
+                tid,b,a=predecessors[0]
+                a['versions'][field]=new_version
+                save_effects(db,tid,b,a)
     # Remove only rows introduced by this exact report, never a pre-existing
     # administration. Later reports in the same workflow may rely on these rows.
     for table in MEDICAL_TABLES:
@@ -174,7 +229,8 @@ def restore_clinical(db, record):
             WHERE t.animal_id=? AND r.task_id!=? AND t.label IN ({marks})
             AND julianday(r.reported_at)>=julianday(?)""",(aid,record['task_id'],*labels,record['reported_at'])).fetchone()
         for row in inserted:
-            if row not in current[table] or later:
+            field='vaccinated' if table=='vaccination_records' else 'dewormed'
+            if row not in current[table] or later or current['versions'][field]!=after['versions'][field]:
                 preserved.append(table)
                 continue
             if table=='vaccination_records':

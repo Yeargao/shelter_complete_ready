@@ -1214,7 +1214,7 @@ def mount(legacy):
             if policy['requires_review'] and not body.acknowledge_downstream:
                 raise HTTPException(409,'須由管理者確認後續紀錄：'+str(policy['reason']))
             if body.mode=='correction' and not policy['can_correct']:
-                raise HTTPException(409,'舊回報缺少原始快照，請人工核對醫療資料')
+                raise HTTPException(409,'舊回報缺少原始快照或入所期間已變更，請人工核對醫療資料')
             issue=db.execute('SELECT * FROM weekly_issues WHERE task_id=?',(task_id,)).fetchone()
             photos=rows(db,'SELECT * FROM task_photos WHERE task_id=?',(task_id,))
             children=reversal.dependencies(db,record)
@@ -1234,7 +1234,7 @@ def mount(legacy):
                     # reuses this downstream record instead of creating another.
                     db.execute('INSERT OR IGNORE INTO weekly_retained_dependencies VALUES (?,?,?)',
                                (task_id,group['root'],record['result']))
-                elif group['exclusive'] and not (body.mode=='completion' and group['root'].startswith('health-event:')):
+                elif group['exclusive'] and not reversal.independent_clinical_source(db,group,record):
                     for child in group['tasks']:
                         if child['state']=='pending':
                             audit_task(db,child,request.state.user_id,'withdraw_derived_task')
@@ -1253,7 +1253,9 @@ def mount(legacy):
             db.execute('DELETE FROM weekly_issues WHERE task_id=?',(task_id,))
             db.execute('DELETE FROM weekly_reports WHERE task_id=?',(task_id,))
             db.execute('DELETE FROM care_summary_cache WHERE task_id IN (SELECT task_id FROM weekly_tasks WHERE animal_id=?)',(record['animal_id'],))
-            if record['reported_at'][:10]!=today().isoformat():
+            if not record['is_active']:
+                db.execute("UPDATE weekly_tasks SET state='cancelled',reason='動物已離所，回報已更正' WHERE task_id=?",(task_id,))
+            elif record['reported_at'][:10]!=today().isoformat():
                 db.execute("""UPDATE weekly_tasks SET state='pending',staff_id=NULL,day=NULL,start=NULL,locked=0,
                     reason='跨日回報更正，待重新指派' WHERE task_id=?""",(task_id,))
             else:

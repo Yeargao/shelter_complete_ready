@@ -61,7 +61,7 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
  const undo=(mode:'completion'|'correction')=>{
   if(mode==='completion'){
    if(window.confirm('僅收回任務完成紀錄，保留已登錄的醫療資料？'+
-    ' 預計取消 '+(t.withdrawal?.cancel_count??0)+' 組尚未執行的專屬衍生任務，保留 '+(t.withdrawal?.retain_count??0)+' 組有其他來源或已執行的任務。'))withdraw.mutate({mode});
+    ' 預計取消 '+(t.withdrawal?.cancel_count??0)+' 組尚未執行的專屬衍生任務，保留 '+(t.withdrawal?.retain_count??0)+' 組有其他來源或已執行的任務（最終以後端交易檢查為準）。'))withdraw.mutate({mode});
   }else{
    const reason=window.prompt('確認原回報為誤報，請填寫更正原因（其他有效醫療紀錄不會被覆蓋）');
    if(reason?.trim())withdraw.mutate({mode,reason});
