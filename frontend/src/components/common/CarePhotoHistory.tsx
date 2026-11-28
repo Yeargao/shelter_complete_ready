@@ -15,6 +15,8 @@ export default function CarePhotoHistory({animalId,manager}:{animalId:number;man
  const [previous,setPrevious]=useState(''),[current,setCurrent]=useState('');
  const compare=useMutation({mutationFn:()=>api.compareCarePhotos(animalId,previous,current)});
  const photos=query.data??[];
+ const previousPhoto=photos.find(p=>p.photo_id===previous),currentPhoto=photos.find(p=>p.photo_id===current);
+ const validOrder=Boolean(previousPhoto&&currentPhoto&&previousPhoto.uploaded_at<=currentPhoto.uploaded_at);
  return <section className="panel space-y-3"><h2>健康照片追蹤紀錄</h2>
   {query.isLoading&&<p>載入中…</p>}
   {query.error&&<p role="alert">{query.error.message}</p>}
@@ -22,7 +24,8 @@ export default function CarePhotoHistory({animalId,manager}:{animalId:number;man
   {manager&&photos.length>=2&&<div className="space-y-2">
    <label>較早照片<select value={previous} disabled={compare.isPending} onChange={e=>{setPrevious(e.target.value);compare.reset();}}><option value="">請選擇</option>{photos.map((p,i)=><option key={p.photo_id} value={p.photo_id}>{p.uploaded_at.slice(0,16)} · {p.label} · #{i+1}</option>)}</select></label>
    <label>較新照片<select value={current} disabled={compare.isPending} onChange={e=>{setCurrent(e.target.value);compare.reset();}}><option value="">請選擇</option>{photos.map((p,i)=><option key={p.photo_id} value={p.photo_id}>{p.uploaded_at.slice(0,16)} · {p.label} · #{i+1}</option>)}</select></label>
-   <button type="button" className="secondary" disabled={!previous||!current||previous===current||compare.isPending} onClick={()=>compare.mutate()}>{compare.isPending?'比較中…':'Gemini 比較外觀'}</button>
+   <button type="button" className="secondary" disabled={!validOrder||previous===current||compare.isPending} onClick={()=>compare.mutate()}>{compare.isPending?'比較中…':'Gemini 比較外觀'}</button>
+   {previous&&current&&!validOrder&&<p className="muted">請將較早拍攝的照片放在第一欄。</p>}
    {compare.error&&<p role="alert">{compare.error.message}</p>}
    {compare.data&&<p>AI 可見差異（非診斷）：{compare.data.observation}</p>}
   </div>}

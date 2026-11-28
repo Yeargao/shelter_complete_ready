@@ -83,7 +83,7 @@ async def auth_guard(request:Request,call_next):
  if path.startswith(('/api/smart/rules','/api/smart/workflows','/api/smart/inbox')) or path in ('/api/smart/monitor','/api/smart/handover'):
   return JSONResponse(status_code=410,content={'detail':'此功能已移除'})
  response=await call_next(request)
- if response.status_code<300 and request.method in ('POST','PATCH','PUT','DELETE') and (path.startswith(('/api/animals','/api/schedule/tasks','/api/agent/actions','/api/tasks')) or path=='/api/smart/task'):
+ if response.status_code<300 and not path.endswith('/photo-analysis') and request.method in ('POST','PATCH','PUT','DELETE') and (path.startswith(('/api/animals','/api/schedule/tasks','/api/agent/actions','/api/tasks')) or path=='/api/smart/task'):
   await run_in_threadpool(refresh_consistency_safely)
  return response
 

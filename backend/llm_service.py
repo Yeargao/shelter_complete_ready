@@ -173,12 +173,13 @@ def gemini_call(instruction, content, schema, maximum, model=None):
 
 def generate(connect, kind, instruction, data, schema, validate, images=()):
     """Try approved alternatives for model/request errors, retaining all quota and privacy gates."""
-    output, error = _generate(connect, kind, instruction, data, schema, validate, images=images)
+    image_options = {'images': images} if images else {}
+    output, error = _generate(connect, kind, instruction, data, schema, validate, **image_options)
     for alternate in APPROVED_MODELS:
         if error not in ('configuration_400', 'configuration_404'):
             break
         if alternate != model_name():
-            output, error = _generate(connect, kind, instruction, data, schema, validate, alternate, images=images)
+            output, error = _generate(connect, kind, instruction, data, schema, validate, alternate, **image_options)
     return output, error
 
 

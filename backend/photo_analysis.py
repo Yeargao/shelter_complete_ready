@@ -18,6 +18,19 @@ class Observation(BaseModel):
     observation: str = Field(max_length=800)
     image_quality: Literal['clear', 'limited', 'unusable']
 
+SCHEMA = {
+    'type': 'object',
+    'properties': {
+        'species': {'type': 'string', 'enum': ['dog','cat','other','unknown']},
+        'breed': {'type': 'string'},
+        'coat_color': {'type': 'string'},
+        'visible_features': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 8},
+        'observation': {'type': 'string'},
+        'image_quality': {'type': 'string', 'enum': ['clear','limited','unusable']},
+    },
+    'required': ['species','breed','coat_color','visible_features','observation','image_quality'],
+}
+
 def analyze(connect, images, mode):
     instruction = (
         '你是收容所影像觀察助理。只描述可直接看見的外觀，使用繁體中文。'
@@ -27,7 +40,7 @@ def analyze(connect, images, mode):
         '比較兩張時依提供順序描述可見差異，說明角度光線等限制，不能確認病情變化。'
     )
     output, error = llm_service.generate(
-        connect, 'photo', instruction, {'mode': mode}, Observation.model_json_schema(),
+        connect, 'photo', instruction, {'mode': mode}, SCHEMA,
         lambda data: Observation.model_validate(data).model_dump(), images=tuple(images))
     if error or output is None:
         raise HTTPException(503, '影像分析暫時無法使用（' + str(error or 'invalid_response') + '），仍可人工填寫與儲存照片')
