@@ -1116,7 +1116,14 @@ def mount(legacy):
         db.execute('BEGIN IMMEDIATE')
         migrate(db, import_legacy=False)
     from shelter_chat import mount as mount_chat
-    legacy.app.include_router(mount_chat(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tasks_for))
+    chat_router=mount_chat(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tasks_for)
+    legacy.app.include_router(chat_router)
     from smart_tools import mount as mount_smart
-    legacy.app.include_router(mount_smart(legacy, populate, week_days, schedule_catalog, quarters))
+    smart_router=mount_smart(legacy, populate, week_days, schedule_catalog, quarters)
+    legacy.app.include_router(smart_router)
+    from chat_agent import mount as mount_agent
+    read_chat=next(r.endpoint for r in chat_router.routes if r.path=='/api/chat')
+    command=next(r.endpoint for r in smart_router.routes if r.path=='/api/smart/command')
+    check=next(r.endpoint for r in smart_router.routes if r.path=='/api/smart/check')
+    legacy.app.include_router(mount_agent(legacy,read_chat,command,check))
     return router

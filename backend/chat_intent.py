@@ -175,7 +175,7 @@ def local_intent(text, *, animal=False, staff=False, task=False):
         intent = 'next_task'
     elif has(q,'緊急','優先','最急','比較急','重要任務'):
         intent = 'urgent_tasks'
-    elif animal and has(q,'健康','近況','身體','怎麼樣','如何','狀況','整理','總結','注意','疫苗','打針','預防針','打過針','驅蟲','除蟲') and not has(q,'任務','班表','排程','派工','指派','工作'):
+    elif animal and has(q,'資料','健康','近況','身體','怎麼樣','如何','狀況','整理','總結','注意','疫苗','打針','預防針','打過針','驅蟲','除蟲') and not has(q,'任務','班表','排程','派工','指派','工作'):
         intent = 'deworming' if has(q,'驅蟲','除蟲') else 'vaccination' if has(q,'疫苗','打針','預防針','打過針') else 'animal_health'
     elif has(q,'疫苗','打針','預防針','打過針') and not has(q,'任務','工作','排程','班表'):
         intent = 'vaccination'

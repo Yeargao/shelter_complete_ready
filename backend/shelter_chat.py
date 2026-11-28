@@ -44,9 +44,9 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
 
     def animal_scope(db, sid, question, context):
         if sid is None:
-            animals = db.execute('SELECT id,name,health_status FROM animals ORDER BY id')
+            animals = db.execute('SELECT id,name,health_status,vaccinated,dewormed,intake_date FROM animals ORDER BY id')
         else:
-            animals = db.execute("""SELECT id,name,health_status FROM animals WHERE EXISTS (
+            animals = db.execute("""SELECT id,name,health_status,vaccinated,dewormed,intake_date FROM animals WHERE EXISTS (
                 SELECT 1 FROM weekly_tasks t WHERE t.animal_id=animals.id AND t.staff_id=?
                 AND t.state!='cancelled') ORDER BY id""", (sid,))
         allowed = list(animals)
@@ -67,24 +67,26 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
         health = animal['health_status']
         name = animal['name']
         sources = [f'動物 #{aid}']
-        worms = db.execute("""SELECT completed_date FROM deworming_events WHERE animal_id=?
-            ORDER BY completed_date DESC LIMIT 1""", (aid,)).fetchone()
+        worms = db.execute("""SELECT completed_date FROM deworming_events WHERE animal_id=? AND intake_date=?
+            ORDER BY completed_date DESC LIMIT 1""", (aid,animal['intake_date'])).fetchone()
         dose = db.execute("""SELECT id,administered_date FROM vaccination_records WHERE animal_id=?
             ORDER BY administered_date DESC,id DESC LIMIT 1""", (aid,)).fetchone()
         if '驅蟲' in question:
             if worms:
                 sources.append('驅蟲紀錄 ' + worms['completed_date'])
-            return [f'{name}最近一次有日期的驅蟲紀錄為 {worms[0]}。' if worms else f'{name}目前沒有具日期的驅蟲紀錄。'], sources, None
+            return [f'{name}驅蟲登錄：'+{'yes':'已驅蟲','no':'未驅蟲','unknown':'未確認'}.get(animal['dewormed'],'未確認')+'。', f'本次入所驅蟲日期：{worms[0]}。' if worms else '本次入所沒有具日期的驅蟲紀錄。'], sources, None
         if '疫苗' in question:
             if dose:
                 sources.append(f'疫苗紀錄 #{dose["id"]}')
-            return [f'{name}最近的疫苗日期為 {dose[1]}。' if dose else f'{name}目前沒有具日期的疫苗紀錄。'], sources, None
+            return [f'{name}疫苗登錄：'+{'yes':'已接種','no':'未接種','unknown':'未確認'}.get(animal['vaccinated'],'未確認')+'。', f'最近疫苗日期：{dose[1]}。' if dose else '目前沒有具日期的疫苗紀錄。'], sources, None
         reports = list(db.execute("""SELECT r.task_id,r.reported_at,r.result FROM weekly_reports r
             JOIN weekly_tasks t ON t.task_id=r.task_id WHERE t.animal_id=? AND (? IS NULL OR r.staff_id=?)
             ORDER BY r.reported_at DESC,r.task_id LIMIT 4""", (aid, sid, sid)))
         issues = db.execute("""SELECT COUNT(*) FROM weekly_issues i JOIN weekly_tasks t ON t.task_id=i.task_id
             WHERE i.animal_id=? AND i.resolved_at IS NULL AND (? IS NULL OR t.staff_id=?)""", (aid, sid, sid)).fetchone()[0]
         lines = [f'{name}的健康登錄為「{HEALTH.get(health, "未確認")}」。',
+                 f'疫苗登錄：'+{'yes':'已接種','no':'未接種','unknown':'未確認'}.get(animal['vaccinated'],'未確認')+'。',
+                 f'驅蟲登錄：'+{'yes':'已驅蟲','no':'未驅蟲','unknown':'未確認'}.get(animal['dewormed'],'未確認')+'。',
                  f'目前可查看的待處理異常共 {issues} 筆。',
                  f'最近疫苗日期：{dose[1]}。' if dose else '目前沒有具日期的疫苗紀錄。',
                  f'最近驅蟲日期：{worms[0]}。' if worms else '目前沒有具日期的驅蟲紀錄。']
@@ -392,7 +394,7 @@ def mount(legacy, staff_identity, today, week_days, shifts_for, daily_limit, tas
                         else:
                             canonical={'animal_health':'健康','vaccination':'疫苗','deworming':'驅蟲'}[intent]
                             lines,sources,model_data=animal_details(db,animal,canonical,sid)
-                            if intent!='animal_health' or routed_by!='local' or not ci.has(question,'健康','近況','整理','總結','注意','身體狀況'):
+                            if intent!='animal_health' or routed_by!='local' or not ci.has(question,'整理','總結','摘要'):
                                 model_data=None
                     elif intent=='unknown':
                         lines,sources=['目前無法查詢這個問題。可詢問已授權的動物紀錄或派工資料。請補充查詢對象、日期或想了解的項目。'],[]
