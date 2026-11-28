@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 import chat_intent as ci
 import care_workflow as care
-from chat_workflows import guide as work_guide
+from chat_workflows import guide as work_guide, DIRECT_REPORT_TASKS
 from shelter_chat import Question
 from smart_tools import Command, Check, report
 
@@ -337,16 +337,17 @@ def mount(legacy,read_chat,smart_command,smart_check,populate_tasks=None):
                                 display.append({'field':label,'before':'、'.join(r[field] for r in current[key]) or '無日期紀錄','after':'、'.join(r[field] for r in previous[key]) or '無日期紀錄'})
                         cmd=draft(db,uid,sid,old['animal_id'],{'display':display},today(),'undo',old['action_id'])
                         result.append(turn(q,command=cmd));continue
-                if uid!=1 and missing and missing.get('staff_report') and not missing.get('staff_date') and re.fullmatch(r'(?:備註|說明)\s*[:：]\s*.+',q):
+                if uid!=1 and missing and missing.get('staff_report') and not missing.get('staff_date') and (re.fullmatch(r'(?:備註|說明)\s*[:：]\s*.+',q) or q in ('略過備註','不填備註','無備註')):
                     saved=missing['staff_report']
-                    note=re.split(r'[:：]',q,maxsplit=1)[1].strip()
+                    skip=q in ('略過備註','不填備註','無備註')
+                    note='' if skip else re.split(r'[:：]',q,maxsplit=1)[1].strip()
                     with legacy.connect() as db:
                         ok=db.execute("""SELECT 1 FROM weekly_tasks t JOIN weekly_staff_accounts a ON a.staff_id=t.staff_id
                             JOIN animals x ON x.id=t.animal_id
                             WHERE a.user_id=? AND t.task_id=? AND t.day=? AND t.state IN ('pending','in_progress') AND x.is_active=1""",(uid,saved['task_id'],today().isoformat())).fetchone()
                     missing=None
                     if not ok:result.append(message(q,'任務已變動，請重新查詢'));continue
-                    if not note or len(note)>4000:result.append(message(q,'備註無效，請重新回報'));continue
+                    if (not skip and not note) or len(note)>4000:result.append(message(q,'備註無效，請重新回報'));continue
                     result.append(turn(q,command={**saved,'note':note}));continue
                 if uid!=1 and missing and missing.get('staff_report') and missing.get('staff_date'):
                     raw_date=re.sub(r'^(?:實際)?(?:施打|接種)?日期\s*[:：]\s*','',q)
@@ -449,9 +450,9 @@ def mount(legacy,read_chat,smart_command,smart_check,populate_tasks=None):
                         if not known:
                             missing={'staff_report':cmd,'staff_date':True}
                             result.append(message(q,'缺少可信的疫苗施打日期。請輸入實際日期（例如 1128 或 2026-11-28），確認前不會送出回報。'));continue
-                    if code in care.NOTE_RESULTS and not cmd['note']:
+                    if code in care.NOTE_RESULTS and t['label'] not in DIRECT_REPORT_TASKS and not cmd['note']:
                         missing={'staff_report':cmd}
-                        result.append(message(q,'請補充觀察或處理情況，例如「備註：今天早上發現精神不佳，已通知主管」。確認前不會送出回報。'));continue
+                        result.append(message(q,'可補充觀察或處理情況，例如「備註：今天早上發現精神不佳，已通知主管」，也可輸入「略過備註」。照片請至個人工作台上傳。確認前不會送出回報。'));continue
                     missing=None
                     result.append(turn(q,command=cmd));continue
                 q_for_entity=q

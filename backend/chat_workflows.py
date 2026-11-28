@@ -18,6 +18,54 @@ GROUP=re.compile(r'哪些|多少|幾隻|所有|全部|名單|清單|列出')
 def link(path,label):return {'path':path,'label':label}
 def prompt(label,question):return {'label':label,'question':question}
 
+
+# The UI has two distinct reporting modes; keep this list aligned with StaffHome.directChoices.
+DIRECT_REPORT_TASKS=frozenset(('確認疫苗紀錄','疫苗施打','確認驅蟲紀錄','基礎驅蟲',
+    '更新驅蟲狀態','更新驅蟲紀錄','評估絕育安排','絕育手術','更新絕育狀態'))
+ASSIGN_STEPS='資源配置 → 待指派任務池 → 衍生任務 → 選擇任務 → 選擇指派員工、指派日期及開始時間 → 儲存指派。也可按「七天最佳化派工」，核對預覽後按「確認儲存」。'
+STAFF_STEPS='登入照護人員帳號 → 照護人員工作台（個人工作台）→ 個人日曆選擇指派日期 → 找到對應動物及任務。確認工作已實際完成才回報。'
+READMIT_STEPS='動物列表 → ＋ 新增動物 → 以舊離所編號重新入所 → 選擇原動物編號（離所動物編號）→ 填寫重新入所日期 → 按「以原編號重新入所 #動物編號」。保留原有編號及入離所歷史、恢復在養、取消舊未完成驅蟲任務，並產生本次基礎驅蟲；不用重新建檔或先確認驅蟲紀錄。'
+
+def care_task_steps(label):
+    """Explain the actual workbench, not the chatbot draft, using the shared transition table."""
+    public=care.display_label(label)
+    choices=care.outcomes(label)
+    if label in DIRECT_REPORT_TASKS:
+        steps=f'找到「{public}」，直接按任務右側的「{choices}」其中符合實際結果的一項；不開啟回報視窗，也不必填情況說明或失敗原因。'
+    else:
+        steps=f'找到「{public}」→ 按「填寫回報」→ 選擇「{choices}」其中符合實際結果的一項。'
+        if label=='更新疫苗紀錄':
+            steps+='填寫「實際施打日期（已有可信紀錄可留空）」；若沒有可信日期，必須查明實際施打日期，不可猜測。'
+        elif any(code in care.NOTE_RESULTS for code,_,_ in care.RULES[label]):
+            steps+='異常或尚未康復等選項可填「情況說明（選填）」，可用「選擇照片」或「手機拍照」；照片最多四張，每張最多 5 MB。聊天不能上傳任務照片，請使用工作台。'
+        steps+='最後按「送出回報」。'
+    lines=[steps,'各結果的系統後續（不是已執行的紀錄）：']
+    for code,title,target in care.RULES[label]:
+        detail=care.describe_next(label,code)
+        if label=='更新疫苗紀錄':
+            detail='更新疫苗狀態為已施打；新紀錄的下次施打日期為實際施打日期加上12個月，自動建立下一次疫苗施打任務，不用手動填寫下次日期。'
+        elif label=='更新絕育狀態':
+            detail='更新絕育狀態為已絕育；若來源是絕育手術成功，產生術後健康追蹤；若來源是確認已絕育，任務結束，不產生術後追蹤。'
+        else:
+            if code in ('healthy','recovered'):
+                detail+='；健康狀態更新為健康'
+            if code in ('sick','injured'):
+                detail+='；更新健康狀態'
+            if code in care.ISSUE_RESULTS:
+                detail+='；建立問題回報'
+            if target==label and code in ('failed','defer','improving','not_recovered'):
+                detail+='；最早安排於隔日執行'
+            if label=='確認疫苗紀錄' and code=='yes':
+                detail+='；登錄已施打，不需要填寫施打日期'
+            if label=='疫苗施打' and code=='done':
+                detail+='；登錄當日為施打日期及更新疫苗狀態'
+            if label=='基礎驅蟲' and code=='done':
+                detail+='；記錄本次入所的驅蟲完成日期並更新驅蟲狀態'
+            if label in ('更新驅蟲狀態','更新驅蟲紀錄') and code=='done':
+                detail+='；更新驅蟲狀態為已驅蟲'
+        lines.append(f'・{title} → {detail}')
+    return lines
+
 def guide(db,uid,q,active,current,resolve,resource_totals,topic=None):
     """Return (turn, active animal) or None. All staff reads are explicitly scoped."""
     manager=uid==1
@@ -104,32 +152,76 @@ def guide(db,uid,q,active,current,resolve,resource_totals,topic=None):
         return reply('收容所助理只能協助登錄、回報及查詢照護資料，不能提供診斷、藥物或劑量建議。請通知獸醫；若情況緊急，立即依現場緊急流程處置。',[link('/resources' if manager else '/','資源配置' if manager else '個人工作台')])
     how=bool(HOW.search(q))
     onboarding=bool(re.fullmatch(r'(?:你好[，,！! ]*)?(?:我(?:是)?(?:個)?(?:新手|第一次使用(?:這個)?(?:系統|程式|平台)?|剛開始使用(?:這個)?(?:系統|程式|平台)?)|第一次使用(?:這個)?(?:系統|程式|平台)?|新手入門)(?:[，, ]*(?:請問)?(?:我)?(?:該|要)?(?:怎麼|如何)(?:開始|使用|操作)(?:呢|嗎)?)?[。？?！!]*',q))
+    onboarding=onboarding or bool(re.search(r'第一次(?:登入|上班|操作)|剛(?:入職|到職|來上班)|新來的(?:員工|管理者|照護人員)|不知道從哪(?:裡|里)?開始|不熟悉(?:這個)?(?:系統|程式)',q) and not re.search(r'修改|刪除|回報.+結果',q))
     if onboarding:
         lines=['歡迎使用收容所助理！你不需要知道任務 ID，也可以直接使用下方按鈕。']
         if manager:
             lines.extend(['1. 到動物列表確認在所動物及基本資料。',
-                          '2. 選擇「待指派照護任務」查看需要安排的工作，再至資源配置儲存指派。',
+                          '2. 選擇「待指派照護任務」查看需要安排的工作。'+ASSIGN_STEPS,
                           '3. 員工回報後，到健康行政核對查看紀錄，並安排新產生的後續任務。管理者不可代替員工回報。'])
         else:
-            lines.extend(['1. 點選「我的照護任務回報選項」，查看今日本人被指派的任務。',
-                          '2. 選擇動物與任務，再點實際結果；若要求備註，輸入「備註：實際觀察」。若要求施打日期，輸入實際日期。',
-                          '3. 核對回報草案，按確認執行。若產生後續任務，等管理者指派後再回報；可從聊天重新查看自己的任務。'])
+            lines.extend(['1. '+STAFF_STEPS+' 也可點選「我的照護任務回報選項」查看今日自己的任務。',
+                          '2. 工作台有些任務直接按右側結果按鈕，有些需按「填寫回報」再「送出回報」。若需照片，請用工作台。',
+                          '3. 若改用聊天，選擇任務與實際結果，核對草案後按確認執行；備註可輸入「備註：實際觀察」或「略過備註」。若要求施打日期，輸入實際日期。新任務須等管理者指派並到達可回報日期。'])
         lines.extend(['四大流程：健康照護、疫苗、驅蟲、絕育。點選下方流程可查看每個結果的後續任務。',
                       '如遇緊急異常，先通知主管及獸醫；助理不提供診斷或用藥建議。'])
         suggestions=[prompt('查看待指派照護任務','待指派照護任務') if manager else prompt('查看我的回報選項','我的照護任務回報選項')]
         suggestions.extend(prompt(g+'流程',g+'流程') for g in care.GROUPS)
         if manager:suggestions.append(prompt('如何重新入所','如何重新入所？'))
         return reply('\n'.join(lines),[link('/resources','資源配置'),link('/health','健康行政核對'),link('/animals','動物列表')] if manager else [link('/','個人工作台')],suggestions)
+    # Explicit product-operation questions must not fall through to an unrelated data query.
+    # A report command remains a report command, even if its note contains a question.
+    report_command=bool(re.search(r'^(?:請|幫我|我要|我想)?回報.+結果\s*[:：]',q))
+    procedure=bool(re.search(r'怎麼|如何|要按|按哪|按什麼|要填|需要.*填|留空|下一步|接下來|之後|會怎|會產生|會不會|什麼時候|何時|在哪|哪裡|按鈕|操作步驟|流程|要不要|需不需要|按完|然後|可以.*照片|可以.*拍照',q))
+    administrative=bool(re.search(r'收回|撤回|取消|更正|修改|重排|離所|入所|派工|指派|結案|標記已解決|刪除',q))
+    matched_labels=[label for label in care.RULES if care.display_label(label) in q or label in q]
+    if not report_command and not administrative and not GROUP.search(q) and procedure:
+        if not matched_labels and topic and topic.startswith('care:') and re.search(r'下一步|接下來|之後|然後|按完|要填|要按|需要|留空|會怎|會不會|照片|失敗|成功|康復|惡化',q):
+            old_label=topic.split(':',1)[1]
+            # Do not reuse a task when the user names a different care subject.
+            if old_label in care.RULES and not any(g in q for g in care.GROUPS):
+                matched_labels=[old_label]
+        if len(matched_labels)==1:
+            label=matched_labels[0]
+            animal=select_target()
+            lines=[f'【{care.display_label(label)}｜操作教學】']
+            if animal:
+                lines.append(f"{animal['name']} #{animal['id']}（以下為規則說明，非即時任務結果）")
+                if not animal['is_active']:
+                    lines.append('此動物已離所；不要回報在所照護任務。')
+            if manager:
+                lines.extend(['管理者不能代替員工回報。先確認指派，再由員工依下列工作台步驟回報。',ASSIGN_STEPS])
+            lines.extend([STAFF_STEPS,*care_task_steps(label)])
+            lines.append('有新衍生任務時，須先指派且到達可回報日期；已有未完成的相同任務不重複建立。' if manager else '新衍生任務須由管理者指派，且到達可回報日期。找不到任務時先核對日曆，不要代替同事回報。')
+            lines.append('若有急迫健康異常，立即通知主管與獸醫；系統不提供診斷或用藥建議。')
+            return reply('\n'.join(lines),[link('/resources' if manager else '/','資源配置' if manager else '照護人員工作台')],
+                [prompt('查看待指派照護任務','待指派照護任務')] if manager else [prompt('查看今日可回報任務','我的照護任務回報選項')],
+                target=animal['id'] if animal else active,topic='care:'+label)
+    if not report_command and re.search(r'找不到|看不到|沒有出現|沒出現|還沒出現|沒有按鈕|不能回報|無法回報|尚未指派|還沒指派',q) and re.search(r'任務|回報|按鈕|衍生',q) and not GROUP.search(q):
+        if manager:
+            return reply('若後續任務尚未指派，'+ASSIGN_STEPS+' 若找不到，核對待指派任務池的日期及篩選、是否已有同類未完成任務、是否尚未到最早可安排日期；不要直接重複建立。',[link('/resources','資源配置')],[prompt('查看待指派照護任務','待指派照護任務')])
+        return reply(STAFF_STEPS+' 若找不到任務或回報按鈕：確認登入的是本人帳號、日曆日期是否正確、任務是否已由管理者指派、是否尚未到可回報日期、是否已完成或重新派工。聊天只提供今日可回報清單；其他日期請至工作台核對。仍找不到請聯絡管理者，不能代替同事回報。',[link('/','照護人員工作台')],[prompt('查看今日可回報任務','我的照護任務回報選項')])
+    if not report_command and procedure and re.search(r'七天最佳化派工|衍生任務|待指派任務池',q) and not re.search(r'請假|班表|出勤|多少|哪些',q):
+        if not manager:return role_denied()
+        return reply(ASSIGN_STEPS+' 預覽不等於已指派，必須確認儲存；檢查技能、日期及工時衝突。',[link('/resources','資源配置')],[prompt('查看待指派照護任務','待指派照護任務')])
     if re.fullmatch(r'(?:照護流程|四大照護流程|照護流程總覽)(?:[。？?])?',q) or (not re.search(r'回報\s+\S+.*結果\s*[:：]',q) and ('流程' in q or how) and re.search(r'健康照護|傷病治療|健康問題追蹤|術後健康追蹤|絕育|疫苗|驅蟲',q) and not re.search(r'收回|撤回|取消|更正|修改|重排|重新入所|入所|離所|派工|指派|日期|到期|逾期|多少|哪些',q)):
         chosen=[group for group in care.GROUPS if group in q or (group=='健康照護' and re.search(r'傷病治療|健康問題追蹤',q)) or (group=='絕育' and '術後健康追蹤' in q)]
         if not chosen:chosen=list(care.GROUPS)
         a=select_target()
         lines=['管理者先核對動物資料，至資源配置指派具相應技能的員工；後續任務依實際回報產生。' if manager else '照護人員先查看今日自己的任務，依實際結果回報；確認執行前不會寫入。後續任務由管理者指派。']
         if a:lines.insert(0,f"{a['name']} #{a['id']}")
+        lines.append(ASSIGN_STEPS if manager else STAFF_STEPS)
         for group in chosen:
             lines.extend(['【'+group+'】',*care.workflow_lines(group)])
+            if len(chosen)==1:
+                for label in care.GROUPS[group]:
+                    if group=='健康照護' and label=='術後健康追蹤':continue
+                    lines.extend(['【'+care.display_label(label)+' 操作】',*care_task_steps(label)[:1]])
+                if group=='驅蟲':lines.append(READMIT_STEPS if manager else '重新入所由管理者操作，員工等本次基礎驅蟲任務指派後再回報。')
         lines.append('有急迫異常應立即通知主管與獸醫，不必等待系統派工。日期不明不得捏造。')
         suggestions=[prompt(g+'流程',g+'流程') for g in care.GROUPS if g not in chosen]
+        if len(chosen)==1:
+            suggestions.extend(prompt(care.display_label(label)+'操作',care.display_label(label)+'怎麼操作？') for label in care.GROUPS[chosen[0]] if chosen[0]!='健康照護' or label!='術後健康追蹤')
         suggestions.append(prompt('查看待指派照護任務','待指派照護任務') if manager else prompt('查看我的回報選項','我的照護任務回報選項'))
         return reply('\n'.join(lines),[link('/resources','資源配置'),link('/health','健康行政核對')] if manager else [link('/','個人工作台')],suggestions,target=a['id'] if a else active)
     if re.fullmatch(r'(?:查看)?(?:我的照護任務回報選項|待指派照護任務)(?:\s+動物\s*#\d+)?[。？?]*',q):
@@ -150,7 +242,7 @@ def guide(db,uid,q,active,current,resolve,resource_totals,topic=None):
             lines.append(f"{t['name']} #{t['animal_id']} · {label} · {care.outcomes(t['label'])}")
             if not manager:suggestions.append(prompt(t['name']+' · '+label,f"回報 {t['task_id']}"))
         if len(tasks)>12:lines.append('僅列前 12 項，完整清單請開啟工作頁面。')
-        if manager:lines.append('請在資源配置選擇任務、指派符合技能的員工並儲存；聊天不會代替員工回報。')
+        if manager:lines.append(ASSIGN_STEPS+' 聊天不會代替員工回報。')
         else:
             lines.append('點選任務後選擇實際結果，再確認執行；沒有自己的任務時請聯絡管理者派工。')
             if not tasks:lines.append('目前沒有可回報的本人任務，不代表照護流程已結束；後續任務可能尚未指派或尚未到執行日期。')
@@ -168,7 +260,7 @@ def guide(db,uid,q,active,current,resolve,resource_totals,topic=None):
     direct=not how and bool(re.search(r'^(?:請|幫我|請幫我|我要|我想|直接幫我|可以幫我)',q)) and not bool(re.search(r'查詢|查看|列出|哪些|多少|[?？]',q))
     if (how or direct) and re.search(r'手動指派|指派給|安排給|(?:指派|派工|分配).*(?:員工|人員)|(?:員工|人員).*(?:指派|派工)|直接.*派工|幫.*指派',q) and not re.search(r'建立.*任務|新增.*任務|請假|排班|出勤',q):
         if not manager:return role_denied()
-        return reply('請到資源配置的待指派任務池，選擇指定任務；在任務詳細資料選擇員工、日期及開始時間，按「儲存指派」。系統會驗證員工技能、工時及時間衝突。聊天不會直接更動指派。',[link('/resources','資源配置')])
+        return reply(ASSIGN_STEPS+' 系統會驗證員工技能、工時及時間衝突。聊天不會直接更動指派。',[link('/resources','資源配置')])
     if direct and re.search(r'結案|標記已解決|解除異常',q):
         if not manager:return role_denied()
         return reply('請在資源配置找出相應已回報任務，確認實際問題已解決，再按「標記已解決」。聊天尚不直接結案。',[link('/resources','資源配置')])
@@ -188,7 +280,7 @@ def guide(db,uid,q,active,current,resolve,resource_totals,topic=None):
             return reply('到資源配置，先選擇日曆日期，再展開「每日班表與員工設定」，選擇員工、修改出勤或班表，按「儲存班表」；檢查受影響的未完成任務，再預覽最佳化派工，核對技能、工時及時間，最後確認儲存。已完成任務保留；已鎖定任務請人工核對。',[link('/resources','資源配置')],[prompt('查詢待指派任務','這週有哪些任務尚未安排？'),prompt('查詢可用工時','今天哪些員工有剩餘工時？')])
         if re.search(r'離所|送養|重新入所|入所|新增動物|建檔',q):
             if not manager:return role_denied()
-            if '重新入所' in q:return reply('到動物列表 → 新增動物 → 以舊離所編號重新入所，選擇原動物編號及新的入所日期，確認後保留原有入離所歷史，並新增本次基礎驅蟲任務；不要建立重複動物。',[link('/animals/new','重新入所')])
+            if '重新入所' in q:return reply(READMIT_STEPS,[link('/animals/new','重新入所')])
             if re.search(r'離所|送養',q):return reply('到動物列表，選擇該動物的「離所」，填寫離所日期及實際原因（例如送養），確認後才更新在所狀態；歷史紀錄保留，待執行任務依原有規則處理。',[link('/animals','動物列表')])
             return reply('到動物列表 → 新增動物，填寫名稱、物種、入所日期等資料；上傳照片時可先比對既有動物。疫苗、驅蟲及健康不明就選待確認，不捏造日期。若曾離所，使用重新入所而非新增。',[link('/animals/new','新增動物'),link('/animals','動物列表')])
         if re.search(r'疫苗|驅蟲',q):

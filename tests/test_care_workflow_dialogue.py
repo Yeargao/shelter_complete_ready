@@ -165,6 +165,56 @@ class CareDialogueTests(fixture.DialogueTests):
         with self.main.connect() as db:
             self.assertIsNotNone(db.execute('SELECT 1 FROM vaccination_records WHERE animal_id=?',(self.ids[0],)).fetchone())
 
+    def test_novice_exact_buttons_and_followup(self):
+        from care_workflow import RULES, display_label
+        from chat_workflows import DIRECT_REPORT_TASKS
+        for label, outcomes in RULES.items():
+            for who in (self.staff,self.manager):
+                with self.subTest(label=label,role='staff' if who==self.staff else 'manager'):
+                    turn=self.send(display_label(label)+'要按哪個按鈕？',who)
+                    answer=turn['answer']['answer']
+                    self.assertIn('照護人員工作台',answer)
+                    self.assertIn('任務右側' if label in DIRECT_REPORT_TASKS else '填寫回報',answer)
+                    for _,title,_ in outcomes:self.assertIn(title,answer)
+                    self.assertNotIn('command',turn)
+                    if label in DIRECT_REPORT_TASKS:self.assertNotIn('送出回報',answer)
+                    else:self.assertIn('送出回報',answer)
+        self.send('疫苗施打怎麼操作？',self.staff)
+        answer=self.send('那失敗之後下一步呢？',self.staff)['answer']['answer']
+        self.assertIn('最早安排於隔日',answer)
+        self.assertIn('建立問題回報',answer)
+        self.assertIn('12個月',self.send('更新疫苗紀錄要填日期嗎？',self.staff)['answer']['answer'])
+        self.assertIn('手術成功',self.send('更新絕育狀態之後會怎樣？',self.staff)['answer']['answer'])
+
+    def test_novice_find_missing_and_assign(self):
+        for q in ('我剛入職，不知道從哪裡開始','找不到後續任務怎麼辦？'):
+            answer=self.send(q,self.staff)['answer']['answer']
+            self.assertIn('照護人員工作台',answer)
+        for q in ('後續任務還沒指派怎麼辦？','七天最佳化派工怎麼操作？'):
+            answer=self.send(q,self.manager)['answer']['answer']
+            for word in ('待指派任務池','衍生任務','儲存指派','確認儲存'):
+                self.assertIn(word,answer)
+        denied=self.send('七天最佳化派工怎麼操作？',self.staff)
+        self.assertIn('管理者權限',denied['answer']['answer'])
+        self.assertNotIn('/resources',[x['path'] for x in denied['links']])
+
+    def test_novice_optional_note_and_direct_failure(self):
+        self.reset_care()
+        tid=self.assign('健康狀態待確認')
+        first=self.send('回報 '+tid+' 結果：受傷',self.staff)
+        self.assertIn('略過備註',first['command']['message'])
+        cmd=self.send('略過備註',self.staff)['command']
+        self.assertEqual((cmd['type'],cmd['task_id'],cmd['note']),('staff_report',tid,''))
+        with self.main.connect() as db:
+            self.assertIsNone(db.execute('SELECT 1 FROM weekly_reports WHERE task_id=?',(tid,)).fetchone())
+        for label,title in (('疫苗施打','失敗'),('基礎驅蟲','失敗'),('評估絕育安排','暫不適合絕育'),('絕育手術','未完成')):
+            self.reset_care()
+            tid=self.assign(label)
+            cmd=self.send('回報 '+tid+' 結果：'+title,self.staff)['command']
+            self.assertEqual((cmd['type'],cmd['task_id'],cmd['note']),('staff_report',tid,''))
+            with self.main.connect() as db:
+                self.assertIsNone(db.execute('SELECT 1 FROM weekly_reports WHERE task_id=?',(tid,)).fetchone())
+
     def test_readmission_deworm(self):
         self.reset_care()
         aid=self.ids[0]
