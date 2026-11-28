@@ -5,6 +5,7 @@ on:
     paths:
       - 'backend/**'
       - 'tests/test_agent_live_api.py'
+      - 'tests/test_chat_workflows.py'
       - 'frontend/src/**'
       - '.github/workflows/chat-agent-regression.yml'
   workflow_dispatch:
@@ -32,6 +33,17 @@ jobs:
         run: python tests/test_agent_live_api.py
       - name: After change — real HTTP dialogue and incremental audit
         run: python tests/test_agent_live_api.py
+      - uses: actions/checkout@v4
+        with:
+          ref: 519852f10c1b75e47ec7063e029a03c5908e7b18
+          path: .workflow-baseline
+      - name: Before role-specific improvements — user journeys
+        continue-on-error: true
+        env:
+          AGENT_BACKEND_DIR: ${{ github.workspace }}/.workflow-baseline/backend
+        run: python tests/test_chat_workflows.py
+      - name: After role-specific improvements — user journeys
+        run: python tests/test_chat_workflows.py
   frontend:
     runs-on: ubuntu-latest
     defaults:

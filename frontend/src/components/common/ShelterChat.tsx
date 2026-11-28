@@ -2,24 +2,25 @@ import {useEffect, useRef, useState} from 'react';
 import {MessageCircle, X} from 'lucide-react';
 import {api,type ChatAnswer} from '../../services/api';
 import {useQueryClient} from '@tanstack/react-query';
+import {Link} from 'react-router-dom';
 import {useStored,executeCommand,type Command,type Report,type Check} from './smartState';
 import {CommandPreview,SmartChart} from './SmartPanels';
 import './ShelterChat.css';
 
 
 const managerQuestions = [
- '今天有哪些緊急任務？', '哪些員工還有剩餘工時？', '這週有哪些任務尚未安排？',
+ '某動物生病了之後要怎麼做？', '飼料庫存還剩多少？', '員工請假後如何調整排程？', '今天有哪些緊急任務？', '哪些員工還有剩餘工時？', '這週有哪些任務尚未安排？',
  '目前收容所還能容納多少動物？', '統計這週各員工的任務完成率', '查詢今天已完成哪些任務', '開啟健康行政核對',
 ];
 const staffQuestions = [
- '我今天有哪些任務？', '我的下一項任務是什麼？', '這隻動物最近的健康狀況？',
+ '某動物生病了之後要怎麼做？', '怎麼回報照護任務？', '如何收回回報？', '我今天有哪些任務？', '我的下一項任務是什麼？', '這隻動物最近的健康狀況？',
  '哪些動物需要特別注意？', '這隻動物是否有驅蟲紀錄？', '本週我還有哪些工作未完成？',
 ];
 const origins = {db:'資料庫即時查詢',rules:'規則式回答',gemini:'Gemini AI'};
 
 type AnimalAction={type:'animal_action';action_id:string;animal_id:number;name:string;kind:'edit'|'undo';changes:{field:string;before:string;after:string}[]};
 type StaffReport={type:'staff_report';task_id:string;name:string;label:string;day:string;result:string;note:string};
-type Turn={id:string;question:string;answer?:ChatAnswer;command?:Command|AnimalAction|StaffReport;report?:Report;check?:Check;applied?:string;error?:string;actionStatus?:string};
+type Turn={links?:{path:string;label:string}[];suggestions?:{label:string;question:string}[];id:string;question:string;answer?:ChatAnswer;command?:Command|AnimalAction|StaffReport;report?:Report;check?:Check;applied?:string;error?:string;actionStatus?:string};
 const newId=()=>crypto.randomUUID();
 async function agentRequest<T>(path:string,body?:object,signal?:AbortSignal):Promise<T>{
  const res=await fetch((import.meta.env.VITE_API_URL||'').replace(/\/+$/,'')+'/api/agent'+path,{method:body?'POST':'GET',cache:'no-store',signal,headers:{'Content-Type':'application/json',Authorization:'Bearer '+sessionStorage.getItem('shelter_token')},...(body?{body:JSON.stringify(body)}:{})});
@@ -109,11 +110,13 @@ export default function ShelterChat({manager}:{manager:boolean}) {
      <button type="button" className="secondary" onClick={()=>dialog.current?.close()} aria-label="關閉聊天"><X size={20}/></button>
     </header>
     <div className="chat-stream" ref={scroll} role="log" aria-label="對話訊息">
-     {!turns.length&&<p className="chat-empty">可指定動物名稱、編號或任務 ID 來查詢。</p>}
+     {!turns.length&&<p className="chat-empty">可以詢問照護流程、動物資料及任務，也能依權限建立操作草案。</p>}
      {turns.map(t=><div className="chat-turn" key={t.id}>
       <p className="chat-question">{t.question}</p>
       {t.answer&&<article className="chat-answer">
        <p>{t.answer.answer}</p>
+       {t.links?.length? <div className="smart-inline">{t.links.map(l=><Link key={l.path} to={l.path} onClick={()=>dialog.current?.close()}>{l.label}</Link>)}</div>:null}
+       {t.suggestions?.length?<div className="smart-inline">{t.suggestions.map(s=><button type="button" className="secondary" key={s.question} disabled={pending||Object.values(actions).some(Boolean)} onClick={()=>void send(s.question)}>{s.label}</button>)}</div>:null}
        <small>{origins[t.answer.source]}</small>
        
        <details open={!!sourceOpen[t.id]} onToggle={e=>{if(e.currentTarget.open!==!!sourceOpen[t.id])setSourceOpen(p=>({...p,[t.id]:e.currentTarget.open}))}}><summary>資料來源</summary>

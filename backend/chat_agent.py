@@ -9,6 +9,7 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 import chat_intent as ci
+from chat_workflows import guide as work_guide
 from shelter_chat import Question
 from smart_tools import Command, Check, report
 
@@ -294,10 +295,20 @@ def mount(legacy,read_chat,smart_command,smart_check):
             q=re.sub(r'^(並且|並|再|另外)','',q).strip()
             if not q:continue
             try:
+                # Product guidance and scoped operational answers precede generic keyword routing.
+                with legacy.connect() as db:
+                    guidance=work_guide(db,uid,q,active,today(),resolve,getattr(legacy,'resource_totals',None)) if hasattr(legacy,'resource_totals') else None
+                if guidance:
+                    response,active=guidance
+                    response['answer']['queried_at']=stamp()
+                    result.append(turn(q,**response));continue
                 if re.search(r'自訂自動化|工作流程|智慧提醒|(?:建立|設定|新增|自動).*提醒|(?:提醒|通知)我',q):
                     result.append(message(q,'此功能已移除，可直接查詢目前資料或建立照護任務'));continue
                 if UNDO.fullmatch(q) or CANCEL.fullmatch(q):
-                    if uid!=1:raise HTTPException(403,'此操作需要管理者權限')
+                    if uid!=1:
+                        if missing and missing.get('staff_report'):
+                            missing=None;result.append(message(q,'已取消尚未送出的回報'));continue
+                        result.append(message(q,'如需收回已送出的本人回報，請至個人工作台核對。'));continue
                     with legacy.lock,legacy.connect() as db:
                         db.execute('BEGIN IMMEDIATE')
                         pending=db.execute("SELECT action_id FROM ai_action_history WHERE user_id=? AND session_id=? AND status='pending' ORDER BY created_at DESC LIMIT 1",(uid,sid)).fetchone()
@@ -317,6 +328,17 @@ def mount(legacy,read_chat,smart_command,smart_check):
                                 display.append({'field':label,'before':'、'.join(r[field] for r in current[key]) or '無日期紀錄','after':'、'.join(r[field] for r in previous[key]) or '無日期紀錄'})
                         cmd=draft(db,uid,sid,old['animal_id'],{'display':display},today(),'undo',old['action_id'])
                         result.append(turn(q,command=cmd));continue
+                if uid!=1 and missing and missing.get('staff_report') and re.fullmatch(r'(?:備註|說明)\s*[:：]\s*.+',q):
+                    saved=missing['staff_report']
+                    note=re.split(r'[:：]',q,maxsplit=1)[1].strip()
+                    with legacy.connect() as db:
+                        ok=db.execute("""SELECT 1 FROM weekly_tasks t JOIN weekly_staff_accounts a ON a.staff_id=t.staff_id
+                            JOIN animals x ON x.id=t.animal_id
+                            WHERE a.user_id=? AND t.task_id=? AND t.day=? AND t.state IN ('pending','in_progress') AND x.is_active=1""",(uid,saved['task_id'],today().isoformat())).fetchone()
+                    missing=None
+                    if not ok:result.append(message(q,'任務已變動，請重新查詢'));continue
+                    if not note or len(note)>4000:result.append(message(q,'備註無效，請重新回報'));continue
+                    result.append(turn(q,command={**saved,'note':note}));continue
                 if re.search(r'^(?:請|幫我|我要|我想)?回報|^我(?:已經|已|剛剛)?完成|^我做完',q) and not QUERY.search(q) and not re.search(r'哪些|多少|幾項|紀錄|清單',q.replace('確認疫苗紀錄','').replace('確認驅蟲紀錄','')):
                     if uid==1:
                         result.append(message(q,'管理者不可代替員工回報；請使用照護人員帳號'));continue
@@ -328,8 +350,22 @@ def mount(legacy,read_chat,smart_command,smart_check):
                             WHERE t.staff_id=? AND t.day=? AND t.state IN ('pending','in_progress') AND a.is_active=1""",(account[0],today().isoformat()))]
                         ids=re.findall(r'#\s*(\d{1,18})(?!\d)',q)
                         exact=[r for r in own if re.search(r'(?<![A-Za-z0-9_:-])'+re.escape(r['task_id'])+r'(?![A-Za-z0-9_:-])',q)]
-                        named=[r for r in own if r['name'] and r['name'].casefold() in q.casefold()]
+                        def name_match(r):
+                            name=r['name'].casefold()
+                            if not name:return False
+                            if re.fullmatch(r'[a-z0-9 ]+',name):
+                                return bool(re.search(r'(?<![a-z0-9])'+re.escape(name)+r'(?![a-z0-9])',q.casefold()))
+                            return name in q.casefold()
+                        named=[r for r in own if name_match(r)]
                         candidates=exact if exact else [r for r in own if r['label'] in q and (str(r['animal_id']) in ids if ids else r in named)]
+                        # Allow a contextual pronoun only when it resolves to an assigned animal.
+                        if not candidates and not exact and not ids and not named and active and re.search(r'牠|它|這隻|該動物|幫他|幫她',q) and not re.search(r'[A-Za-z]{2,}',q):
+                            candidates=[r for r in own if r['animal_id']==active and r['label'] in q]
+                        if not candidates and not exact:
+                            # Short result-only reports can select a unique matching own health observation task.
+                            if re.search(r'結果\s*[:：]\s*(?:健康|生病|受傷)',q):
+                                selected_id=int(ids[0]) if len(set(ids))==1 and ids else (named[0]['animal_id'] if len({r['animal_id'] for r in named})==1 else active if not named and re.search(r'牠|它|這隻|該動物',q) else None)
+                                candidates=[r for r in own if r['animal_id']==selected_id and r['label'] in ('健康狀態待確認','優先確認健康狀況') and not any(l in q for l in legacy.TASK_CATALOG if l not in ('健康狀態待確認','優先確認健康狀況'))]
                         if ids and (len(set(ids))!=1 or any(str(r['animal_id']) not in ids for r in candidates)):
                             candidates=[]
                         if named and any(r['animal_id'] not in {n['animal_id'] for n in named} for r in candidates):
@@ -343,7 +379,8 @@ def mount(legacy,read_chat,smart_command,smart_check):
                              '健康狀態待確認':('healthy','sick','injured'),'優先確認健康狀況':('healthy','sick','injured'),
                              '確認疫苗紀錄':('yes','no'),'疫苗紀錄待確認':('yes','no'),'疫苗施打':('done','failed'),'健康問題追蹤':('reported',)}
                     note=re.search(r'(?:備註|說明)\s*[:：]\s*(.+)$',q)
-                    text=(q[:note.start()] if note else q).replace(t['label'],'').replace(t['name'],'').replace(t['task_id'],'')
+                    text=(q[:note.start()] if note else q).replace(t['label'],'').replace(t['task_id'],'')
+                    text=re.sub(re.escape(t['name']),'',text,flags=re.I)
                     if re.search(r'不要|取消|尚未|還沒|沒完成|未完成|可能|如果|假設|不確定|不是|不健康|沒有生病|沒有受傷|無法',text):
                         result.append(message(q,'請明確提供本次回報結果'));continue
                     opts=[]
@@ -351,7 +388,13 @@ def mount(legacy,read_chat,smart_command,smart_check):
                         if re.search(words,text) and value in choices.get(t['label'],('done',)):opts.append(value)
                     if len(set(opts))!=1:
                         result.append(message(q,'請提供明確結果；也可在個人工作台完成回報'));continue
-                    result.append(turn(q,command={'type':'staff_report','task_id':t['task_id'],'name':t['name'],'label':t['label'],'day':t['day'],'result':opts[0],'note':note[1] if note else ''}));continue
+                    cmd={'type':'staff_report','task_id':t['task_id'],'name':t['name'],'label':t['label'],'day':t['day'],'result':opts[0],'note':note[1].strip() if note else ''}
+                    active=t['animal_id']
+                    if opts[0] in ('sick','injured','failed','reported') and not cmd['note']:
+                        missing={'staff_report':cmd}
+                        result.append(message(q,'請補充觀察或處理情況，例如「備註：今天早上發現精神不佳，已通知主管」。確認前不會送出回報。'));continue
+                    missing=None
+                    result.append(turn(q,command=cmd));continue
                 q_for_entity=q
                 date_missing=re.search(r'(驅蟲|疫苗(?:接種|施打)?)日期\s*(?:(?:為|是|改成|改為|[:：=])\s*)?$',q)
                 if date_missing and not QUERY.search(q) and re.search(r'[:：=]|修改|更正|登錄|更新|改成|改為',q):
@@ -369,7 +412,7 @@ def mount(legacy,read_chat,smart_command,smart_check):
                     q_for_entity='動物 #'+str(active) if active else ''
                 else:
                     edit=parse_edit(q,today())
-                if edit or (missing and not missing.get('date_slot') and not SMART.search(q) and not QUERY.search(q)):
+                if edit or (missing and not missing.get('date_slot') and not missing.get('staff_report') and not SMART.search(q) and not QUERY.search(q)):
                     if uid!=1:raise HTTPException(403,'此操作需要管理者權限')
                     with legacy.lock,legacy.connect() as db:
                         db.execute('BEGIN IMMEDIATE')
@@ -464,7 +507,7 @@ def mount(legacy,read_chat,smart_command,smart_check):
                 result.append(turn(q,answer=answer))
             except (ValueError,HTTPException) as e:
                 detail=str(e.detail) if isinstance(e,HTTPException) else str(e)
-                if re.search(r'多個動物|單一動物編號|找不到動物|名稱與編號不一致',detail):
+                if re.search(r'多個動物|單一動物編號|找不到動物|找不到指定動物|名稱與編號不一致|目前沒有可查看的動物紀錄',detail):
                     active=None;ctx=None;missing=None
                 result.append(message(q,detail))
         with legacy.lock,legacy.connect() as db:
