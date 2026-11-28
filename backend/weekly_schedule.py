@@ -1062,6 +1062,14 @@ def mount(legacy):
                     db.execute("""INSERT INTO weekly_tasks(task_id,animal_id,label,skill,priority,quarters,earliest,due,note)
                         VALUES (?,?,?,?,?,?,?,?,?)""",(f'followup:{task_id}',animal_id,retry_label,skill,
                         0 if urgent else 3,quarters(hours),earliest,earliest,body.note))
+            if label=='更新疫苗紀錄' and result=='done':
+                latest=db.execute("""SELECT next_due_date FROM vaccination_records WHERE animal_id=? AND vaccine_type='general'
+                    AND next_due_date IS NOT NULL ORDER BY administered_date DESC,id DESC LIMIT 1""",(animal_id,)).fetchone()
+                if latest:
+                    due=latest['next_due_date']
+                    _,skill,hours,_=legacy.TASK_CATALOG['疫苗施打']
+                    db.execute("""INSERT OR IGNORE INTO weekly_tasks(task_id,animal_id,label,skill,priority,quarters,earliest,due)
+                        VALUES (?,?, '疫苗施打',?,3,?,?,?)""",(f'{animal_id}:疫苗施打@{due}',animal_id,skill,quarters(hours),max(due,today().isoformat()),due))
             if label in care.RULES:
                 db.execute('INSERT INTO weekly_events(animal_id,event) VALUES (?,?)',(animal_id,'task_report'))
         return {'ok': True}

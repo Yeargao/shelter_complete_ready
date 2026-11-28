@@ -9,6 +9,7 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 import chat_intent as ci
+import care_workflow as care
 from chat_workflows import guide as work_guide
 from shelter_chat import Question
 from smart_tools import Command, Check, report
@@ -344,7 +345,25 @@ def mount(legacy,read_chat,smart_command,smart_check):
                     if not ok:result.append(message(q,'任務已變動，請重新查詢'));continue
                     if not note or len(note)>4000:result.append(message(q,'備註無效，請重新回報'));continue
                     result.append(turn(q,command={**saved,'note':note}));continue
-                if re.search(r'^(?:請|幫我|我要|我想)?回報|^我(?:已經|已|剛剛)?完成|^我做完',q) and not QUERY.search(q) and not re.search(r'哪些|多少|幾項|紀錄|清單',q.replace('確認疫苗紀錄','').replace('確認驅蟲紀錄','')):
+                if uid!=1 and missing and missing.get('staff_report') and missing.get('staff_date'):
+                    raw_date=re.sub(r'^(?:實際)?(?:施打|接種)?日期\s*[:：]\s*','',q)
+                    if re.fullmatch(r'[0-9年月日/\-]+|今天|昨天|前天|[一二三四五六七八九十\d]+天前',raw_date):
+                        dose=normalize_date(raw_date,today())
+                        if dose>today():raise ValueError('實際施打日期不可晚於今日')
+                        saved=missing['staff_report']
+                        with legacy.connect() as db:
+                            ok=db.execute("""SELECT 1 FROM weekly_tasks t JOIN weekly_staff_accounts a ON a.staff_id=t.staff_id
+                                JOIN animals x ON x.id=t.animal_id WHERE a.user_id=? AND t.task_id=? AND t.day=?
+                                AND t.state IN ('pending','in_progress') AND x.is_active=1""",(uid,saved['task_id'],today().isoformat())).fetchone()
+                        missing=None
+                        if not ok:result.append(message(q,'任務已變動，請重新查詢'));continue
+                        result.append(turn(q,command={**saved,'administered_date':dose.isoformat()}));continue
+                report_q=q.replace('傷病治療','優先確認健康狀況')
+                report_tail=report_q
+                for known_label in care.RULES:
+                    report_tail=report_tail.replace(known_label,'')
+                if re.search(r'^(?:請|幫我|我要|我想)?回報|^我(?:已經|已|剛剛)?完成|^我做完',report_q) and not QUERY.search(q) and not re.search(r'哪些|多少|幾項|清單',report_tail):
+                    q=report_q
                     if uid==1:
                         result.append(message(q,'管理者不可代替員工回報；請使用照護人員帳號'));continue
                     with legacy.connect() as db:
@@ -378,24 +397,50 @@ def mount(legacy,read_chat,smart_command,smart_check):
                     if len(candidates)!=1:
                         result.append(message(q,'請指定今天自己的動物名稱和完整任務名稱，或任務 ID'));continue
                     t=candidates[0]
-                    if re.search(r'照片|圖片|施打日期|接種日期|驅蟲日期',q):
+                    if re.search(r'照片|圖片|驅蟲日期',q):
                         result.append(turn(q,command={'type':'link','path':'/','message':'請到個人工作台回報日期或上傳照片'}));continue
-                    choices={'確認驅蟲紀錄':('yes','no'),'基礎驅蟲':('done','failed'),'補做驅蟲':('done','failed'),
-                             '健康狀態待確認':('healthy','sick','injured'),'優先確認健康狀況':('healthy','sick','injured'),
-                             '確認疫苗紀錄':('yes','no'),'疫苗紀錄待確認':('yes','no'),'疫苗施打':('done','failed'),'健康問題追蹤':('reported',)}
                     note=re.search(r'(?:備註|說明)\s*[:：]\s*(.+)$',q)
-                    text=(q[:note.start()] if note else q).replace(t['label'],'').replace(t['task_id'],'')
-                    text=re.sub(re.escape(t['name']),'',text,flags=re.I)
-                    if re.search(r'不要|取消|尚未|還沒|沒完成|未完成|可能|如果|假設|不確定|不是|不健康|沒有生病|沒有受傷|無法',text):
+                    report_text=(q[:note.start()] if note else q)
+                    dose_match=re.search(r'(?:實際)?(?:施打|接種)日期\s*[:：]\s*([0-9年月日/\-]+|今天|昨天|前天|[一二三四五六七八九十\d]+天前)',report_text)
+                    dose=None
+                    if dose_match:
+                        if t['label'] not in ('更新疫苗紀錄','確認疫苗紀錄','疫苗施打'):
+                            raise ValueError('此任務不需疫苗日期')
+                        dose=normalize_date(dose_match[1],today())
+                        if dose>today():raise ValueError('實際施打日期不可晚於今日')
+                        report_text=report_text[:dose_match.start()]+report_text[dose_match.end():]
+                    if re.search(r'施打日期|接種日期',report_text):
+                        result.append(message(q,'請提供施打日期，例如「施打日期：2026-11-28」'));continue
+                    txt=report_text.replace(t['label'],'').replace(t['task_id'],'')
+                    txt=re.sub(re.escape(t['name']),'',txt,flags=re.I)
+                    explicit=re.search(r'結果\s*[:：]\s*(.+)$',txt)
+                    code=care.result_code(t['label'],explicit[1] if explicit else '')
+                    if not explicit:
+                        # Permit a short natural result only when the remaining phrase exactly matches a choice.
+                        short=re.sub(r'^(?:請|幫我|我要|我想)?回報\s*|^我(?:已經|已|剛剛)?完成\s*|^我做完\s*','',txt).strip()
+                        short=re.sub(r'#\s*\d+','',short).strip(' ，,：:。')
+                        code=care.result_code(t['label'],short)
+                        if not short and re.match(r'^我(?:已經|已|剛剛)?完成|^我做完',q) and 'done' in care.allowed(t['label']):
+                            code='done'
+                    if re.search(r'不要|取消|可能|如果|假設|不確定|不是|沒有生病|沒有受傷|無法',txt):
+                        code=None
+                    if not code and explicit and re.search(r'不要|取消|可能|如果|假設|不確定|不是|沒有生病|沒有受傷|無法',txt):
                         result.append(message(q,'請明確提供本次回報結果'));continue
-                    opts=[]
-                    for words,value in [(r'未驅蟲|未接種|未施打|結果\s*[:：]\s*(?:否|無)','no'),(r'已驅蟲|已接種|已施打|結果\s*[:：]\s*(?:是|有)','yes'),(r'健康','healthy'),(r'生病','sick'),(r'受傷','injured'),(r'失敗','failed'),(r'完成|成功','done'),(r'已回報|已追蹤','reported')]:
-                        if re.search(words,text) and value in choices.get(t['label'],('done',)):opts.append(value)
-                    if len(set(opts))!=1:
-                        result.append(message(q,'請提供明確結果；也可在個人工作台完成回報'));continue
-                    cmd={'type':'staff_report','task_id':t['task_id'],'name':t['name'],'label':t['label'],'day':t['day'],'result':opts[0],'note':note[1].strip() if note else ''}
+                    if not code:
+                        suggestions=[{'label':title,'question':f"回報 {t['task_id']} 結果：{title}"}
+                                     for _,title,_ in care.RULES.get(t['label'],(('done','完成',None),))]
+                        result.append(turn(q,answer={'answer':'請選擇實際結果：'+care.outcomes(t['label']),'source':'rules','sources':[],'context':None,'queried_at':stamp(),'fallback_reason':None},suggestions=suggestions));continue
+                    cmd={'type':'staff_report','task_id':t['task_id'],'name':t['name'],'label':t['label'],'day':t['day'],
+                         'result':code,'note':note[1].strip() if note else '', 'administered_date':dose.isoformat() if dose else None,
+                         'next_step':care.describe_next(t['label'],code)}
                     active=t['animal_id']
-                    if opts[0] in ('sick','injured','failed','reported') and not cmd['note']:
+                    if t['label']=='更新疫苗紀錄' and code=='done' and not dose:
+                        with legacy.connect() as db:
+                            known=db.execute("SELECT 1 FROM vaccination_records WHERE animal_id=? AND administered_date IS NOT NULL AND next_due_date IS NOT NULL",(active,)).fetchone()
+                        if not known:
+                            missing={'staff_report':cmd,'staff_date':True}
+                            result.append(message(q,'缺少可信的疫苗施打日期。請輸入實際日期（例如 1128 或 2026-11-28），確認前不會送出回報。'));continue
+                    if code in care.NOTE_RESULTS and not cmd['note']:
                         missing={'staff_report':cmd}
                         result.append(message(q,'請補充觀察或處理情況，例如「備註：今天早上發現精神不佳，已通知主管」。確認前不會送出回報。'));continue
                     missing=None

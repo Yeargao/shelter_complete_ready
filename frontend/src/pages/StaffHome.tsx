@@ -47,9 +47,9 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
  const needsNote=(result:string)=>['reported','sick','injured','failed','not_recovered','improving','worsening','abnormal'].includes(result);
  const result=choice;
  const displayPriority=t.display_priority??t.priority;
- const refresh=async()=>{await qc.invalidateQueries({queryKey:['schedule-week']});await qc.invalidateQueries({queryKey:['resource-overview']});};
+ const refresh=async()=>{await qc.invalidateQueries({queryKey:['schedule-week']});await qc.invalidateQueries({queryKey:['resource-overview']});await qc.invalidateQueries({queryKey:['tasks']});};
  const withdraw=useMutation({mutationFn:()=>api.withdrawReport(t.task_id),onSuccess:async()=>{
-  setReportOpen(false);setChoice('');setNote('');setFiles([]);await refresh();
+  setReportOpen(false);setChoice('');setNote('');setFiles([]);setDose('');await refresh();
  }});
  const canWithdraw=t.is_active&&t.report?.reported_at.slice(0,10)===taipeiToday()&&!t.issue?.resolved_at;
  const report=useMutation({
@@ -60,9 +60,9 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
    return api.reportWeekly(t.task_id,{result:value,note,administered_date:dose||null,
     photos:await Promise.all(photos.map(encodePhoto))},photos.length?setUpload:undefined);
   },
-  onSuccess:async()=>{setReportOpen(false);setChoice('');setNote('');setFiles([]);setUpload(undefined);await refresh();}
+  onSuccess:async()=>{setReportOpen(false);setChoice('');setNote('');setFiles([]);setDose('');setUpload(undefined);await refresh();}
  });
- const cancelReport=()=>{setReportOpen(false);setChoice('');setNote('');setFiles([]);setUpload(undefined);report.reset();withdraw.reset();};
+ const cancelReport=()=>{setReportOpen(false);setChoice('');setNote('');setFiles([]);setDose('');setUpload(undefined);report.reset();withdraw.reset();};
  const openReport=()=>{setChoice(follow?'reported':'');setReportOpen(true);};
  const canReport=Boolean(t.day&&t.day<=taipeiToday()&&t.is_active&&['pending','in_progress'].includes(t.state));
  return <><article className="staff-care-card weekly-task" data-priority={displayPriority} data-done={t.state==='done'}>

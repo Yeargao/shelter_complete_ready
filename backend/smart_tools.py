@@ -225,7 +225,7 @@ def mount(legacy,populate,week_days,catalog,quarters):
                     found=next((a for a in animals if a['id']==aid),None)
                 if not found:
                     return {'type':'clarify','message':'請指定動物名稱或 #ID。'}
-                options=[l for l in catalog if l in text]
+                options=[l for l in catalog if l in text.replace('傷病治療','優先確認健康狀況')]
                 if not options and '健康追蹤' in text:
                     options=['健康問題追蹤']
                 if len(options)!=1:
