@@ -40,8 +40,9 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
  const addPhoto=(photo:string)=>{setCaptured(prev=>prev.length<4?[...prev,photo]:prev);setAnalysis(undefined);setPhotoError('');setInlinePhoto(true);};
  const [upload,setUpload]=useState<number>();
  const [summaryOpen,setSummaryOpen]=useStored('care-open:'+t.task_id,false);
- const [cachedSummary,setCachedSummary]=useStored<Awaited<ReturnType<typeof api.taskSummary>>|null>('care-result:'+t.task_id,null);
- const summary=useMutation({mutationFn:()=>api.taskSummary(t.task_id),onSuccess:setCachedSummary});
+ const [summaryRecord,setCachedSummary]=useStored<{revision:number;summary:Awaited<ReturnType<typeof api.taskSummary>>}|null>('care-result-v2:'+t.task_id,null);
+ const cachedSummary=summaryRecord?.revision===(t.care_revision??0)?summaryRecord?.summary:null;
+ const summary=useMutation({mutationFn:async()=>({revision:t.care_revision??0,summary:await api.taskSummary(t.task_id)}),onSuccess:setCachedSummary});
  const care=cachedSummary??t.summary;
  const follow=false;
  const [dose,setDose]=useState('');
@@ -50,10 +51,22 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
  const result=choice;
  const displayPriority=t.display_priority??t.priority;
  const refresh=async()=>{await qc.invalidateQueries({queryKey:['schedule-week']});await qc.invalidateQueries({queryKey:['resource-overview']});await qc.invalidateQueries({queryKey:['tasks']});await qc.invalidateQueries({queryKey:['animal-photos',t.animal_id]});};
- const withdraw=useMutation({mutationFn:()=>api.withdrawReport(t.task_id),onSuccess:async()=>{
+ const [withdrawNotice,setWithdrawNotice]=useState('');
+ const withdraw=useMutation({mutationFn:(body:{mode:'completion'|'correction';reason?:string})=>api.withdrawReport(t.task_id,body),onSuccess:async(data)=>{
+  setCachedSummary(null);
+  setWithdrawNotice(data.preserved.length?'已收回；其他有效紀錄涉及的資料已保留，請管理者核對：'+data.preserved.join('、'):'已收回，任務恢復待辦。');
   setReportOpen(false);setChoice('');setNote('');setFiles([]);resetPhoto();setDose('');await refresh();
  }});
- const canWithdraw=t.is_active&&t.report?.reported_at.slice(0,10)===taipeiToday()&&!t.issue?.resolved_at;
+ const canWithdraw=Boolean(t.withdrawal?.allowed);
+ const undo=(mode:'completion'|'correction')=>{
+  if(mode==='completion'){
+   if(window.confirm('僅收回任務完成紀錄，保留已登錄的醫療資料？'+
+    ' 預計取消 '+(t.withdrawal?.cancel_count??0)+' 組尚未執行的專屬衍生任務，保留 '+(t.withdrawal?.retain_count??0)+' 組有其他來源或已執行的任務（最終以後端交易檢查為準）。'))withdraw.mutate({mode});
+  }else{
+   const reason=window.prompt('確認原回報為誤報，請填寫更正原因（其他有效醫療紀錄不會被覆蓋）');
+   if(reason?.trim())withdraw.mutate({mode,reason});
+  }
+ };
  const report=useMutation({
   mutationFn:async(value:string)=>{
    setUpload(undefined);
@@ -90,13 +103,13 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
    {summaryOpen&&<button type="button" className="secondary" disabled={summary.isPending}
     onClick={()=>summary.mutate()}>重新查詢摘要</button>}
   </details>
-  {withdraw.isSuccess&&!t.report&&<p role="status">已收回，任務恢復待辦。</p>}
+  {withdrawNotice&&!t.report&&<p role="status">{withdrawNotice}</p>}
   </div>
   </div>
   <div className="staff-care-controls staff-care-action-column">
   {t.report?(direct?
-   (canWithdraw&&<div className="staff-report-actions"><button type="button" className="secondary" disabled={withdraw.isPending}
-    onClick={()=>withdraw.mutate()}>收回回報</button></div>):
+   (canWithdraw?<div className="staff-report-actions"><button type="button" className="secondary" disabled={withdraw.isPending}
+    onClick={()=>undo('completion')}>收回回報</button>{t.withdrawal?.can_correct&&<button type="button" className="secondary" disabled={withdraw.isPending} onClick={()=>undo('correction')}>誤報更正</button>}</div>:<small>{t.withdrawal?.reason??'目前不可收回'}</small>):
    <div className="staff-report-actions"><button type="button" className="secondary" onClick={openReport}>查看回報</button></div>):
    canReport?(direct?<div className="staff-report-actions">{direct.map(([value,label])=>
     <button type="button" key={value} className="secondary" disabled={report.isPending} onClick={()=>report.mutate(value)}>{label}</button>)}</div>:
@@ -131,7 +144,9 @@ function TaskCard({task:t}:{task:WeeklyTask}) {
      <TaskPhotos task={t}/>
      <div className="flex gap-2">
       {canWithdraw&&<button type="button" className="secondary" disabled={withdraw.isPending}
-       title="收回任務完成回報，已記錄的醫療紀錄仍會保留" onClick={()=>withdraw.mutate()}>收回完成回報</button>}
+       title="收回任務完成回報，已記錄的醫療紀錄仍會保留" onClick={()=>undo('completion')}>收回完成回報</button>}
+       {canWithdraw&&t.withdrawal?.can_correct&&<button type="button" className="secondary" disabled={withdraw.isPending} onClick={()=>undo('correction')}>誤報更正</button>}
+       {!canWithdraw&&<small>{t.withdrawal?.reason??'目前不可收回'}</small>}
       <button type="button" className="secondary" disabled={withdraw.isPending} onClick={cancelReport}>關閉</button>
      </div>
      {withdraw.error&&<ErrorView error={withdraw.error}/>}

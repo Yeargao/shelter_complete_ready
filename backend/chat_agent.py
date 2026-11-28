@@ -11,7 +11,8 @@ from pydantic import BaseModel, Field
 import chat_intent as ci
 import care_workflow as care
 import care_dialogue as cd
-from chat_workflows import guide as work_guide, DIRECT_REPORT_TASKS
+from chat_workflows import guide as work_guide, DIRECT_REPORT_TASKS, reverse_topic
+import report_reversal as reversal
 from shelter_chat import Question
 from smart_tools import Command, Check, report
 
@@ -309,7 +310,8 @@ def mount(legacy,read_chat,smart_command,smart_check,populate_tasks=None):
                 is_next=bool(next_match and not cd.READ.search(q))
                 phrase=q[:next_match.start()].strip(' ，,。') if is_next else q
                 explicit_report=bool(re.search(r'^回報\s+\S+.*結果\s*[:：]|^(?:請|幫我|我要|我想)?回報\s+[A-Za-z0-9_:-]{12,}$',q))
-                candidate=(not explicit_report and not cd.READ.search(phrase) and not cd.UNCERTAIN.search(phrase)
+                candidate=(not explicit_report and not reverse_topic(q) and not cd.READ.search(phrase) and not cd.UNCERTAIN.search(phrase)
+                           and not (uid==1 and re.search(r'(?:生病|受傷)了(?:之後|以後)?(?:下一步|接下來|該怎麼|要怎麼)',q) and not re.search(r'回報|結果|健康狀態待確認|傷病治療',q))
                            and (is_next or not QUERY.search(q))
                            and not re.search(r'[:：=]|備註|說明|照片|圖片|今天.*日期|明天|昨天|前天',phrase))
                 if candidate and (is_next or any(re.search(p,phrase) for p in cd.GROUP_HINTS.values())
@@ -361,7 +363,7 @@ def mount(legacy,read_chat,smart_command,smart_check,populate_tasks=None):
                                         source=eligible[0][0]['task_id']
                                         while source.startswith('carry:'):source=source.removeprefix('carry:')
                                         with legacy.connect() as db:
-                                            surgery=bool(source.startswith('followup:') and db.execute("SELECT 1 FROM weekly_tasks WHERE task_id=? AND label='絕育手術'",(source.removeprefix('followup:'),)).fetchone())
+                                            surgery=reversal.from_surgery(db,source)
                                     answer=cd.next_text(label,code,surgery)
                                     if len(eligible)==1:
                                         if active!=aid:ctx=None;missing=None
@@ -379,6 +381,8 @@ def mount(legacy,read_chat,smart_command,smart_check,populate_tasks=None):
                             selected,code=eligible[0]
                             # Reuse the canonical path and its authorization, date, note and confirmation checks.
                             q=f"回報 {selected['task_id']} 結果：{care.result_title(selected['label'],code)}"
+                if uid!=1 and missing and missing.get('staff_report') and re.fullmatch(r'取消(?:尚未送出(?:的)?回報|回報草案|未確認(?:的)?草案)[。！!？?]?',q):
+                    missing=None;result.append(message(q,'已取消尚未送出的回報；不會變更任何已儲存的紀錄。'));continue
                 # Product guidance and scoped operational answers precede generic keyword routing.
                 with legacy.connect() as db:
                     guidance=work_guide(db,uid,q,active,today(),resolve,getattr(legacy,'resource_totals',None),topic) if hasattr(legacy,'resource_totals') else None
@@ -395,7 +399,7 @@ def mount(legacy,read_chat,smart_command,smart_check,populate_tasks=None):
                     if uid!=1:
                         if missing and missing.get('staff_report'):
                             missing=None;result.append(message(q,'已取消尚未送出的回報'));continue
-                        result.append(message(q,'如需收回已送出的本人回報，請至個人工作台核對。'));continue
+                        result.append(message(q,'如需收回已送出的本人回報，請至個人工作台核對「收回回報」或「誤報更正」；跨日或已有後續執行紀錄時請聯絡管理者。'));continue
                     with legacy.lock,legacy.connect() as db:
                         db.execute('BEGIN IMMEDIATE')
                         pending=db.execute("SELECT action_id FROM ai_action_history WHERE user_id=? AND session_id=? AND status='pending' ORDER BY created_at DESC LIMIT 1",(uid,sid)).fetchone()
@@ -521,7 +525,7 @@ def mount(legacy,read_chat,smart_command,smart_check,populate_tasks=None):
                         parent=t['task_id']
                         while parent.startswith('carry:'):parent=parent.removeprefix('carry:')
                         with legacy.connect() as db:
-                            from_surgery=parent.startswith('followup:') and db.execute("SELECT 1 FROM weekly_tasks WHERE task_id=? AND label='絕育手術'",(parent.removeprefix('followup:'),)).fetchone()
+                            from_surgery=reversal.from_surgery(db,parent)
                         cmd['next_step']='術後健康追蹤' if from_surgery else '任務結束'
                     if t['label']=='更新疫苗紀錄' and code=='done' and not dose:
                         with legacy.connect() as db:
